@@ -18,6 +18,27 @@ jobs:
       - name: Récupérer le code
         uses: actions/checkout@v4
 
+      - name: Installer PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+
+      - name: Vérifier la syntaxe PHP (lint) — bloque le déploiement si erreur
+        run: |
+          ERR=0
+          while IFS= read -r f; do
+            if ! php -l "$f" > /tmp/lint.txt 2>&1; then
+              echo "::error file=$f::Erreur de syntaxe PHP"
+              cat /tmp/lint.txt
+              ERR=1
+            fi
+          done < <(find wp-content -name '*.php')
+          if [ "$ERR" -ne 0 ]; then
+            echo "Déploiement annulé : au moins un fichier PHP a une erreur de syntaxe."
+            exit 1
+          fi
+          echo "Tous les fichiers PHP sont valides."
+
       - name: Déployer sur le serveur via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -34,7 +55,8 @@ jobs:
             **/.git*
             **/.git*/**
             **/.github/**
-            **/README.md
+            **/*.md
+            **/docs/**
             **/*.bak*
             **/*.codex-*
             **/.ftp-deploy-sync-state.json
