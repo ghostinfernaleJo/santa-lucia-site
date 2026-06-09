@@ -1,0 +1,8 @@
+# Forcer les fins de ligne LF pour le code (serveur Linux), éviter le bruit CRLF sous Windows.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
