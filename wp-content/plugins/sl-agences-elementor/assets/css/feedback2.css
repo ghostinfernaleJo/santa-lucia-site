@@ -1,0 +1,110 @@
+/* ===== Avis & Réclamations Santa Lucia — UI 2.0 ===== */
+.slf-wrap{--slf-pink:#e6007e;--slf-pink-d:#c1006a;--slf-ink:#1f2430;--slf-grey:#5b6470;--slf-line:#cfd3da;--slf-fill:#fff;
+  max-width:1040px;margin:0 auto;font-family:inherit}
+
+/* Carte 2 colonnes */
+.slf-card{display:flex;background:#fff;border:1px solid #eceef1;border-radius:22px;overflow:hidden;
+  box-shadow:0 20px 60px rgba(31,36,48,.10)}
+
+/* Colonne d'accroche (magenta) */
+.slf-aside{flex:0 0 340px;background:linear-gradient(160deg,#e6007e 0%,#b30058 100%);color:#fff;position:relative}
+.slf-aside::after{content:"";position:absolute;right:-60px;bottom:-60px;width:180px;height:180px;border-radius:50%;
+  background:rgba(255,255,255,.08)}
+.slf-aside-inner{position:relative;padding:38px 32px}
+.slf-eyebrow{display:inline-block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;
+  background:rgba(255,255,255,.18);padding:5px 11px;border-radius:999px;margin-bottom:16px}
+.slf-aside-title{color:#fff;font-size:24px;line-height:1.22;font-weight:800;margin:0 0 12px}
+.slf-aside-text{color:rgba(255,255,255,.92);font-size:14.5px;line-height:1.6;margin:0 0 22px}
+.slf-points{list-style:none;margin:0 0 26px;padding:0}
+.slf-points li{display:flex;align-items:center;gap:10px;font-size:14px;color:#fff;margin-bottom:12px}
+.slf-tick{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;
+  background:rgba(255,255,255,.22);font-size:12px;flex-shrink:0}
+.slf-aside-contact{border-top:1px solid rgba(255,255,255,.22);padding-top:18px;display:flex;flex-direction:column;gap:9px}
+.slf-aside-contact a{color:#fff;text-decoration:none;font-size:14px;font-weight:600;opacity:.95}
+.slf-aside-contact a:hover{opacity:1;text-decoration:underline}
+
+/* Colonne formulaire */
+.slf-form{flex:1;min-width:0;background:#fff;padding:34px 38px}
+.slf-section{margin-bottom:26px}
+.slf-step{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:800;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--slf-pink);margin:0 0 18px;padding-bottom:12px;border-bottom:1px solid #eef0f3}
+.slf-step-num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;
+  background:var(--slf-pink);color:#fff;font-size:13px;font-weight:800}
+.slf-row{margin-bottom:17px}
+.slf-grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.slf-label{display:block;font-weight:600;color:var(--slf-ink);margin-bottom:7px;font-size:13.5px}
+.slf-req{color:var(--slf-pink)}
+.slf-optional{color:#8a929d;font-weight:500;font-size:12px}
+
+/* Champs */
+.slf-form input[type=text],.slf-form input[type=email],.slf-form input[type=tel],.slf-form select,.slf-form textarea{
+  width:100%;border:1.5px solid var(--slf-line);border-radius:11px;padding:12px 14px;font-size:14.5px;font-family:inherit;
+  color:var(--slf-ink);background:#fff;transition:border-color .15s,box-shadow .15s;box-sizing:border-box}
+.slf-form input::placeholder,.slf-form textarea::placeholder{color:#9aa0aa}
+.slf-form input:focus,.slf-form select:focus,.slf-form textarea:focus{outline:none;border-color:var(--slf-pink);
+  box-shadow:0 0 0 3px rgba(230,0,126,.16)}
+.slf-form textarea{resize:vertical;min-height:120px;line-height:1.5}
+.slf-hint{margin:7px 0 0;font-size:12.5px;color:#6b7280;line-height:1.4}
+
+/* Chips type */
+.slf-chips{display:flex;flex-wrap:wrap;gap:9px}
+.slf-chip{position:relative;cursor:pointer}
+.slf-chip input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0}
+.slf-chip span{display:inline-flex;align-items:center;gap:7px;padding:10px 16px;border:1.5px solid #d4d8df;border-radius:999px;
+  font-size:13.5px;font-weight:600;color:#3a414d;transition:all .15s;background:#fff;line-height:1}
+.slf-chip-ic{font-size:15px;line-height:1}
+.slf-chip span:hover{border-color:var(--slf-pink);color:var(--slf-pink);background:#fff5fa}
+.slf-chip input:checked+span{background:var(--slf-pink);border-color:var(--slf-pink);color:#fff;
+  box-shadow:0 6px 14px rgba(230,0,126,.28)}
+.slf-chip input:checked+span:hover{color:#fff;background:var(--slf-pink)}
+.slf-chip input:focus-visible+span{box-shadow:0 0 0 3px rgba(230,0,126,.25)}
+
+/* Étoiles (accessibles + tap larges) */
+.slf-stars{display:inline-flex;flex-direction:row-reverse;gap:2px}
+.slf-stars input{position:absolute;opacity:0;width:1px;height:1px}
+.slf-stars label{color:#c2c8d2;font-size:34px;line-height:1;cursor:pointer;transition:color .12s,transform .1s;
+  padding:4px 4px}
+.slf-stars label:hover{transform:scale(1.08)}
+.slf-stars input:checked~label,.slf-stars label:hover,.slf-stars label:hover~label{color:#f7a600}
+.slf-stars input:focus-visible+label{outline:2px solid var(--slf-pink);outline-offset:2px;border-radius:6px}
+
+/* Consentement / actions */
+.slf-consent{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;color:#41474f;margin:4px 0 0;cursor:pointer;line-height:1.45}
+.slf-consent input{width:18px;height:18px;margin-top:1px;accent-color:var(--slf-pink);flex-shrink:0;cursor:pointer}
+.slf-actions{margin-top:22px;text-align:center}
+.slf-btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;background:linear-gradient(135deg,#e6007e,#c1006a);
+  color:#fff;border:none;border-radius:999px;padding:15px 34px;font-size:15.5px;font-weight:700;font-family:inherit;
+  cursor:pointer;transition:transform .12s,box-shadow .15s,filter .15s;box-shadow:0 10px 24px rgba(230,0,126,.32)}
+.slf-btn:hover{filter:brightness(1.05);box-shadow:0 14px 30px rgba(230,0,126,.4)}
+.slf-btn:active{transform:translateY(1px)}
+.slf-btn:disabled{opacity:.65;cursor:default;box-shadow:none}
+.slf-btn svg{flex-shrink:0}
+
+/* Résultat */
+.slf-feedback{margin-top:16px;font-size:14.5px;text-align:center;border-radius:11px}
+.slf-feedback.slf-ok{padding:16px;background:#e9f9ef;color:#15703c;border:1px solid #bce6cb}
+.slf-feedback.slf-err{padding:13px;background:#fdecec;color:#b3271e;border:1px solid #f1c0bc}
+
+/* Témoignages */
+.slf-temoignages{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;max-width:1040px;margin:0 auto}
+.slf-temoignage{background:#fff;border:1px solid #eceef1;border-radius:16px;padding:20px;box-shadow:0 6px 18px rgba(31,36,48,.06)}
+.slf-temoignage-note{color:#f7a600;font-size:18px;margin-bottom:9px;letter-spacing:1px}
+.slf-temoignage-note .slf-star-off{color:#dfe2e7}
+.slf-temoignage-msg{font-size:14.5px;color:#3a414d;line-height:1.6;margin:0 0 12px;font-style:italic}
+.slf-temoignage-auteur{font-size:13px;font-weight:700;color:var(--slf-ink);margin:0}
+.slf-temoignage-auteur span{font-weight:400;color:#9aa0aa}
+
+/* Responsive */
+@media(max-width:880px){
+  .slf-card{flex-direction:column}
+  .slf-aside{flex-basis:auto}
+  .slf-aside::after{display:none}
+  .slf-aside-inner{padding:28px 28px}
+  .slf-aside-title{font-size:21px}
+  .slf-temoignages{grid-template-columns:1fr}
+}
+@media(max-width:640px){
+  .slf-grid2{grid-template-columns:1fr}
+  .slf-form{padding:24px 22px}
+  .slf-btn{width:100%}
+}

@@ -83,7 +83,7 @@ function slf_front_assets() {
     global $post;
     $need = is_a( $post, 'WP_Post' ) && ( has_shortcode( $post->post_content, 'sl_feedback_form' ) || has_shortcode( $post->post_content, 'sl_avis_positifs' ) );
     if ( ! $need ) return;
-    wp_enqueue_style( 'slf-front', SL_AGENCES_URL . 'assets/css/feedback.css', [], SLF_VERSION );
+    wp_enqueue_style( 'slf-front', SL_AGENCES_URL . 'assets/css/feedback2.css', [], SLF_VERSION );
     wp_enqueue_script( 'slf-front', SL_AGENCES_URL . 'assets/js/feedback.js', [], SLF_VERSION, true );
     wp_localize_script( 'slf-front', 'SLF', [
         'ajax'  => admin_url( 'admin-ajax.php' ),
@@ -94,7 +94,7 @@ add_action( 'admin_enqueue_scripts', 'slf_admin_assets' );
 function slf_admin_assets( $hook ) {
     $screen = get_current_screen();
     if ( $screen && $screen->post_type === 'sl_feedback' ) {
-        wp_enqueue_style( 'slf-admin', SL_AGENCES_URL . 'assets/css/feedback.css', [], SLF_VERSION );
+        wp_enqueue_style( 'slf-admin', SL_AGENCES_URL . 'assets/css/feedback2.css', [], SLF_VERSION );
     }
 }
 
@@ -111,74 +111,113 @@ function slf_form_shortcode() {
     $types    = is_wp_error( $types ) ? [] : $types;
 
     ob_start(); ?>
+    <?php
+    $icons = [
+        'avis-positif'         => '&#128077;',
+        'mauvais-comportement' => '&#128542;',
+        'plainte'              => '&#128226;',
+        'probleme'             => '&#9888;&#65039;',
+        'suggestion'           => '&#128161;',
+    ];
+    ?>
     <div class="slf-wrap">
-      <form class="slf-form" id="slf-form">
-        <div class="slf-row">
-          <label class="slf-label">Votre message concerne <span class="slf-req">*</span></label>
-          <div class="slf-chips" data-field="type">
-            <?php foreach ( $types as $t ) : ?>
-              <label class="slf-chip"><input type="radio" name="type" value="<?php echo esc_attr( $t->slug ); ?>" required><span><?php echo esc_html( $t->name ); ?></span></label>
-            <?php endforeach; ?>
+      <div class="slf-card">
+
+        <aside class="slf-aside">
+          <div class="slf-aside-inner">
+            <span class="slf-eyebrow">Relation client</span>
+            <h2 class="slf-aside-title">Votre avis nous fait grandir</h2>
+            <p class="slf-aside-text">Une remarque, une réclamation ou un compliment&nbsp;? Dites-nous tout : notre équipe vous lit et vous recontacte si nécessaire.</p>
+            <ul class="slf-points">
+              <li><span class="slf-tick">&#10003;</span> Réponse sous 48&nbsp;h ouvrées</li>
+              <li><span class="slf-tick">&#10003;</span> 100&nbsp;% confidentiel</li>
+              <li><span class="slf-tick">&#10003;</span> Toutes nos agences &amp; services</li>
+            </ul>
+            <div class="slf-aside-contact">
+              <a href="tel:+237674152010">&#9742; +237 674 152 010</a>
+              <a href="mailto:info@complexesantalucia.com">&#9993; info@complexesantalucia.com</a>
+            </div>
           </div>
-        </div>
+        </aside>
 
-        <div class="slf-grid2">
-          <div class="slf-row">
-            <label class="slf-label" for="slf-agence">Agence concernée</label>
-            <select id="slf-agence" name="agence">
-              <option value="">— Sélectionner —</option>
-              <?php foreach ( $agences as $a ) : ?><option value="<?php echo esc_attr( $a->slug ); ?>"><?php echo esc_html( $a->name ); ?></option><?php endforeach; ?>
-            </select>
+        <form class="slf-form" id="slf-form" novalidate>
+
+          <div class="slf-section">
+            <p class="slf-step"><span class="slf-step-num">1</span> Votre message</p>
+
+            <div class="slf-row">
+              <label class="slf-label">Ce message concerne <span class="slf-req">*</span></label>
+              <div class="slf-chips" role="radiogroup" aria-label="Type de message">
+                <?php foreach ( $types as $t ) : $ic = $icons[ $t->slug ] ?? '&#128172;'; ?>
+                  <label class="slf-chip"><input type="radio" name="type" value="<?php echo esc_attr( $t->slug ); ?>" required><span><i class="slf-chip-ic"><?php echo $ic; ?></i><?php echo esc_html( $t->name ); ?></span></label>
+                <?php endforeach; ?>
+              </div>
+            </div>
+
+            <div class="slf-grid2">
+              <div class="slf-row">
+                <label class="slf-label" for="slf-agence">Agence concernée</label>
+                <select id="slf-agence" name="agence">
+                  <option value="">— Sélectionner —</option>
+                  <?php foreach ( $agences as $a ) : ?><option value="<?php echo esc_attr( $a->slug ); ?>"><?php echo esc_html( $a->name ); ?></option><?php endforeach; ?>
+                </select>
+              </div>
+              <div class="slf-row">
+                <label class="slf-label" for="slf-service">Service concerné</label>
+                <select id="slf-service" name="service">
+                  <option value="">— Sélectionner —</option>
+                  <?php foreach ( $services as $s ) : ?><option value="<?php echo esc_attr( $s->slug ); ?>"><?php echo esc_html( $s->name ); ?></option><?php endforeach; ?>
+                </select>
+              </div>
+            </div>
+
+            <div class="slf-row">
+              <label class="slf-label">Votre note <span class="slf-optional">(optionnel)</span></label>
+              <div class="slf-stars" id="slf-stars" role="radiogroup" aria-label="Note de 1 à 5 étoiles">
+                <?php for ( $i = 5; $i >= 1; $i-- ) : ?>
+                  <input type="radio" id="slf-star<?php echo $i; ?>" name="note" value="<?php echo $i; ?>"><label for="slf-star<?php echo $i; ?>" title="<?php echo $i; ?>/5" aria-label="<?php echo $i; ?> sur 5">&#9733;</label>
+                <?php endfor; ?>
+              </div>
+            </div>
+
+            <div class="slf-row">
+              <label class="slf-label" for="slf-message">Votre message <span class="slf-req">*</span></label>
+              <textarea id="slf-message" name="message" rows="5" required placeholder="Décrivez votre expérience, votre plainte ou votre suggestion…"></textarea>
+            </div>
           </div>
-          <div class="slf-row">
-            <label class="slf-label" for="slf-service">Service concerné</label>
-            <select id="slf-service" name="service">
-              <option value="">— Sélectionner —</option>
-              <?php foreach ( $services as $s ) : ?><option value="<?php echo esc_attr( $s->slug ); ?>"><?php echo esc_html( $s->name ); ?></option><?php endforeach; ?>
-            </select>
+
+          <div class="slf-section">
+            <p class="slf-step"><span class="slf-step-num">2</span> Vos coordonnées</p>
+
+            <div class="slf-grid2">
+              <div class="slf-row">
+                <label class="slf-label" for="slf-nom">Nom <span class="slf-req">*</span></label>
+                <input type="text" id="slf-nom" name="nom" required autocomplete="name">
+              </div>
+              <div class="slf-row">
+                <label class="slf-label" for="slf-tel">Téléphone</label>
+                <input type="tel" id="slf-tel" name="tel" placeholder="Ex : 6XX XX XX XX" autocomplete="tel">
+              </div>
+            </div>
+            <div class="slf-row">
+              <label class="slf-label" for="slf-email">Email</label>
+              <input type="email" id="slf-email" name="email" placeholder="pour être recontacté(e)" autocomplete="email">
+              <p class="slf-hint">Indiquez au moins un moyen de contact (email ou téléphone) si vous souhaitez une réponse.</p>
+            </div>
+
+            <label class="slf-consent"><input type="checkbox" name="consent" value="1" required> <span>J'accepte d'être recontacté(e) au sujet de mon message.</span></label>
           </div>
-        </div>
 
-        <div class="slf-row">
-          <label class="slf-label">Votre note</label>
-          <div class="slf-stars" id="slf-stars">
-            <?php for ( $i = 5; $i >= 1; $i-- ) : ?>
-              <input type="radio" id="slf-star<?php echo $i; ?>" name="note" value="<?php echo $i; ?>"><label for="slf-star<?php echo $i; ?>" title="<?php echo $i; ?>/5">&#9733;</label>
-            <?php endfor; ?>
+          <!-- anti-spam -->
+          <input type="text" name="slf_website" value="" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;" aria-hidden="true">
+
+          <div class="slf-actions">
+            <button type="submit" class="slf-btn"><span>Envoyer mon message</span> <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
           </div>
-        </div>
+          <div class="slf-feedback" id="slf-result" role="status" aria-live="polite"></div>
+        </form>
 
-        <div class="slf-row">
-          <label class="slf-label" for="slf-message">Votre message <span class="slf-req">*</span></label>
-          <textarea id="slf-message" name="message" rows="5" required placeholder="Décrivez votre expérience, votre plainte ou votre suggestion…"></textarea>
-        </div>
-
-        <div class="slf-grid2">
-          <div class="slf-row">
-            <label class="slf-label" for="slf-nom">Nom <span class="slf-req">*</span></label>
-            <input type="text" id="slf-nom" name="nom" required>
-          </div>
-          <div class="slf-row">
-            <label class="slf-label" for="slf-tel">Téléphone</label>
-            <input type="tel" id="slf-tel" name="tel" placeholder="Ex : 6XX XX XX XX">
-          </div>
-        </div>
-        <div class="slf-row">
-          <label class="slf-label" for="slf-email">Email</label>
-          <input type="email" id="slf-email" name="email" placeholder="pour être recontacté(e)">
-          <p class="slf-hint">Indiquez au moins un moyen de contact (email ou téléphone) si vous souhaitez une réponse.</p>
-        </div>
-
-        <label class="slf-consent"><input type="checkbox" name="consent" value="1" required> J'accepte d'être recontacté(e) au sujet de mon message.</label>
-
-        <!-- anti-spam -->
-        <input type="text" name="slf_website" value="" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;" aria-hidden="true">
-
-        <div class="slf-actions">
-          <button type="submit" class="slf-btn">Envoyer mon message</button>
-        </div>
-        <div class="slf-feedback" id="slf-result" role="status" aria-live="polite"></div>
-      </form>
+      </div>
     </div>
     <?php
     return ob_get_clean();
