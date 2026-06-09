@@ -1,0 +1,81 @@
+/* ══ À Propos — styles globaux partagés entre sections ══════════════ */
+/* Ces classes sont utilisées par les sections S2-S8 de la page À Propos */
+
+:root {
+  --ap-p: #e85499;
+  --ap-pd: #3b549f;
+  --ap-y: #ffd200;
+  --ap-n: #030712;
+  --ap-g: #6b7280;
+  --ap-bo: rgba(232,84,153,.15);
+}
+
+.ap {
+  font-family: Inter, sans-serif;
+  color: var(--ap-n);
+}
+.ap *, .ap *::before, .ap *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Conteneur centré */
+.apw {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 48px;
+}
+
+/* Label de section (ligne rose + trait) */
+.ap-lbl {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.ap-lbl span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--ap-p);
+}
+.ap-lbl::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--ap-bo);
+}
+
+/* Titre H2 */
+.ap h2.ap-titre {
+  font-family: Inter, sans-serif;
+  font-size: clamp(30px, 3.8vw, 50px);
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--ap-n);
+  margin-bottom: 20px;
+  letter-spacing: -0.02em;
+}
+.ap h2.ap-titre em {
+  font-style: normal;
+  color: var(--ap-p);
+}
+
+/* Corps de texte */
+.ap .ap-corps {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.75;
+  color: var(--ap-g);
+  max-width: 680px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1024px) { .apw { padding: 0 32px; } }
+@media (max-width: 768px)  { .apw { padding: 0 20px; } }
+@media (max-width: 640px) {
+  .ap h2.ap-titre { font-size: clamp(26px, 7vw, 36px); }
+  .ap .ap-corps   { font-size: 15px; }
+}

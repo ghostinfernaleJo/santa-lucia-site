@@ -1,0 +1,672 @@
+/* ============================================================
+   Santa Lucia Fast Food — Frontend CSS v2
+   Palette du site : rose #e91e8c, texte #1a1a2e, fond #fff
+   ============================================================ */
+
+:root {
+    --sl-ff-pink:     #e91e8c;
+    --sl-ff-pink-dk:  #c01870;
+    --sl-ff-pink-lt:  #fce4f3;
+    --sl-ff-dark:     #1a1a2e;
+    --sl-ff-grey:     #6b7280;
+    --sl-ff-border:   #e5e7eb;
+    --sl-ff-bg:       #f9fafb;
+    --sl-ff-white:    #ffffff;
+    --sl-ff-green:    #16a34a;
+    --sl-ff-radius:   10px;
+    --sl-ff-shadow:   0 2px 12px rgba(0,0,0,.08);
+    --sl-ff-trans:    .18s ease;
+}
+
+/* ── Contenant principal ── */
+.sl-ff-wrap,
+.sl-ff-browser {
+    font-family: inherit;
+    color: var(--sl-ff-dark);
+    line-height: 1.5;
+}
+
+/* ==================================================
+   EN-TETE MENU SHORTCODE
+================================================== */
+.sl-ff-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--sl-ff-white);
+    border: 1px solid var(--sl-ff-border);
+    border-radius: var(--sl-ff-radius);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.sl-ff-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sl-ff-icon {
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.sl-ff-titre {
+    margin: 0 0 2px !important;
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    color: var(--sl-ff-dark) !important;
+}
+
+.sl-ff-date {
+    margin: 0 !important;
+    font-size: .85rem;
+    color: var(--sl-ff-grey);
+    text-transform: capitalize;
+}
+
+.sl-ff-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* ==================================================
+   TOGGLE VUE
+================================================== */
+.sl-ff-view-toggle {
+    display: flex;
+    border: 1px solid var(--sl-ff-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.sl-ff-btn-view {
+    background: var(--sl-ff-white);
+    border: none;
+    cursor: pointer;
+    padding: 5px 11px;
+    color: var(--sl-ff-grey);
+    display: flex;
+    align-items: center;
+    font-size: .8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background var(--sl-ff-trans), color var(--sl-ff-trans);
+}
+
+.sl-ff-btn-view.active,
+.sl-ff-btn-view:hover {
+    background: var(--sl-ff-pink);
+    color: #fff;
+}
+
+/* ==================================================
+   BOUTON PARTAGER
+================================================== */
+.sl-ff-share-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    background: var(--sl-ff-white);
+    border: 1px solid var(--sl-ff-pink);
+    border-radius: 6px;
+    color: var(--sl-ff-pink);
+    font-size: .85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--sl-ff-trans);
+}
+
+.sl-ff-share-btn:hover {
+    background: var(--sl-ff-pink);
+    color: #fff;
+}
+
+/* Popup partage */
+.sl-ff-share-popup {
+    background: #fff;
+    border: 1px solid var(--sl-ff-border);
+    border-radius: 8px;
+    padding: 8px;
+    box-shadow: var(--sl-ff-shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 170px;
+}
+
+.sl-ff-share-popup button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    font-size: .85rem;
+    color: var(--sl-ff-dark);
+    width: 100%;
+    text-align: left;
+    transition: background var(--sl-ff-trans);
+}
+
+.sl-ff-share-popup button:hover { background: var(--sl-ff-bg); }
+
+/* ==================================================
+   ETAT VIDE
+================================================== */
+.sl-ff-vide {
+    text-align: center;
+    padding: 48px 24px;
+    background: var(--sl-ff-bg);
+    border-radius: var(--sl-ff-radius);
+    color: var(--sl-ff-grey);
+}
+
+.sl-ff-vide-icon {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 12px;
+    opacity: .5;
+}
+
+.sl-ff-vide p {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 4px;
+}
+
+.sl-ff-vide small {
+    font-size: .83rem;
+}
+
+/* ==================================================
+   SECTION CATEGORIE
+================================================== */
+.sl-ff-cat-section {
+    margin-bottom: 28px;
+}
+
+.sl-ff-cat-titre {
+    font-size: .9rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--sl-ff-pink) !important;
+    margin: 0 0 12px !important;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--sl-ff-pink-lt);
+}
+
+/* ==================================================
+   ITEMS — VUE CARTES
+================================================== */
+.sl-ff-view-cards .sl-ff-items {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.sl-ff-view-cards .sl-ff-item {
+    background: var(--sl-ff-white);
+    border: 1px solid var(--sl-ff-border);
+    border-radius: var(--sl-ff-radius);
+    overflow: hidden;
+    box-shadow: var(--sl-ff-shadow);
+    transition: transform var(--sl-ff-trans), box-shadow var(--sl-ff-trans);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.sl-ff-view-cards .sl-ff-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,.12);
+}
+
+.sl-ff-view-cards .sl-ff-item--promo {
+    border-color: var(--sl-ff-pink);
+}
+
+.sl-ff-item-img {
+    width: 100%;
+    height: 250px;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    background-color: var(--sl-ff-bg);
+}
+
+.sl-ff-item-img--empty {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding: 8px;
+}
+
+.sl-ff-item-body {
+    padding: 12px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sl-ff-item-titre {
+    font-size: .95rem !important;
+    font-weight: 700 !important;
+    margin: 0 !important;
+    color: var(--sl-ff-dark) !important;
+    line-height: 1.3;
+}
+
+.sl-ff-item-desc {
+    font-size: .8rem;
+    color: var(--sl-ff-grey);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.sl-ff-prix-wrap {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: auto;
+    flex-wrap: wrap;
+}
+
+.sl-ff-prix {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--sl-ff-dark);
+}
+
+.sl-ff-prix--promo {
+    color: var(--sl-ff-pink) !important;
+}
+
+.sl-ff-prix-barre {
+    font-size: .8rem;
+    color: var(--sl-ff-grey);
+    text-decoration: line-through;
+}
+
+/* Badge promo */
+.sl-ff-promo-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: var(--sl-ff-pink);
+    color: #fff;
+    font-size: .75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    z-index: 2;
+}
+
+/* Badge disponible */
+.sl-ff-dispo-ok {
+    display: block;
+    background: var(--sl-ff-green);
+    color: #fff;
+    text-align: center;
+    font-size: .75rem;
+    font-weight: 600;
+    padding: 6px;
+}
+
+/* ==================================================
+   ITEMS — VUE LISTE
+================================================== */
+.sl-ff-view-list .sl-ff-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sl-ff-view-list .sl-ff-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background: var(--sl-ff-white);
+    border: 1px solid var(--sl-ff-border);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: box-shadow var(--sl-ff-trans);
+    position: relative;
+}
+
+.sl-ff-view-list .sl-ff-item:hover {
+    box-shadow: 0 2px 10px rgba(0,0,0,.08);
+}
+
+.sl-ff-view-list .sl-ff-item--promo {
+    border-left: 3px solid var(--sl-ff-pink);
+}
+
+.sl-ff-view-list .sl-ff-item-img {
+    width: 80px;
+    height: 80px;
+    flex-shrink: 0;
+    border-radius: 0;
+}
+
+.sl-ff-view-list .sl-ff-item-body {
+    flex: 1;
+    padding: 10px 14px;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.sl-ff-view-list .sl-ff-item-titre {
+    flex: 1;
+    min-width: 120px;
+}
+
+.sl-ff-view-list .sl-ff-item-desc {
+    display: none;
+}
+
+.sl-ff-view-list .sl-ff-dispo-ok {
+    width: auto;
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin: 0 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.sl-ff-view-list .sl-ff-promo-badge {
+    top: 50%;
+    transform: translateY(-50%);
+    left: 4px;
+}
+
+/* ==================================================
+   BROWSER SHORTCODE
+================================================== */
+.sl-ff-browser {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    min-height: 400px;
+}
+
+/* Sidebar */
+.sl-ff-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--sl-ff-white);
+    border: 1px solid var(--sl-ff-border);
+    border-radius: var(--sl-ff-radius);
+    overflow: hidden;
+    box-shadow: var(--sl-ff-shadow);
+    position: sticky;
+    top: 80px;
+}
+
+.sl-ff-sidebar-header {
+    background: var(--sl-ff-pink);
+    color: #fff;
+    padding: 14px 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: .95rem;
+}
+
+.sl-ff-sidebar-date {
+    padding: 8px 16px;
+    font-size: .78rem;
+    color: var(--sl-ff-grey);
+    background: var(--sl-ff-bg);
+    border-bottom: 1px solid var(--sl-ff-border);
+    text-transform: capitalize;
+}
+
+/* Barre de recherche plats (topbar) */
+.sl-ff-menu-search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 140px;
+    max-width: 260px;
+}
+
+.sl-ff-menu-search {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 10px 6px 30px;
+    border: 1px solid var(--sl-ff-border);
+    border-radius: 20px;
+    font-size: .82rem;
+    color: var(--sl-ff-dark);
+    background: var(--sl-ff-white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") no-repeat 9px center;
+    outline: none;
+    transition: border-color var(--sl-ff-trans);
+}
+
+.sl-ff-menu-search:focus {
+    border-color: var(--sl-ff-pink);
+}
+
+.sl-ff-agency-list {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 4px 0 !important;
+    max-height: 440px;
+    overflow-y: auto;
+}
+
+.sl-ff-agency-list li {
+    margin: 0 !important;
+    padding: 0 !important;
+    list-style: none !important;
+}
+
+.sl-ff-agency-list button {
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 7px 14px;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    transition: background var(--sl-ff-trans), color var(--sl-ff-trans);
+    font-size: .85rem;
+    color: var(--sl-ff-dark);
+    line-height: 1.3;
+}
+
+.sl-ff-agency-list button:hover { background: var(--sl-ff-pink-lt); color: var(--sl-ff-pink-dk); }
+.sl-ff-agency-list button.active { background: var(--sl-ff-pink); color: #fff; }
+
+.sl-ff-agency-badge {
+    background: rgba(255,255,255,.3);
+    color: inherit;
+    font-size: .72rem;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 20px;
+    flex-shrink: 0;
+}
+
+.sl-ff-agency-list button.active .sl-ff-agency-badge {
+    background: rgba(255,255,255,.35);
+    color: #fff;
+}
+
+.sl-ff-agency-list button:not(.active) .sl-ff-agency-badge {
+    background: var(--sl-ff-pink-lt);
+    color: var(--sl-ff-pink-dk);
+}
+
+/* Main browser */
+.sl-ff-browser-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.sl-ff-browser-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.sl-ff-browser-titre {
+    margin: 0 !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    color: var(--sl-ff-dark) !important;
+}
+
+.sl-ff-browser-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 1;
+    justify-content: flex-end;
+}
+
+/* Loading spinner */
+.sl-ff-browser-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 40px;
+    color: var(--sl-ff-grey);
+    font-size: .9rem;
+}
+
+.sl-ff-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid var(--sl-ff-pink-lt);
+    border-top-color: var(--sl-ff-pink);
+    border-radius: 50%;
+    animation: sl-ff-spin .7s linear infinite;
+}
+
+@keyframes sl-ff-spin { to { transform: rotate(360deg); } }
+
+.sl-ff-browser-content {
+    transition: opacity .2s;
+}
+
+/* ==================================================
+   WIDGET FICHE AGENCE — Onglet Fast Food
+================================================== */
+.slf-ff-panel {
+    padding: 20px 0;
+}
+
+.slf-ff-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.slf-ff-titre {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--sl-ff-dark, #1a1a2e);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.slf-ff-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ==================================================
+   RESPONSIVE
+================================================== */
+
+/* Tablette (768 → 1024px) */
+@media (min-width: 768px) and (max-width: 1024px) {
+    .sl-ff-view-cards .sl-ff-items {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+    .sl-ff-item-img {
+        height: 220px;
+    }
+}
+
+/* Mobile (≤ 767px) */
+@media (max-width: 767px) {
+    /* Browser layout : sidebar en haut */
+    .sl-ff-browser {
+        flex-direction: column;
+        gap: 16px;
+    }
+    .sl-ff-sidebar {
+        width: 100%;
+        position: static;
+    }
+    /* Liste agences : verticale, max-height réduite */
+    .sl-ff-agency-list {
+        max-height: 260px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    /* Topbar browser */
+    .sl-ff-browser-topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    .sl-ff-browser-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    .sl-ff-menu-search-wrap {
+        max-width: 100%;
+        flex: 1;
+    }
+
+    /* En-tête shortcode menu */
+    .sl-ff-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    /* Grille cartes : 1 colonne pleine largeur */
+    .sl-ff-view-cards .sl-ff-items {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .sl-ff-item-img {
+        height: 250px;
+    }
+    .sl-ff-item-body {
+        padding: 10px 12px;
+    }
+    .sl-ff-dispo-ok {
+        font-size: .75rem;
+        padding: 5px;
+    }
+}

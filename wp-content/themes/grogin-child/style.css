@@ -1,0 +1,21 @@
+﻿/*
+Theme Name:   Complexe santa lucia
+ Theme URI:    www.complexesantalucia.com
+ Description:   Child Theme
+ Author:       Santa
+ Author URI:   http://themeforest.net/user/KlbTheme
+ Template:     grogin
+ Version:      1.0
+ License:      GNU General Public License v2 or later
+ License URI:  
+ Tags:         light, dark, two-columns, right-sidebar, responsive-layout, accessibility-ready
+ Text Domain:  child
+*/
+
+/* ─── Fix : débordement horizontal — ciblé sur le wrapper Elementor, pas sur body/html ─── */
+.elementor-location-single,
+.elementor-location-archive,
+.site-content,
+#page {
+    overflow-x: clip;
+}

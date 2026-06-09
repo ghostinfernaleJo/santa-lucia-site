@@ -1,0 +1,107 @@
+/* ══ Widget CTA Final — Santa Lucia ══════════════════════════════════ */
+
+.elementor-widget-sl_cta_final,
+.elementor-widget-sl_cta_final > .elementor-widget-container {
+  padding: 0 !important;
+  margin:  0 !important;
+  width:   100%;
+}
+
+.slcta-section {
+  background: #e85499;
+  padding: 90px 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+
+/* Cercles décoratifs */
+.slcta-circle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.slcta-circle-1 {
+  width: 700px; height: 700px;
+  background: rgba(255,255,255,.06);
+  top: -300px; right: -200px;
+}
+.slcta-circle-2 {
+  width: 400px; height: 400px;
+  background: rgba(59,84,159,.15);
+  bottom: -150px; left: -100px;
+}
+
+/* Conteneur */
+.slcta-inner {
+  position: relative;
+  z-index: 2;
+}
+
+/* Titre */
+.slcta-titre {
+  font-family: Inter, sans-serif;
+  font-size: clamp(32px, 5vw, 58px);
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 18px;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.slcta-titre-l2 { color: #ffd200; }
+
+/* Description */
+.slcta-desc {
+  font-size: 16px;
+  color: rgba(255,255,255,.75);
+  max-width: 480px;
+  margin: 0 auto 40px;
+  line-height: 1.7;
+  font-family: Inter, sans-serif;
+}
+
+/* Boutons */
+.slcta-btns {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.slcta-btn1,
+.slcta-btn2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: Inter, sans-serif;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 3px; text-transform: uppercase;
+  padding: 16px 36px;
+  text-decoration: none;
+  transition: opacity .2s, transform .2s;
+}
+.slcta-btn1:hover,
+.slcta-btn2:hover { opacity: .88; transform: translateY(-2px); }
+
+/* Bouton 1 : fond blanc par défaut — surchargeable via Elementor */
+.slcta-btn1 {
+  background: #fff;
+  color: #e85499;
+  border: 2px solid transparent;
+}
+
+/* Bouton 2 : outline blanc par défaut — surchargeable via Elementor */
+.slcta-btn2 {
+  background: transparent;
+  color: rgba(255,255,255,.85);
+  border: 2px solid rgba(255,255,255,.35);
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .slcta-section { padding: 72px 0; }
+  .slcta-btn1,
+  .slcta-btn2 { padding: 14px 28px; font-size: 10px; }
+}

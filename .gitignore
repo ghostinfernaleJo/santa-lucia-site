@@ -1,0 +1,16 @@
+# OS / éditeurs
+.DS_Store
+Thumbs.db
+*~
+*.swp
+
+# Sauvegardes (ne jamais versionner)
+*.bak
+*.bak-*
+*.codex-bak*
+*.codex-backup*
+*.emergency-bak*
+*.zip
+
+# État de synchro généré par l'action de déploiement FTP
+.ftp-deploy-sync-state.json

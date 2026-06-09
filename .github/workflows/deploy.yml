@@ -1,0 +1,44 @@
+name: Déploiement FTP (code custom Santa Lucia)
+
+# Déploiement automatique à chaque push sur main.
+# Possibilité de lancer manuellement depuis l'onglet Actions (workflow_dispatch).
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ftp-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Déployer sur le serveur via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          # On envoie l'arborescence du repo (wp-content/...) vers la racine web.
+          local-dir: ./
+          server-dir: /
+          # Ne jamais envoyer ces éléments (méta du repo + sauvegardes éventuelles).
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
+            **/README.md
+            **/*.bak*
+            **/*.codex-*
+            **/.ftp-deploy-sync-state.json
+
+# NOTE Varnish : un JS/CSS modifié garde le même nom => Varnish ressert l'ancien.
+# Pour ces fichiers, renommer (ex: bons-plans-v3.css -> v4.css) + mettre à jour l'enqueue,
+# ou déclencher une purge côté serveur. Le déploiement FTP seul ne purge pas Varnish.

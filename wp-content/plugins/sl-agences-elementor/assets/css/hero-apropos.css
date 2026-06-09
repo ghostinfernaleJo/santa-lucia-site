@@ -1,0 +1,178 @@
+/* ══ Widget Hero À Propos — Santa Lucia ══════════════════════════ */
+
+.elementor-widget-sl_hero_apropos,
+.elementor-widget-sl_hero_apropos > .elementor-widget-container {
+  padding: 0 !important;
+  margin:  0 !important;
+  width:   100%;
+}
+
+/* ── Wrapper section ── */
+.slha-section {
+  position: relative;
+  background: #130d2e;
+  overflow: hidden;
+  width: 100%;
+  font-family: Inter, sans-serif;
+}
+
+/* Halos radiaux */
+.slha-halos {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 75% 65% at 65% 35%, rgba(232,84,153,.32) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 70% at 5%  80%, rgba(59,84,159,.28)  0%, transparent 55%),
+    radial-gradient(ellipse 40% 40% at 50% 100%, rgba(255,210,0,.07) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* Grille */
+.slha-grid-bg {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+}
+
+/* ── Conteneur intérieur ── */
+.slha-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 48px;
+  position: relative;
+  z-index: 2;
+}
+
+/* ── Grille deux colonnes ── */
+.slha-hero-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: center;
+  padding: 120px 0;
+}
+
+/* ── Colonne texte ── */
+
+/* Badge */
+.slha-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(232,84,153,.12);
+  border: 1px solid rgba(232,84,153,.28);
+  padding: 8px 18px;
+  margin-bottom: 28px;
+}
+.slha-badge-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #e85499;
+  display: inline-block; flex-shrink: 0;
+}
+.slha-badge-text {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 3px; text-transform: uppercase;
+  color: #e85499; font-family: Inter, sans-serif;
+}
+
+/* H1 */
+.slha-titre {
+  font-family: Inter, sans-serif;
+  font-size: clamp(42px, 6vw, 78px);
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.05;
+  margin-bottom: 28px;
+  letter-spacing: -0.03em;
+}
+.slha-titre em   { font-style: normal; color: #e85499; }
+.slha-titre span { display: block; }
+
+/* Description */
+.slha-desc {
+  font-size: 17px;
+  color: rgba(255,255,255,.5);
+  line-height: 1.8;
+  margin-bottom: 44px;
+  font-family: Inter, sans-serif;
+}
+
+/* Stats */
+.slha-stats {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.slha-stat-item { text-align: left; }
+.slha-stat-val {
+  display: block;
+  font-family: Inter, sans-serif;
+  font-size: 40px; font-weight: 800;
+  color: #ffd200;
+  line-height: 1; letter-spacing: -0.03em;
+}
+.slha-stat-lbl {
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: rgba(255,255,255,.35);
+  margin-top: 6px; display: block;
+}
+.slha-stat-sep {
+  width: 1px;
+  background: rgba(232,84,153,.25);
+  align-self: stretch;
+  flex-shrink: 0;
+}
+
+/* ── Colonne image ── */
+.slha-img-wrap {
+  position: relative;
+}
+.slha-img-wrap img {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  display: block;
+  border: 1px solid rgba(232,84,153,.2);
+}
+
+/* Badge flottant */
+.slha-img-badge {
+  position: absolute;
+  bottom: -18px; left: -18px;
+  background: #e85499;
+  padding: 20px 24px;
+  border: 3px solid #130d2e;
+}
+.slha-img-badge-val {
+  display: block;
+  font-family: Inter, sans-serif;
+  font-size: 26px; font-weight: 800;
+  color: #fff; line-height: 1;
+  letter-spacing: -0.02em;
+}
+.slha-img-badge-lbl {
+  font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.75);
+}
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .slha-inner { padding: 0 32px; }
+  .slha-hero-grid { gap: 48px; }
+}
+@media (max-width: 900px) {
+  .slha-hero-grid { grid-template-columns: 1fr; gap: 48px; padding: 80px 0 60px; }
+  .slha-img-wrap  { display: none; }
+}
+@media (max-width: 640px) {
+  .slha-hero-grid { padding: 60px 0 48px; }
+  .slha-inner     { padding: 0 20px; }
+  .slha-stats     { gap: 20px; }
+  .slha-titre     { font-size: clamp(36px, 9vw, 52px); }
+}

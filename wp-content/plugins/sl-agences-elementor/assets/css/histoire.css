@@ -1,0 +1,117 @@
+/* ══ Widget Histoire — Santa Lucia ══════════════════════════════════ */
+
+.elementor-widget-sl_histoire,
+.elementor-widget-sl_histoire > .elementor-widget-container {
+  padding: 0 !important;
+  margin:  0 !important;
+  width:   100%;
+}
+
+/* ── Section ── */
+.slhi-section {
+  background: #fff;
+  padding: 100px 0;
+  border-bottom: 1px solid rgba(232,84,153,.1);
+  width: 100%;
+  font-family: Inter, sans-serif;
+}
+
+/* ── Conteneur ── */
+.slhi-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 48px;
+}
+
+/* ── Grille deux colonnes ── */
+.slhi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: center;
+}
+
+/* ── Label ── */
+.slhi-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.slhi-label span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #e85499;
+}
+.slhi-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(232,84,153,.15);
+}
+
+/* ── Titre ── */
+.slhi-titre {
+  font-family: Inter, sans-serif;
+  font-size: clamp(30px, 3.8vw, 50px);
+  font-weight: 800;
+  line-height: 1.1;
+  color: #030712;
+  margin-bottom: 28px;
+  letter-spacing: -0.02em;
+}
+.slhi-titre span { display: block; }
+.slhi-titre em   { font-style: normal; color: #e85499; }
+
+/* ── Paragraphes ── */
+.slhi-textes { display: flex; flex-direction: column; gap: 16px; }
+.slhi-corps {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.75;
+  color: #6b7280;
+  max-width: 680px;
+}
+.slhi-corps strong { color: #030712; font-weight: 700; }
+
+/* ── Image ── */
+.slhi-img-wrap { position: relative; }
+.slhi-img {
+  width: 100%;
+  display: block;
+  border: 1px solid rgba(232,84,153,.15);
+}
+
+/* Badge */
+.slhi-img-badge {
+  position: absolute;
+  top: 0; left: 0;
+  background: #e85499;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  font-family: Inter, sans-serif;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .slhi-inner { padding: 0 32px; }
+  .slhi-grid  { gap: 48px; }
+}
+@media (max-width: 900px) {
+  .slhi-grid     { grid-template-columns: 1fr; gap: 40px; }
+  .slhi-img-wrap { display: none; }
+}
+@media (max-width: 768px) {
+  .slhi-inner   { padding: 0 20px; }
+  .slhi-section { padding: 72px 0; }
+}
+@media (max-width: 640px) {
+  .slhi-titre   { font-size: clamp(26px, 7vw, 36px); }
+  .slhi-corps   { font-size: 15px; }
+}

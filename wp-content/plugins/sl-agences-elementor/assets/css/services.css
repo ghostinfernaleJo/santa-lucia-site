@@ -1,0 +1,82 @@
+/* ══ Widget Services — Santa Lucia ══════════════════════════════════ */
+
+.elementor-widget-sl_services,
+.elementor-widget-sl_services > .elementor-widget-container {
+  padding: 0 !important;
+  margin:  0 !important;
+  width:   100%;
+}
+
+.slsv-section {
+  background: #f8fafc;
+  padding: 100px 0;
+  width: 100%;
+}
+
+/* Label */
+.slsv-label { margin-bottom: 18px; }
+
+/* Titre */
+.slsv-titre span { display: block; }
+.slsv-titre em   { font-style: normal; color: #e85499; }
+
+/* Description */
+.slsv-desc { margin-bottom: 60px; }
+
+/* Grille */
+.slsv-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  border: 1px solid rgba(232,84,153,.12);
+  background: rgba(232,84,153,.12);
+}
+
+/* Carte */
+.slsv-card {
+  background: #fff;
+  padding: 40px 30px;
+}
+
+.slsv-emoji {
+  font-size: 34px;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.slsv-card-titre {
+  font-family: Inter, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #030712;
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+
+.slsv-card-desc {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.7;
+  margin-bottom: 0;
+}
+
+.slsv-badge {
+  display: inline-block;
+  margin-top: 16px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #e85499;
+  border-bottom: 2px solid #e85499;
+  padding-bottom: 2px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .slsv-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 540px) {
+  .slsv-grid    { grid-template-columns: 1fr; }
+  .slsv-section { padding: 72px 0; }
+}

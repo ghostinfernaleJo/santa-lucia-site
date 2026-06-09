@@ -1,0 +1,291 @@
+/* ============================================================
+   Admin Interface — Bons Plans Responsable Agence
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+.sl-bp-wrap {
+    font-family: 'Inter', -apple-system, sans-serif;
+    max-width: 1100px;
+    padding: 24px 20px;
+    color: #1a1a2e;
+}
+
+/* Header */
+.sl-bp-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.sl-bp-header h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 0 0 4px;
+    padding: 0;
+    border: none;
+}
+.sl-bp-agence-label {
+    color: #666;
+    font-size: 14px;
+    margin: 0;
+}
+.sl-bp-agence-label strong { color: #EA4E8B; }
+
+/* Boutons */
+.sl-bp-btn-add, .sl-bp-btn-submit {
+    background: linear-gradient(135deg, #EA4E8B, #ff6b35);
+    color: #fff !important;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity .2s, transform .1s;
+    display: inline-block;
+}
+.sl-bp-btn-add:hover, .sl-bp-btn-submit:hover { opacity: .9; transform: translateY(-1px); }
+.sl-bp-btn-back {
+    color: #666;
+    text-decoration: none;
+    font-size: 14px;
+    padding: 10px 18px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    transition: background .2s;
+}
+.sl-bp-btn-back:hover { background: #f5f5f5; color: #333; }
+
+/* Notices */
+.sl-bp-notice {
+    padding: 14px 18px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    font-weight: 500;
+}
+.sl-bp-notice-success { background: #e8f8f0; color: #1a7a4a; border-left: 4px solid #34C759; }
+.sl-bp-notice-error   { background: #fff3f3; color: #c0392b; border-left: 4px solid #FF3B30; }
+
+/* Empty state */
+.sl-bp-empty {
+    text-align: center;
+    padding: 60px 20px;
+    background: #fafafa;
+    border-radius: 16px;
+    border: 2px dashed #e0e0e0;
+    color: #888;
+}
+.sl-bp-empty p { margin-bottom: 20px; font-size: 16px; }
+
+/* Table */
+.sl-bp-table-wrap { overflow-x: auto; }
+.sl-bp-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 16px rgba(0,0,0,.07);
+}
+.sl-bp-table th {
+    background: #1a1a2e;
+    color: #fff;
+    padding: 14px 16px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+.sl-bp-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 14px;
+    vertical-align: middle;
+}
+.sl-bp-table tr:last-child td { border-bottom: none; }
+.sl-bp-table tr:hover td { background: #fafafa; }
+.sl-bp-table tr.sl-bp-expired td { opacity: .55; }
+.sl-bp-no-img {
+    width: 60px; height: 60px;
+    background: #f0f0f0;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+}
+.sl-bp-badge-reduc {
+    background: #FF3B30; color: #fff;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 12px; font-weight: 700;
+}
+.sl-bp-status {
+    padding: 4px 12px; border-radius: 20px;
+    font-size: 12px; font-weight: 600;
+}
+.sl-bp-status-active  { background: #e8f8f0; color: #1a7a4a; }
+.sl-bp-status-expired { background: #f5f5f5; color: #999; }
+
+.sl-bp-actions { white-space: nowrap; }
+.sl-bp-btn-edit {
+    color: #EA4E8B; text-decoration: none; font-size: 13px;
+    font-weight: 600; margin-right: 10px;
+}
+.sl-bp-btn-delete {
+    color: #FF3B30; text-decoration: none; font-size: 16px;
+    cursor: pointer;
+}
+
+/* Form */
+.sl-bp-form { margin-top: 8px; }
+.sl-bp-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+    align-items: start;
+}
+@media (max-width: 900px) {
+    .sl-bp-form-grid { grid-template-columns: 1fr; }
+}
+.sl-bp-field { margin-bottom: 20px; }
+.sl-bp-field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 6px;
+}
+.sl-bp-required { color: #EA4E8B; }
+.sl-bp-field input[type="text"],
+.sl-bp-field input[type="number"],
+.sl-bp-field input[type="date"],
+.sl-bp-field textarea,
+.sl-bp-field select {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    background: #fff;
+    transition: border-color .2s;
+    box-sizing: border-box;
+}
+.sl-bp-field input:focus,
+.sl-bp-field textarea:focus,
+.sl-bp-field select:focus {
+    outline: none;
+    border-color: #EA4E8B;
+    box-shadow: 0 0 0 3px rgba(234, 78, 139, .12);
+}
+.sl-bp-field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+@media (max-width: 600px) {
+    .sl-bp-field-row { grid-template-columns: 1fr; }
+}
+
+/* Badge picker */
+.sl-bp-badge-picker {
+    display: flex; gap: 10px; flex-wrap: wrap;
+}
+.sl-bp-badge-option { cursor: pointer; }
+.sl-bp-badge-option input[type="radio"] { display: none; }
+.sl-bp-badge-label {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 30px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 2px solid transparent;
+    transition: all .2s;
+    cursor: pointer;
+}
+.sl-bp-badge-option input:checked + .sl-bp-badge-label {
+    border-color: currentColor;
+    transform: scale(1.05);
+}
+.sl-badge-flash     { background: #fff0ee; color: #FF3B30; }
+.sl-badge-nouveau   { background: #edfaf0; color: #34C759; }
+.sl-badge-top-vente { background: #fff8e6; color: #FF9500; }
+.sl-badge-exclusif  { background: #eef4ff; color: #007AFF; }
+.sl-badge-none      { background: #f5f5f5; color: #666; }
+
+/* Sidebar form (image) */
+.sl-bp-form-main, .sl-bp-form-sidebar {
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 2px 16px rgba(0,0,0,.06);
+}
+
+/* Image uploader */
+.sl-bp-image-preview {
+    width: 100%;
+    height: 200px;
+    background: #f5f5f5;
+    border-radius: 12px;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    border: 2px dashed #e0e0e0;
+    cursor: pointer;
+    transition: border-color .2s;
+}
+.sl-bp-image-preview:hover { border-color: #EA4E8B; }
+.sl-bp-upload-placeholder { text-align: center; color: #aaa; font-size: 13px; line-height: 1.8; }
+.sl-bp-image-actions { display: flex; gap: 10px; }
+.sl-bp-btn-upload {
+    flex: 1;
+    padding: 9px;
+    border: 1.5px solid #EA4E8B;
+    background: transparent;
+    color: #EA4E8B;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s;
+}
+.sl-bp-btn-upload:hover { background: #fff0f5; }
+.sl-bp-btn-remove {
+    padding: 9px 14px;
+    border: 1.5px solid #ff4444;
+    background: transparent;
+    color: #ff4444;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+/* Agence badge */
+.sl-bp-agence-badge {
+    background: linear-gradient(135deg, #1a1a2e, #2d2d5e);
+    color: #fff;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* Form footer */
+.sl-bp-form-footer {
+    margin-top: 24px;
+    display: flex;
+    justify-content: flex-end;
+}
+.sl-bp-btn-submit {
+    padding: 14px 32px;
+    font-size: 15px;
+    border-radius: 12px;
+}

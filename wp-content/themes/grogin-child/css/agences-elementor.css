@@ -1,0 +1,536 @@
+/* ============================================================
+   Santa Lucia - Widget "Nos Agences" Elementor
+   ============================================================ */
+
+/* Variables */
+:root {
+    --sl-rose: #EA4E8B;
+    --sl-rose-hover: #d43577;
+    --sl-gris-banniere: #888888;
+    --sl-gris-clair: #f4f4f4;
+    --sl-blanc: #ffffff;
+    --sl-texte: #1a1a1a;
+    --sl-texte-light: #e0e0e0;
+    --sl-ombre: 0 2px 16px rgba(0,0,0,0.10);
+    --sl-radius: 6px;
+}
+
+/* ============================================================
+   WRAPPER GLOBAL
+   ============================================================ */
+.sl-agences-wrapper {
+    font-family: inherit;
+    max-width: 100%;
+}
+
+/* ============================================================
+   TITRE DE SECTION
+   ============================================================ */
+.sl-section-titre {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin: 0 0 20px 0;
+    line-height: 1.2;
+}
+
+/* ============================================================
+   TOOLBAR (barre filtre/tri/switch)
+   ============================================================ */
+.sl-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    background: #fff;
+    border: 1px solid #e4e4e4;
+    border-radius: var(--sl-radius);
+    padding: 10px 18px;
+    margin-bottom: 24px;
+}
+
+.sl-toolbar-left,
+.sl-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.sl-compteur {
+    font-size: 0.92rem;
+    color: #555;
+}
+
+.sl-compteur strong {
+    font-weight: 700;
+    color: #1a1a1a;
+}
+
+/* --- Bouton Filtre --- */
+.sl-filtre-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background-color: var(--sl-rose);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 18px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    letter-spacing: 0.03em;
+}
+
+.sl-filtre-btn:hover,
+.sl-filtre-btn.active {
+    background-color: var(--sl-rose-hover);
+}
+
+.sl-filtre-icon {
+    font-size: 1rem;
+}
+
+/* --- Dropdown Filtre --- */
+.sl-filter-wrap {
+    position: relative;
+}
+
+.sl-filter-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    background: #fff;
+    border: 1px solid #e4e4e4;
+    border-radius: var(--sl-radius);
+    box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+    padding: 8px;
+    z-index: 9999;
+    min-width: 160px;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sl-filter-dropdown.open {
+    display: flex;
+}
+
+.sl-filter-cat {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: #444;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+
+.sl-filter-cat:hover {
+    background: var(--sl-gris-clair);
+    color: var(--sl-rose);
+}
+
+.sl-filter-cat.active {
+    background: var(--sl-rose);
+    color: #fff;
+    font-weight: 600;
+}
+
+/* --- Sort Select --- */
+.sl-sort-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sl-sort-label {
+    font-size: 0.88rem;
+    color: #555;
+    white-space: nowrap;
+}
+
+.sl-sort-select {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 0.88rem;
+    color: #333;
+    background: #fff;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.sl-sort-select:focus {
+    border-color: var(--sl-rose);
+}
+
+/* --- Switch Grille / Liste --- */
+.sl-vue-switch {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.sl-vue-btn {
+    background: transparent;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 6px 8px;
+    cursor: pointer;
+    color: #aaa;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sl-vue-btn:hover {
+    border-color: var(--sl-rose);
+    color: var(--sl-rose);
+}
+
+.sl-vue-btn.active {
+    border-color: var(--sl-rose);
+    color: var(--sl-rose);
+    background: #fff0f5;
+}
+
+/* ============================================================
+   GRILLE DES AGENCES
+   ============================================================ */
+
+/* Vue Grille */
+.sl-agences-grid.grid-view {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.sl-agences-grid.grid-view.sl-cols-2 { grid-template-columns: repeat(2, 1fr); }
+.sl-agences-grid.grid-view.sl-cols-3 { grid-template-columns: repeat(3, 1fr); }
+.sl-agences-grid.grid-view.sl-cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* Vue Liste */
+.sl-agences-grid.list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.sl-agences-grid.list-view .sl-agence-card {
+    display: flex;
+    flex-direction: row;
+    max-height: 140px;
+}
+
+.sl-agences-grid.list-view .sl-card-banner-link {
+    flex: 0 0 220px;
+}
+
+.sl-agences-grid.list-view .sl-card-banner {
+    height: 140px !important;
+    border-radius: var(--sl-radius) 0 0 var(--sl-radius);
+}
+
+.sl-agences-grid.list-view .sl-card-footer {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    justify-content: flex-end;
+    border-radius: 0 var(--sl-radius) var(--sl-radius) 0;
+}
+
+.sl-agences-grid.list-view .sl-card-avatar {
+    display: none;
+}
+
+/* ============================================================
+   CARTE D'UNE AGENCE
+   ============================================================ */
+.sl-agence-card {
+    background: #fff;
+    border-radius: var(--sl-radius);
+    box-shadow: var(--sl-ombre);
+    overflow: visible;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sl-agence-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.14);
+}
+
+/* --- Bannière --- */
+.sl-card-banner-link {
+    display: block;
+    text-decoration: none;
+}
+
+.sl-card-banner {
+    position: relative;
+    height: 180px;
+    background-color: var(--sl-gris-banniere);
+    background-size: cover;
+    background-position: center;
+    border-radius: var(--sl-radius) var(--sl-radius) 0 0;
+    overflow: hidden;
+}
+
+.sl-card-banner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.45) 100%);
+    z-index: 1;
+    border-radius: var(--sl-radius) var(--sl-radius) 0 0;
+}
+
+/* --- Infos dans la bannière --- */
+.sl-card-info {
+    position: absolute;
+    bottom: 48px;
+    left: 0;
+    right: 0;
+    padding: 12px 16px;
+    z-index: 2;
+}
+
+.sl-card-nom {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 6px 0;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    line-height: 1.2;
+}
+
+.sl-card-adresse {
+    font-size: 0.82rem;
+    color: #e8e8e8;
+    margin: 0 0 4px 0;
+    line-height: 1.3;
+}
+
+.sl-card-tel {
+    font-size: 0.82rem;
+    color: #e8e8e8;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.sl-tel-icon {
+    font-size: 0.9rem;
+}
+
+/* --- Avatar / Logo rond superposé --- */
+.sl-card-avatar {
+    position: absolute;
+    bottom: -26px;
+    right: 16px;
+    width: 58px;
+    height: 58px;
+    background: #fff;
+    border-radius: 50%;
+    border: 3px solid #e8e8e8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    z-index: 10;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+}
+
+.sl-card-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.sl-card-avatar svg {
+    width: 32px;
+    height: 32px;
+    opacity: 0.5;
+}
+
+/* --- Badges --- */
+.sl-featured-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: #f5a623;
+    color: #fff;
+    border-radius: 3px;
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    z-index: 5;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.sl-statut {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    z-index: 5;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.sl-statut.sl-ouvert {
+    background: rgba(34, 197, 94, 0.88);
+    color: #fff;
+}
+
+.sl-statut.sl-ferme {
+    background: rgba(239, 68, 68, 0.88);
+    color: #fff;
+}
+
+/* --- Footer de la carte (bouton flèche) --- */
+.sl-card-footer {
+    background: #fff;
+    padding: 20px 16px 14px 16px;
+    border-radius: 0 0 var(--sl-radius) var(--sl-radius);
+    min-height: 58px;
+    margin-top: 0;
+    position: relative;
+}
+
+.sl-btn-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background-color: var(--sl-rose);
+    color: #fff;
+    border-radius: 50%;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.2s;
+    box-shadow: 0 2px 8px rgba(234,78,139,0.35);
+}
+
+.sl-btn-arrow:hover {
+    background-color: var(--sl-rose-hover);
+    transform: scale(1.1);
+}
+
+/* --- Message no result --- */
+.sl-no-result {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #888;
+    padding: 40px 20px;
+    font-size: 1rem;
+}
+
+/* ============================================================
+   PAGINATION
+   ============================================================ */
+.sl-pagination-wrap {
+    margin-top: 30px;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.sl-pagination {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.sl-pagination li a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    color: #444;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: border-color 0.2s, background 0.2s, color 0.2s;
+    background: #fff;
+}
+
+.sl-pagination li a:hover {
+    border-color: var(--sl-rose);
+    color: var(--sl-rose);
+}
+
+.sl-pagination li a.current {
+    background-color: var(--sl-rose);
+    border-color: var(--sl-rose);
+    color: #fff;
+    font-weight: 700;
+}
+
+.sl-pagination li a.sl-pagination-next {
+    color: var(--sl-rose);
+    border-color: transparent;
+    background: transparent;
+    font-weight: 600;
+}
+
+.sl-pagination li a.sl-pagination-next:hover {
+    background: #fff0f5;
+    border-color: var(--sl-rose);
+}
+
+.sl-pagination li a.sl-pagination-prev {
+    color: #555;
+    border-color: #ddd;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1024px) {
+    .sl-agences-grid.grid-view.sl-cols-4 { grid-template-columns: repeat(3, 1fr); }
+    .sl-agences-grid.grid-view.sl-cols-3 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 768px) {
+    .sl-agences-grid.grid-view { grid-template-columns: 1fr 1fr !important; }
+    .sl-toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .sl-section-titre { font-size: 1.5rem; }
+}
+
+@media (max-width: 520px) {
+    .sl-agences-grid.grid-view { grid-template-columns: 1fr !important; }
+    .sl-agences-grid.list-view .sl-card-banner-link { flex: 0 0 130px; }
+    .sl-agences-grid.list-view .sl-card-banner { height: 140px !important; }
+    .sl-card-avatar { width: 46px; height: 46px; bottom: -20px; }
+}

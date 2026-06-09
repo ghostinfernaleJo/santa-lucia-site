@@ -1,0 +1,836 @@
+/* ============================================================
+   Santa Lucia - Widget "Nos Agences" Elementor v3
+   Toolbar FR améliorée — Mode liste fidèle — UI/UX premium
+   ============================================================ */
+
+/* ============================================================
+   WRAPPER GLOBAL
+   ============================================================ */
+.sl-agences-wrapper {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    max-width: 100%;
+}
+
+/* ============================================================
+   TITRE DE SECTION
+   ============================================================ */
+.sl-section-titre {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #1a1a1a;
+    margin: 0 0 22px 0;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+
+/* ============================================================
+   TOOLBAR
+   ============================================================ */
+.sl-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    padding: 14px 22px;
+    margin-bottom: 26px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+
+.sl-toolbar-left,
+.sl-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+/* --- Compteur --- */
+.sl-compteur {
+    font-size: 0.9rem;
+    color: #777;
+    letter-spacing: 0.01em;
+}
+
+.sl-compteur strong {
+    font-weight: 700;
+    color: #1a1a1a;
+    font-size: 1rem;
+}
+
+/* --- Bouton Filtre --- */
+.sl-filtre-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background-color: #EA4E8B;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 22px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+    letter-spacing: 0.03em;
+    box-shadow: 0 3px 12px rgba(234,78,139,0.25);
+}
+
+.sl-filtre-btn:hover {
+    background-color: #d43577;
+    transform: translateY(-1px);
+    box-shadow: 0 5px 18px rgba(234,78,139,0.35);
+}
+
+.sl-filtre-btn.active {
+    background-color: #c02e6a;
+}
+
+.sl-filtre-svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+/* --- Dropdown Filtre --- */
+.sl-filter-wrap {
+    position: relative;
+}
+
+.sl-filter-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    background: #fff;
+    border: 1px solid #eaeaea;
+    border-radius: 12px;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.12);
+    padding: 8px;
+    z-index: 9999;
+    min-width: 200px;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sl-filter-dropdown.open {
+    display: flex;
+    animation: slDropIn 0.2s ease;
+}
+
+@keyframes slDropIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.sl-filter-cat {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    padding: 11px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: #555;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.sl-filter-cat:hover {
+    background: #fdf2f6;
+    color: #EA4E8B;
+}
+
+.sl-filter-cat.active {
+    background: #EA4E8B;
+    color: #fff;
+    font-weight: 600;
+}
+
+/* --- Sélecteur de tri --- */
+.sl-sort-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f7f7f7;
+    border-radius: 8px;
+    padding: 4px 4px 4px 14px;
+}
+
+.sl-sort-label {
+    font-size: 0.85rem;
+    color: #888;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.sl-sort-select {
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.88rem;
+    color: #333;
+    background: #fff;
+    cursor: pointer;
+    outline: none;
+    font-weight: 600;
+    transition: box-shadow 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding-right: 28px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+}
+
+.sl-sort-select:focus {
+    box-shadow: 0 0 0 3px rgba(234,78,139,0.12);
+}
+
+/* --- Barre de recherche --- */
+.sl-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f7f7f7;
+    border: 1px solid #eee;
+    border-radius: 50px;
+    padding: 6px 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.sl-search-wrap:focus-within {
+    border-color: #EA4E8B;
+    box-shadow: 0 0 0 3px rgba(234,78,139,0.1);
+    background: #fff;
+}
+
+.sl-search-icon {
+    flex-shrink: 0;
+    color: #aaa;
+    transition: color 0.2s;
+}
+
+.sl-search-wrap:focus-within .sl-search-icon {
+    color: #EA4E8B;
+}
+
+.sl-search-input {
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 0.88rem;
+    color: #333;
+    width: 180px;
+    font-family: inherit;
+}
+
+.sl-search-input::placeholder {
+    color: #bbb;
+}
+
+.sl-search-clear {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #aaa;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    transition: color 0.2s, background 0.2s;
+    padding: 0;
+    line-height: 1;
+}
+
+.sl-search-clear:hover {
+    color: #EA4E8B;
+    background: rgba(234,78,139,0.1);
+}
+
+/* --- Filtre Statut (Ouvert / Fermé) --- */
+.sl-statut-filter {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #f7f7f7;
+    border-radius: 50px;
+    padding: 3px;
+}
+
+.sl-statut-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    border-radius: 50px;
+    padding: 7px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: #888;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.sl-statut-btn:hover {
+    color: #555;
+}
+
+.sl-statut-btn.active {
+    background: #fff;
+    color: #333;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.sl-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.sl-dot-all     { background: #bbb; }
+.sl-dot-ouvert  { background: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,0.25); }
+.sl-dot-ferme   { background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,0.25); }
+
+/* --- Badge statut dans la vue liste --- */
+.sl-list-statut {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 50px;
+    margin-top: 4px;
+    letter-spacing: 0.03em;
+}
+
+.sl-list-statut.sl-ouvert {
+    background: rgba(34,197,94,0.12);
+    color: #16a34a;
+}
+
+.sl-list-statut.sl-ferme {
+    background: rgba(239,68,68,0.1);
+    color: #dc2626;
+}
+
+/* --- Switch Grille / Liste --- */
+.sl-vue-switch {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: #f4f4f4;
+    border-radius: 8px;
+    padding: 3px;
+}
+
+.sl-vue-btn {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 10px;
+    cursor: pointer;
+    color: #bbb;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sl-vue-btn:hover {
+    color: #EA4E8B;
+}
+
+.sl-vue-btn.active {
+    color: #EA4E8B;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+
+/* ============================================================
+   VUE GRILLE
+   ============================================================ */
+.sl-agences-grid.grid-view {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.sl-agences-grid.grid-view.sl-cols-2 { grid-template-columns: repeat(2, 1fr); }
+.sl-agences-grid.grid-view.sl-cols-3 { grid-template-columns: repeat(3, 1fr); }
+.sl-agences-grid.grid-view.sl-cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+
+/* ============================================================
+   CARTE GRILLE
+   ============================================================ */
+.grid-view .sl-agence-card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.grid-view .sl-agence-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.11);
+}
+
+/* --- Bannière Grille --- */
+.sl-card-banner-link {
+    display: block;
+    text-decoration: none;
+}
+
+.sl-card-banner {
+    position: relative;
+    height: 180px;
+    background-color: #999;
+    background-size: cover;
+    background-position: center;
+    overflow: hidden;
+}
+
+.sl-card-banner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.55) 100%);
+    z-index: 1;
+}
+
+/* --- Infos dans la bannière (grille) --- */
+.sl-card-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 16px 18px;
+    z-index: 2;
+}
+
+.sl-card-nom {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 5px 0;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    line-height: 1.25;
+}
+
+.sl-card-adresse {
+    font-size: 0.8rem;
+    color: #ddd;
+    margin: 0 0 3px 0;
+    line-height: 1.3;
+}
+
+.sl-card-tel {
+    font-size: 0.8rem;
+    color: #ddd;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.sl-icon-phone {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+}
+
+/* --- Badges --- */
+.sl-featured-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: linear-gradient(135deg, #f5a623, #f7c948);
+    color: #fff;
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    z-index: 5;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    box-shadow: 0 2px 8px rgba(245,166,35,0.3);
+}
+
+.sl-statut {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 4px 14px;
+    border-radius: 20px;
+    z-index: 5;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.sl-statut.sl-ouvert {
+    background: rgba(34, 197, 94, 0.9);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(34,197,94,0.25);
+}
+
+.sl-statut.sl-ferme {
+    background: rgba(239, 68, 68, 0.9);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(239,68,68,0.25);
+}
+
+/* --- Footer de la carte GRILLE --- */
+.grid-view .sl-card-footer {
+    background: #fff;
+    padding: 16px 18px;
+    min-height: 52px;
+}
+
+
+/* ============================================================
+   BOUTON "VOIR L'AGENCE" (partagé grille + liste)
+   ============================================================ */
+.sl-btn-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background-color: #EA4E8B;
+    color: #fff;
+    border-radius: 50px;
+    text-decoration: none;
+    padding: 10px 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 3px 12px rgba(234,78,139,0.3);
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.sl-btn-arrow:hover {
+    background-color: #d43577;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(234,78,139,0.4);
+}
+
+.sl-btn-arrow svg {
+    flex-shrink: 0;
+}
+
+.sl-btn-text {
+    display: inline;
+}
+
+
+/* ============================================================
+   VUE LISTE — Fidèle à la maquette capture
+   ============================================================ */
+.sl-agences-grid.list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* En mode liste, on masque la structure grille et on affiche la structure liste */
+.list-view .sl-agence-card:not(.sl-list-card) {
+    display: none;
+}
+
+.list-view .sl-list-card {
+    background: #f6f6f8;
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    transition: background 0.2s ease, box-shadow 0.25s ease, transform 0.25s ease;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+}
+
+.list-view .sl-list-card:hover {
+    background: #fff;
+    box-shadow: 0 6px 28px rgba(0,0,0,0.08);
+    transform: translateY(-2px);
+}
+
+/* --- Thumbnail (image à gauche) --- */
+.sl-list-thumb-link {
+    display: block;
+    flex: 0 0 180px;
+    height: 100px;
+    text-decoration: none;
+    overflow: hidden;
+}
+
+.sl-list-thumb {
+    width: 100%;
+    height: 100%;
+    background-color: #d0d0d0;
+    background-size: cover;
+    background-position: center;
+    border-radius: 10px 0 0 10px;
+    transition: transform 0.3s ease;
+}
+
+.sl-list-card:hover .sl-list-thumb {
+    transform: scale(1.05);
+}
+
+/* --- Corps (centre) --- */
+.sl-list-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    gap: 20px;
+}
+
+.sl-list-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.sl-list-nom {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin: 0 0 4px 0;
+    line-height: 1.3;
+}
+
+.sl-list-adresse {
+    font-size: 0.88rem;
+    color: #888;
+    margin: 0;
+    line-height: 1.3;
+}
+
+
+/* --- Message no result --- */
+.sl-no-result {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #999;
+    padding: 50px 20px;
+    font-size: 1rem;
+}
+
+
+/* ============================================================
+   PAGINATION
+   ============================================================ */
+.sl-pagination-wrap {
+    margin-top: 32px;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.sl-pagination {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.sl-pagination li a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid #e4e4e4;
+    border-radius: 8px;
+    color: #555;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    background: #fff;
+}
+
+.sl-pagination li a:hover {
+    border-color: #EA4E8B;
+    color: #EA4E8B;
+    background: #fdf2f6;
+}
+
+.sl-pagination li a.current {
+    background-color: #EA4E8B;
+    border-color: #EA4E8B;
+    color: #fff;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(234,78,139,0.3);
+}
+
+.sl-pagination li a.sl-pagination-next {
+    color: #EA4E8B;
+    border-color: transparent;
+    background: transparent;
+    font-weight: 600;
+}
+
+.sl-pagination li a.sl-pagination-next:hover {
+    background: #fdf2f6;
+    border-color: #EA4E8B;
+}
+
+.sl-pagination li a.sl-pagination-prev {
+    color: #666;
+    border-color: #e4e4e4;
+}
+
+.sl-pagination-dots {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    height: 38px;
+    font-size: 1rem;
+    color: #999;
+    letter-spacing: 2px;
+}
+
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1024px) {
+    .sl-agences-grid.grid-view.sl-cols-4 { grid-template-columns: repeat(3, 1fr); }
+    .sl-agences-grid.grid-view.sl-cols-3 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 768px) {
+    .sl-agences-grid.grid-view { grid-template-columns: 1fr 1fr !important; }
+
+    .sl-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 16px;
+        gap: 16px;
+    }
+
+    .sl-toolbar-left, 
+    .sl-toolbar-right {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .sl-section-titre { font-size: 1.6rem; margin-bottom: 16px; }
+
+    /* La vue liste s'adapte, image plus petite */
+    .sl-list-thumb-link { flex: 0 0 140px; height: 110px; }
+    .sl-list-body { padding: 14px 20px; }
+    .sl-list-nom { font-size: 1.1rem; }
+}
+
+@media (max-width: 520px) {
+    .sl-agences-grid.grid-view { grid-template-columns: 1fr !important; }
+
+    /* --- Toolbar 100% width sur mobile --- */
+    .sl-toolbar-left,
+    .sl-toolbar-right {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .sl-search-wrap {
+        width: 100%;
+    }
+    .sl-search-input {
+        width: 100%;
+        flex: 1;
+    }
+
+    .sl-filter-wrap { width: 100%; }
+    .sl-filtre-btn { width: 100%; justify-content: center; }
+    .sl-filter-dropdown { width: 100%; left: 0; }
+
+    .sl-sort-wrap { width: 100%; justify-content: space-between; }
+    
+    .sl-statut-filter { width: 100%; justify-content: space-between; }
+    .sl-statut-btn { flex: 1; justify-content: center; padding: 8px 10px; font-size: 0.75rem; }
+
+    .sl-vue-switch { justify-content: center; width: 100%; padding: 6px; }
+    .sl-vue-btn { flex: 1; }
+
+    /* --- Vue Liste qui s'empile verticalement sur mobile --- */
+    .list-view .sl-list-card {
+        flex-direction: column;
+    }
+
+    .sl-list-thumb-link {
+        flex: none;
+        width: 100%;
+        height: 160px;
+    }
+
+    .sl-list-thumb {
+        border-radius: 10px 10px 0 0;
+    }
+
+    .sl-list-body {
+        width: 100%;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 16px;
+        gap: 14px;
+        box-sizing: border-box;
+    }
+
+    .sl-list-info {
+        width: 100%;
+    }
+
+    .sl-list-nom { font-size: 1.1rem; margin-bottom: 6px; }
+    .sl-list-adresse { margin-bottom: 8px; }
+
+    .sl-btn-arrow {
+        width: 100%;
+        justify-content: center;
+        padding: 12px;
+        font-size: 0.9rem;
+    }
+
+    .sl-btn-text {
+        display: inline; /* On réaffiche le texte car le bouton prend toute la largeur */
+    }
+
+    /* Grille cards ajustement bouton */
+    .grid-view .sl-btn-arrow {
+        width: 100%;
+        justify-content: center;
+    }
+}
+

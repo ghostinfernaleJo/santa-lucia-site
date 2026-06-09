@@ -1,0 +1,159 @@
+<?php
+if ( ! defined( 'ABSPATH' ) ) exit;
+
+/* ============================================================
+   ROLES
+   ============================================================ */
+add_action( 'init', 'sl_ff_create_roles', 1 );
+function sl_ff_create_roles() {
+
+    /* ── Responsable Fast Food (agence unique) ── */
+    if ( ! get_role( 'sl_responsable_fastfood' ) ) {
+        add_role( 'sl_responsable_fastfood', 'Responsable Fast Food', [
+            'read'                          => true,
+            'upload_files'                  => true,
+            'read_sl_repas'                 => true,
+            'edit_sl_repas'                 => true,
+            'delete_sl_repas'               => true,
+            'edit_sl_repas_items'           => true,
+            'publish_sl_repas_items'        => true,
+            'delete_sl_repas_items'         => true,
+            'edit_published_sl_repas_items' => true,
+            'edit_others_sl_repas_items'    => false,
+            'delete_others_sl_repas_items'  => false,
+            'manage_options'                => false,
+        ] );
+    } else {
+        // S'assurer que upload_files est present
+        $r = get_role( 'sl_responsable_fastfood' );
+        if ( $r && ! $r->has_cap( 'upload_files' ) ) {
+            $r->add_cap( 'upload_files' );
+        }
+    }
+
+    /* ── Administrateur Fast Food (toutes agences) ── */
+    if ( ! get_role( 'sl_ff_admin' ) ) {
+        add_role( 'sl_ff_admin', 'Administrateur Fast Food', [
+            'read'                          => true,
+            'upload_files'                  => true,
+            'read_sl_repas'                 => true,
+            'edit_sl_repas'                 => true,
+            'delete_sl_repas'               => true,
+            'edit_sl_repas_items'           => true,
+            'publish_sl_repas_items'        => true,
+            'delete_sl_repas_items'         => true,
+            'edit_published_sl_repas_items' => true,
+            'edit_others_sl_repas_items'    => true,
+            'delete_others_sl_repas_items'  => true,
+            'manage_options'                => false,
+            // Capacites specifiques FF Admin
+            'sl_ff_all_agencies'            => true,  // acces toutes agences
+            'sl_ff_import'                  => true,  // importer CSV/Excel
+            'sl_ff_manage_promos'           => true,  // gerer les promos
+            'manage_sl_repas_terms'         => true,  // gerer les categories repas
+        ] );
+    } else {
+        // Mettre a jour les caps au cas ou le role existerait deja
+        $r = get_role( 'sl_ff_admin' );
+        foreach ( [
+            'read',
+            'upload_files',
+            'read_sl_repas',
+            'edit_sl_repas',
+            'delete_sl_repas',
+            'edit_sl_repas_items',
+            'edit_others_sl_repas_items',
+            'publish_sl_repas_items',
+            'read_private_sl_repas_items',
+            'delete_sl_repas_items',
+            'delete_private_sl_repas_items',
+            'delete_published_sl_repas_items',
+            'delete_others_sl_repas_items',
+            'edit_private_sl_repas_items',
+            'edit_published_sl_repas_items',
+            'sl_ff_all_agencies',
+            'sl_ff_import',
+            'sl_ff_manage_promos',
+            'manage_sl_repas_terms',
+        ] as $cap ) {
+            if ( $r && ! $r->has_cap( $cap ) ) $r->add_cap( $cap );
+        }
+    }
+
+    /* ── Accorder les caps sl_repas a l'administrateur WP ── */
+    $admin = get_role( 'administrator' );
+    if ( $admin ) {
+        $admin_caps = [
+            'read_sl_repas', 'edit_sl_repas', 'delete_sl_repas',
+            'edit_sl_repas_items', 'edit_others_sl_repas_items',
+            'publish_sl_repas_items', 'read_private_sl_repas_items',
+            'delete_sl_repas_items', 'delete_private_sl_repas_items',
+            'delete_published_sl_repas_items', 'delete_others_sl_repas_items',
+            'edit_private_sl_repas_items', 'edit_published_sl_repas_items',
+            'manage_sl_repas_terms',
+            'sl_ff_all_agencies', 'sl_ff_import', 'sl_ff_manage_promos',
+        ];
+        foreach ( $admin_caps as $cap ) {
+            if ( ! $admin->has_cap( $cap ) ) $admin->add_cap( $cap );
+        }
+    }
+}
+
+/* ============================================================
+   FILTRE user_has_cap : accorder les caps aux admins WP + FF
+   ============================================================ */
+add_filter( 'user_has_cap', 'sl_ff_grant_admin_caps', 10, 3 );
+function sl_ff_grant_admin_caps( $allcaps, $caps, $args ) {
+    $user_id = isset( $args[1] ) ? (int) $args[1] : 0;
+    $user    = $user_id ? get_userdata( $user_id ) : null;
+    $is_ff_admin = $user && in_array( 'sl_ff_admin', (array) $user->roles, true );
+
+    if ( empty( $allcaps['manage_options'] ) && ! $is_ff_admin ) return $allcaps;
+
+    $sl_caps = [
+        'read_sl_repas', 'edit_sl_repas', 'delete_sl_repas',
+        'edit_sl_repas_items', 'edit_others_sl_repas_items',
+        'publish_sl_repas_items', 'read_private_sl_repas_items',
+        'delete_sl_repas_items', 'delete_private_sl_repas_items',
+        'delete_published_sl_repas_items', 'delete_others_sl_repas_items',
+        'edit_private_sl_repas_items', 'edit_published_sl_repas_items',
+        'manage_sl_repas_terms',
+        'sl_ff_all_agencies', 'sl_ff_import', 'sl_ff_manage_promos',
+    ];
+    foreach ( $sl_caps as $cap ) {
+        $allcaps[ $cap ] = true;
+    }
+    return $allcaps;
+}
+
+/* ============================================================
+   CONNEXION : redirection vers le planning
+   (evite la redirection WooCommerce vers /my-account/)
+   ============================================================ */
+
+// Hook WordPress standard
+add_filter( 'login_redirect', 'sl_ff_login_redirect', 10, 3 );
+function sl_ff_login_redirect( $redirect_to, $requested_redirect_to, $user ) {
+    if ( ! $user || is_wp_error( $user ) ) return $redirect_to;
+    if ( user_can( $user, 'edit_sl_repas_items' ) && ! user_can( $user, 'manage_options' ) ) {
+        return admin_url( 'admin.php?page=sl-fastfood' );
+    }
+    return $redirect_to;
+}
+
+// Hook WooCommerce (formulaire de connexion front)
+add_filter( 'woocommerce_login_redirect', 'sl_ff_wc_login_redirect', 10, 2 );
+function sl_ff_wc_login_redirect( $redirect, $user ) {
+    if ( ! $user || is_wp_error( $user ) ) return $redirect;
+    if ( user_can( $user, 'edit_sl_repas_items' ) && ! user_can( $user, 'manage_options' ) ) {
+        return admin_url( 'admin.php?page=sl-fastfood' );
+    }
+    return $redirect;
+}
+
+// WooCommerce bloque par defaut l'acces au dashboard pour les non-admins
+add_filter( 'woocommerce_prevent_admin_access', 'sl_ff_wc_allow_admin_access' );
+function sl_ff_wc_allow_admin_access( $prevent ) {
+    if ( current_user_can( 'edit_sl_repas_items' ) ) return false;
+    return $prevent;
+}

@@ -1,0 +1,181 @@
+/* ══ Widget Produits Maison — Santa Lucia ════════════════════════════ */
+
+.elementor-widget-sl_produits_maison,
+.elementor-widget-sl_produits_maison > .elementor-widget-container {
+  padding: 0 !important;
+  margin:  0 !important;
+  width:   100%;
+}
+
+.slpm-section {
+  background:
+    radial-gradient(ellipse 80% 60% at 15%  10%, rgba(232,84,153,.22)  0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 90%  80%, rgba(59,84,159,.2)    0%, transparent 55%),
+    radial-gradient(ellipse 40% 40% at 50%  50%, rgba(255,210,0,.06)   0%, transparent 60%),
+    linear-gradient(160deg, #130820 0%, #09102b 45%, #060d1a 100%);
+  padding: 100px 0;
+  width: 100%;
+}
+
+/* ── En-tête ── */
+.slpm-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+.slpm-header-left { flex: 1; min-width: 240px; }
+
+.slpm-label { margin-bottom: 18px; }
+.slpm-label span  { color: #e85499 !important; }
+.slpm-label::after { background: rgba(232,84,153,.2) !important; }
+
+.slpm-titre span  { display: block; }
+.slpm-titre.ap-titre { color: #fff !important; }
+.slpm-titre em    { font-style: normal; color: #e85499; }
+.slpm-desc.ap-corps { color: rgba(255,255,255,.42) !important; }
+
+.slpm-nb-wrap { text-align: right; flex-shrink: 0; padding-bottom: 4px; }
+.slpm-nb-cat {
+  display: block;
+  font-family: Inter, sans-serif;
+  font-size: 60px; font-weight: 800;
+  color: #e85499;
+  line-height: 1; letter-spacing: -0.05em;
+}
+.slpm-nb-lbl {
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 3px; text-transform: uppercase;
+  color: rgba(255,255,255,.25);
+  font-family: Inter, sans-serif;
+}
+
+/* ── Grille ── */
+.slpm-grid-wrap { margin-top: 48px; }
+
+.slpm-row1 { display: grid; grid-template-columns: 2fr 1fr; gap: 4px; height: 460px; margin-bottom: 4px; }
+.slpm-row2 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; height: 360px; margin-bottom: 4px; }
+.slpm-row3 { height: 220px; }
+
+/* ── Carte produit ── */
+.slpm-card {
+  position: relative;
+  overflow: hidden;
+  display: block;
+  text-decoration: none;
+  height: 100%;
+  width: 100%;
+  background-color: #09102b;
+}
+
+/* Image via background-image : remplit 100% sans déformation */
+.slpm-card-bg {
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  transition: background-size .65s cubic-bezier(.25,.46,.45,.94);
+}
+.slpm-card-bg:hover {
+  background-size: 106%;
+}
+
+.slpm-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(3,7,18,.92) 0%, rgba(3,7,18,.48) 45%, rgba(3,7,18,.1) 100%);
+  transition: background .4s;
+}
+.slpm-card:hover .slpm-overlay {
+  background: linear-gradient(to top, rgba(3,7,18,.97) 0%, rgba(3,7,18,.62) 45%, rgba(3,7,18,.22) 100%);
+}
+
+.slpm-ref-badge {
+  position: absolute;
+  top: 18px; right: 18px;
+  color: #fff;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  padding: 4px 10px;
+  font-family: Inter, sans-serif;
+}
+
+.slpm-content {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 26px 26px 24px;
+}
+.slpm-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.slpm-emoji { font-size: 22px; line-height: 1; }
+.slpm-card-nom {
+  font-family: Inter, sans-serif;
+  font-size: 19px; font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+  margin: 0; line-height: 1;
+}
+.slpm-card-desc {
+  font-size: 13px;
+  color: rgba(255,255,255,.62);
+  line-height: 1.6;
+  font-family: Inter, sans-serif;
+  margin-bottom: 14px;
+  max-width: 300px;
+}
+.slpm-decouvrir {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  font-family: Inter, sans-serif;
+  border-bottom: 1px solid;
+  padding-bottom: 2px;
+  transition: gap .3s;
+}
+.slpm-card:hover .slpm-decouvrir { gap: 13px; }
+
+/* ── CTA ── */
+.slpm-cta-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 52px 20px 0;
+}
+.slpm-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  background: #e85499;
+  color: #fff;
+  text-decoration: none;
+  font-family: Inter, sans-serif;
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 3px; text-transform: uppercase;
+  padding: 20px 48px;
+  transition: background .25s, transform .2s;
+}
+.slpm-cta-btn:hover { background: #3b549f; transform: translateY(-2px); }
+.slpm-cta-btn svg   { transition: transform .3s; }
+.slpm-cta-btn:hover svg { transform: translateX(5px); }
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .slpm-row1 { grid-template-columns: 1fr !important; height: auto !important; }
+  .slpm-row1 > a { height: 300px !important; }
+  .slpm-row2 { grid-template-columns: 1fr 1fr !important; height: auto !important; }
+  .slpm-row2 > a { height: 260px !important; }
+  .slpm-row3 { height: 200px !important; }
+}
+@media (max-width: 600px) {
+  .slpm-row2 { grid-template-columns: 1fr !important; }
+  .slpm-row2 > a { height: 240px !important; }
+  .slpm-row1 > a { height: 260px !important; }
+  .slpm-row3 { height: 180px !important; }
+  .slpm-cta-btn { padding: 18px 32px; font-size: 12px; }
+  .slpm-section { padding: 72px 0; }
+}

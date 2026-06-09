@@ -1,0 +1,98 @@
+/* ══ Widget Implantations — Santa Lucia ══════════════════════════════ */
+
+.elementor-widget-sl_implantations,
+.elementor-widget-sl_implantations > .elementor-widget-container {
+  padding: 0 !important;
+  margin:  0 !important;
+  width:   100%;
+}
+
+.slimp-section {
+  background: #fff;
+  padding: 100px 0;
+  border-top: 1px solid rgba(232,84,153,.1);
+  width: 100%;
+}
+
+/* Label */
+.slimp-label { margin-bottom: 18px; }
+.slimp-titre span { display: block; }
+.slimp-titre em   { font-style: normal; color: #e85499; }
+
+.slimp-desc { margin-bottom: 60px; }
+
+/* Grille 2 villes */
+.slimp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+/* Carte ville */
+.slimp-card {
+  border: 1px solid rgba(232,84,153,.15);
+  overflow: hidden;
+}
+
+/* En-tête dark */
+.slimp-city-head {
+  background: #030712;
+  padding: 20px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.slimp-city-nom {
+  font-family: Inter, sans-serif;
+  font-size: 20px; font-weight: 700;
+  color: #fff;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.slimp-count-badge {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: #e85499;
+  border: 1px solid rgba(232,84,153,.4);
+  padding: 5px 12px;
+}
+
+/* Liste */
+.slimp-list {
+  list-style: none;
+  padding: 12px 28px 16px;
+  margin: 0;
+}
+.slimp-li {
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(232,84,153,.08);
+  font-size: 14px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.slimp-li-last { border-bottom: none; }
+
+.slimp-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: #e85499;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.slimp-ag-nom { flex: 1; }
+
+.slimp-badge {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 1px;
+  margin-left: auto;
+}
+.slimp-badge-rose { color: #e85499; }
+.slimp-badge-gris { color: #9ca3af; font-weight: 400; }
+
+/* ── Responsive ── */
+@media (max-width: 680px) {
+  .slimp-grid    { grid-template-columns: 1fr; }
+  .slimp-section { padding: 72px 0; }
+}

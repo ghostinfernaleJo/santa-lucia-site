@@ -1,0 +1,302 @@
+/* =========================================================
+   FAST FOOD ADMIN — Planning hebdomadaire
+   ========================================================= */
+
+/* Wrapper general */
+.sl-ff-planning-wrap {
+    max-width: 1100px;
+}
+
+/* En-tete */
+.sl-ff-planning-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.sl-ff-planning-header-left { flex: 1; min-width: 260px; }
+.sl-ff-planning-titre {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 6px;
+    font-size: 22px;
+}
+.sl-ff-planning-titre .dashicons {
+    font-size: 28px;
+    color: #e91e8c;
+}
+.sl-ff-subtitle {
+    color: #888;
+    margin: 0 0 4px;
+    font-size: 13px;
+}
+.sl-ff-today-badge {
+    display: inline-block;
+    background: #fce4f0;
+    color: #c01870;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-weight: 700;
+    font-size: 12px;
+    margin-left: 6px;
+}
+
+/* Filtre agence */
+.sl-ff-filter-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+}
+.sl-ff-filter-bar select {
+    padding: 6px 10px;
+    font-size: 13px;
+    min-width: 180px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+/* Message vide */
+.sl-ff-empty {
+    background: #fff;
+    padding: 40px;
+    border-radius: 10px;
+    text-align: center;
+    color: #aaa;
+    margin-top: 20px;
+    border: 1px dashed #ddd;
+}
+
+/* =========================================================
+   TABLE DE PLANNING
+   ========================================================= */
+.sl-ff-planning-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, .08);
+    font-size: 13px;
+}
+
+/* En-tete du tableau */
+.sl-ff-planning-table thead th {
+    padding: 11px 8px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #666;
+    background: #f7f7f7;
+    border-bottom: 2px solid #eee;
+    white-space: nowrap;
+}
+.sl-ff-planning-table thead th.sl-ff-col-plat {
+    text-align: left;
+    padding-left: 16px;
+    width: 230px;
+    min-width: 180px;
+}
+/* Colonne du jour en cours */
+.sl-ff-planning-table thead th.sl-ff-today-col {
+    background: #e91e8c;
+    color: #fff;
+}
+.sl-ff-today-dot {
+    display: block;
+    font-size: 7px;
+    margin-top: 2px;
+    opacity: .8;
+}
+
+/* Lignes de categorie */
+.sl-ff-planning-table .sl-ff-cat-row td {
+    padding: 9px 16px;
+    background: #f0f0f0;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: #555;
+    border-top: 2px solid #e0e0e0;
+}
+
+/* Lignes repas */
+.sl-ff-planning-table .sl-ff-meal-row td {
+    padding: 10px 8px;
+    text-align: center;
+    border-bottom: 1px solid #f2f2f2;
+    vertical-align: middle;
+}
+.sl-ff-planning-table .sl-ff-meal-row:last-child td {
+    border-bottom: none;
+}
+.sl-ff-planning-table .sl-ff-meal-row:hover td {
+    background: #fafafa;
+}
+/* Repas disponible aujourd'hui : barre rose a gauche */
+.sl-ff-planning-table .sl-ff-meal-dispo > td:first-child {
+    border-left: 4px solid #e91e8c;
+}
+.sl-ff-planning-table .sl-ff-meal-row > td:first-child {
+    border-left: 4px solid transparent;
+}
+
+/* Colonne plat (gauche) */
+.sl-ff-planning-table td.sl-ff-col-plat {
+    text-align: left;
+    padding-left: 12px;
+}
+.sl-ff-plat-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.sl-ff-plat-thumb {
+    width: 38px;
+    height: 38px;
+    border-radius: 7px;
+    background: center/cover no-repeat #f0f0f0;
+    flex-shrink: 0;
+}
+.sl-ff-plat-no-img {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    background: #fce4f0;
+}
+.sl-ff-plat-nom {
+    font-size: 13px;
+    font-weight: 600;
+    color: #222;
+    line-height: 1.3;
+}
+.sl-ff-plat-agence {
+    font-size: 11px;
+    color: #aaa;
+    margin-top: 2px;
+}
+
+/* Cellule jour — fond doux pour la colonne d'aujourd'hui */
+.sl-ff-planning-table td.sl-ff-today-col-body {
+    background: #fff0f8;
+}
+
+/* Checkbox */
+.sl-ff-cb-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+    padding: 4px 0;
+}
+.sl-ff-day-cb {
+    width: 18px;
+    height: 18px;
+    accent-color: #e91e8c;
+    cursor: pointer;
+}
+
+/* Colonne action (crayon) */
+.sl-ff-planning-table td.sl-ff-col-action,
+.sl-ff-planning-table th.sl-ff-col-action {
+    width: 28px;
+    padding: 4px;
+}
+.sl-ff-edit-btn {
+    display: inline-block;
+    font-size: 15px;
+    color: #bbb;
+    text-decoration: none;
+    padding: 3px 5px;
+    border-radius: 5px;
+    transition: color .15s, background .15s;
+}
+.sl-ff-edit-btn:hover {
+    color: #e91e8c;
+    background: #fce4f0;
+}
+
+/* Colonne statut de sauvegarde */
+.sl-ff-planning-table td.sl-ff-col-status,
+.sl-ff-planning-table th.sl-ff-col-status {
+    width: 26px;
+    padding: 4px 6px;
+}
+.sl-ff-save-icon {
+    font-size: 14px;
+    font-weight: 700;
+    display: block;
+    text-align: center;
+    min-width: 18px;
+}
+.sl-ff-save-icon.sl-ff-saving { color: #e91e8c; animation: sl-ff-spin .8s linear infinite; }
+.sl-ff-save-icon.sl-ff-saved  { color: #4caf50; }
+.sl-ff-save-icon.sl-ff-error  { color: #e53935; }
+
+@keyframes sl-ff-spin {
+    from { opacity: 1; }
+    50%  { opacity: .3; }
+    to   { opacity: 1; }
+}
+
+/* =========================================================
+   FICHE REPAS — Image simplifiee
+   ========================================================= */
+.sl-ff-image-box {
+    display: grid;
+    gap: 10px;
+}
+.sl-ff-image-preview {
+    min-height: 150px;
+    border: 1px dashed #d6d6d6;
+    border-radius: 8px;
+    background: #fafafa;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: #8a8a8a;
+    overflow: hidden;
+}
+.sl-ff-image-preview .dashicons {
+    font-size: 34px;
+    width: 34px;
+    height: 34px;
+    color: #c0c0c0;
+}
+.sl-ff-image-preview.has-image {
+    border-style: solid;
+    background: #fff;
+}
+.sl-ff-image-preview img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+.sl-ff-image-box .button {
+    width: 100%;
+    text-align: center;
+}
+.sl-ff-image-box .description {
+    margin: 0;
+    color: #777;
+}
+.column-sl_ff_image {
+    width: 76px;
+}
+.column-sl_ff_agence_col {
+    width: 130px;
+}
+.column-sl_ff_jours_col {
+    width: 220px;
+}

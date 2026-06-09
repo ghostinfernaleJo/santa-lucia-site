@@ -1,0 +1,107 @@
+/* ══ Widget Espaces Mosaïque — Santa Lucia ═══════════════════════════ */
+
+.elementor-widget-sl_espaces_mosaic,
+.elementor-widget-sl_espaces_mosaic > .elementor-widget-container {
+  padding: 0 !important;
+  margin:  0 !important;
+  width:   100%;
+}
+
+.slem-section {
+  background: #fff;
+  padding: 100px 0;
+  width: 100%;
+}
+
+/* ── En-tête ── */
+.slem-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 60px;
+}
+.slem-header-left { flex: 1; min-width: 240px; }
+
+.slem-label { margin-bottom: 18px; }
+.slem-titre span { display: block; }
+.slem-titre em   { font-style: normal; color: #e85499; }
+
+/* Bouton */
+.slem-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  background: transparent;
+  border: 2px solid #e85499;
+  color: #e85499;
+  font-family: Inter, sans-serif;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 2.5px; text-transform: uppercase;
+  padding: 14px 28px;
+  text-decoration: none;
+  transition: background .22s, color .22s;
+  margin-top: 6px;
+}
+.slem-btn:hover { background: #e85499; color: #fff; }
+.slem-btn svg   { transition: transform .3s; }
+.slem-btn:hover svg { transform: translateX(4px); }
+
+/* ── Mosaïque ── */
+.slem-mosaic {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-rows: 280px 280px;
+  gap: 4px;
+}
+.slem-cell {
+  overflow: hidden;
+  position: relative;
+  background-color: #09102b;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  transition: background-size .55s cubic-bezier(.25,.46,.45,.94);
+}
+.slem-cell:hover { background-size: 106% !important; }
+
+/* Overlay dynamique */
+.slem-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Légende */
+.slem-lbl {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 20px 18px;
+  z-index: 1;
+}
+.slem-lbl span {
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: #fff;
+}
+
+/* ── Responsive ── */
+@media (max-width: 860px) {
+  .slem-mosaic {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 220px 220px 220px;
+  }
+  .slem-cell:first-child { grid-row: auto !important; grid-column: 1 / 3; }
+}
+@media (max-width: 540px) {
+  .slem-mosaic {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+  .slem-cell              { height: 220px; }
+  .slem-cell:first-child  { height: 260px !important; grid-column: auto; }
+  .slem-header            { flex-direction: column; }
+  .slem-section           { padding: 72px 0; }
+}
