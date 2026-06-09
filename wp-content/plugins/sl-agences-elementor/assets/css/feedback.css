@@ -1,0 +1,58 @@
+/* ===== Avis & Réclamations Santa Lucia ===== */
+.slf-wrap{max-width:720px;margin:0 auto}
+.slf-form{background:#fff;border:1px solid #ececec;border-radius:14px;padding:26px;box-shadow:0 4px 18px rgba(0,0,0,.05)}
+.slf-row{margin-bottom:18px}
+.slf-grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.slf-label{display:block;font-weight:600;color:#2b2b2b;margin-bottom:7px;font-size:14px}
+.slf-req{color:#e6007e}
+.slf-form input[type=text],.slf-form input[type=email],.slf-form input[type=tel],.slf-form select,.slf-form textarea{
+  width:100%;border:1px solid #dcdcdc;border-radius:9px;padding:11px 13px;font-size:14px;font-family:inherit;
+  background:#fafafa;transition:border-color .15s,background .15s;box-sizing:border-box}
+.slf-form input:focus,.slf-form select:focus,.slf-form textarea:focus{outline:none;border-color:#e6007e;background:#fff}
+.slf-form textarea{resize:vertical;min-height:110px}
+.slf-hint{margin:6px 0 0;font-size:12px;color:#9a9a9a}
+
+/* Chips type */
+.slf-chips{display:flex;flex-wrap:wrap;gap:9px}
+.slf-chip{position:relative;cursor:pointer}
+.slf-chip input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.slf-chip span{display:inline-block;padding:9px 16px;border:1.5px solid #e2e2e2;border-radius:999px;font-size:13.5px;color:#555;transition:all .15s;background:#fff}
+.slf-chip input:checked+span{background:#e6007e;border-color:#e6007e;color:#fff;font-weight:600}
+.slf-chip span:hover{border-color:#e6007e;color:#e6007e}
+.slf-chip input:checked+span:hover{color:#fff}
+
+/* Étoiles */
+.slf-stars{display:inline-flex;flex-direction:row-reverse;gap:4px}
+.slf-stars input{display:none}
+.slf-stars label{color:#dcdcdc;font-size:30px;line-height:1;cursor:pointer;transition:color .12s}
+.slf-stars input:checked~label,.slf-stars label:hover,.slf-stars label:hover~label{color:#f5a623}
+
+/* Consentement / actions */
+.slf-consent{display:flex;align-items:flex-start;gap:9px;font-size:13.5px;color:#555;margin:6px 0 18px;cursor:pointer}
+.slf-consent input{margin-top:3px}
+.slf-actions{text-align:center}
+.slf-btn{background:#e6007e;color:#fff;border:none;border-radius:999px;padding:14px 34px;font-size:15px;font-weight:700;
+  cursor:pointer;transition:background .15s,transform .1s;box-shadow:0 6px 16px rgba(230,0,126,.28)}
+.slf-btn:hover{background:#c70069}
+.slf-btn:active{transform:translateY(1px)}
+.slf-btn:disabled{opacity:.6;cursor:default}
+
+/* Résultat */
+.slf-feedback{margin-top:16px;padding:0;font-size:14.5px;text-align:center;border-radius:9px}
+.slf-feedback.slf-ok{padding:16px;background:#e9f9ef;color:#1b7e44;border:1px solid #bfe9cd}
+.slf-feedback.slf-err{padding:13px;background:#fdecec;color:#c0392b;border:1px solid #f3c4c0}
+
+/* Témoignages */
+.slf-temoignages{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.slf-temoignage{background:#fff;border:1px solid #eee;border-radius:12px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.04)}
+.slf-temoignage-note{color:#f5a623;font-size:18px;margin-bottom:8px;letter-spacing:1px}
+.slf-temoignage-note .slf-star-off{color:#e0e0e0}
+.slf-temoignage-msg{font-size:14px;color:#444;line-height:1.55;margin:0 0 10px;font-style:italic}
+.slf-temoignage-auteur{font-size:13px;font-weight:700;color:#2b2b2b;margin:0}
+.slf-temoignage-auteur span{font-weight:400;color:#999}
+
+@media(max-width:680px){
+  .slf-grid2{grid-template-columns:1fr}
+  .slf-temoignages{grid-template-columns:1fr}
+  .slf-form{padding:20px}
+}
