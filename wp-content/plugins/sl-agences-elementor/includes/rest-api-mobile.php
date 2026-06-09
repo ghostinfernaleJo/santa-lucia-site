@@ -62,6 +62,24 @@ function slm_register_rest_routes() {
             'per_page'  => [ 'description' => 'Éléments par page (1-100, défaut 50).', 'type' => 'integer' ],
         ],
     ] );
+
+    register_rest_route( $ns, '/promotions/campagnes', [
+        'methods'             => 'GET',
+        'callback'            => 'slm_rest_promo_campagnes',
+        'permission_callback' => $open,
+    ] );
+
+    register_rest_route( $ns, '/promotions', [
+        'methods'             => 'GET',
+        'callback'            => 'slm_rest_promotions',
+        'permission_callback' => $open,
+        'args'                => [
+            'campagne' => [ 'description' => 'ID d\'une campagne (sl_campagne_woo) pour ne garder que ses produits.', 'type' => 'integer' ],
+            'category' => [ 'description' => 'ID de catégorie produit WooCommerce (product_cat).', 'type' => 'integer' ],
+            'page'     => [ 'description' => 'Page (défaut 1).', 'type' => 'integer' ],
+            'per_page' => [ 'description' => 'Éléments par page (1-100, défaut 50).', 'type' => 'integer' ],
+        ],
+    ] );
 }
 
 /* ---------- Helpers ---------- */
@@ -81,6 +99,43 @@ function slm_paginated( $items, $query, $page, $per ) {
             'total_pages' => (int) $query->max_num_pages,
         ],
     ] );
+}
+function slm_empty_page( $page, $per ) {
+    return rest_ensure_response( [
+        'items'      => [],
+        'pagination' => [ 'total' => 0, 'page' => (int) $page, 'per_page' => (int) $per, 'total_pages' => 0 ],
+    ] );
+}
+
+/**
+ * Objet image multi-tailles à partir d'un ID d'attachement (ou null).
+ */
+function slm_image( $att_id ) {
+    $att_id = (int) $att_id;
+    if ( ! $att_id ) return null;
+    $full = wp_get_attachment_image_url( $att_id, 'full' );
+    if ( ! $full ) return null;
+    return [
+        'thumbnail' => wp_get_attachment_image_url( $att_id, 'thumbnail' ) ?: $full,
+        'medium'    => wp_get_attachment_image_url( $att_id, 'medium' ) ?: $full,
+        'large'     => wp_get_attachment_image_url( $att_id, 'large' ) ?: $full,
+        'full'      => $full,
+    ];
+}
+
+/**
+ * Image d'un plat Fast Food : résolue par nom de plat (option sl_ff_dish_images),
+ * avec repli sur l'image à la une du post. Renvoie un objet multi-tailles ou null.
+ */
+function slm_ff_image( $post_id ) {
+    $att = 0;
+    if ( function_exists( 'sl_ff_dish_image_id' ) ) {
+        $att = (int) sl_ff_dish_image_id( get_the_title( $post_id ) );
+    }
+    if ( ! $att ) {
+        $att = (int) get_post_thumbnail_id( $post_id );
+    }
+    return slm_image( $att );
 }
 
 /* ---------- Agences ---------- */
@@ -171,10 +226,6 @@ function slm_format_repas( $post ) {
         'fin'   => get_post_meta( $id, '_sl_ff_promo_fin', true ) ?: null,
     ] : null;
 
-    $img = function_exists( 'sl_ff_item_image_url' )
-        ? sl_ff_item_image_url( $id, 'large' )
-        : get_the_post_thumbnail_url( $id, 'large' );
-
     $today = function_exists( 'sl_ff_today_jour' ) ? sl_ff_today_jour() : '';
 
     return [
@@ -185,7 +236,7 @@ function slm_format_repas( $post ) {
         'jours'                 => array_values( $jours ),
         'disponible_aujourdhui' => $today ? in_array( $today, $jours, true ) : null,
         'promo'                 => $promo,
-        'image'                 => $img ?: null,
+        'image'                 => slm_ff_image( $id ),
     ];
 }
 
@@ -259,8 +310,6 @@ function slm_format_bon_plan( $post ) {
     $ags  = wp_get_post_terms( $id, 'sl_agence_promo' );
     $agence = ( ! is_wp_error( $ags ) && $ags ) ? $ags[0]->slug : ( get_post_meta( $id, 'sl_agence_assignee', true ) ?: null );
 
-    $img = get_the_post_thumbnail_url( $id, 'large' );
-
     return [
         'id'            => $id,
         'titre'         => get_the_title( $id ),
@@ -272,6 +321,109 @@ function slm_format_bon_plan( $post ) {
         'economie'      => (float) get_post_meta( $id, '_sl_bp_save', true ),
         'badge'         => get_post_meta( $id, '_sl_bp_badge_type', true ) ?: null,
         'date_fin'      => get_post_meta( $id, '_sl_bp_date_fin', true ) ?: null,
-        'image'         => $img ?: null,
+        'image'         => slm_image( get_post_thumbnail_id( $id ) ),
+    ];
+}
+
+/* ---------- Promotions (produits WooCommerce en campagne + soldes) ---------- */
+
+/** Liste des campagnes (sl_campagne_woo) avec leur catégorie produit liée. */
+function slm_rest_promo_campagnes() {
+    $today = current_time( 'Y-m-d' );
+    $camps = get_posts( [ 'post_type' => 'sl_campagne_woo', 'post_status' => 'publish', 'posts_per_page' => -1, 'orderby' => 'date', 'order' => 'DESC' ] );
+    $out = [];
+    foreach ( $camps as $c ) {
+        $dd = get_post_meta( $c->ID, '_sl_cwoo_date_debut', true );
+        $df = get_post_meta( $c->ID, '_sl_cwoo_date_fin', true );
+        $active = ( empty( $dd ) || $dd <= $today ) && ( empty( $df ) || $df >= $today );
+        $out[] = [
+            'id'           => $c->ID,
+            'titre'        => $c->post_title,
+            'categorie_id' => (int) get_post_meta( $c->ID, '_sl_cwoo_term_id', true ),
+            'date_debut'   => $dd ?: null,
+            'date_fin'     => $df ?: null,
+            'active'       => (bool) $active,
+        ];
+    }
+    return rest_ensure_response( $out );
+}
+
+/** Produits en promotion : campagnes actives + produits en solde natif WooCommerce. */
+function slm_rest_promotions( $req ) {
+    list( $page, $per ) = slm_page_args( $req );
+    $cat      = (int) $req->get_param( 'category' );
+    $campagne = (int) $req->get_param( 'campagne' );
+
+    $ids = [];
+    if ( function_exists( 'sl_cwoo_get_active_campaign_product_ids' ) ) {
+        $ids = array_merge( $ids, (array) sl_cwoo_get_active_campaign_product_ids() );
+    }
+    if ( function_exists( 'sl_cwoo_get_native_sale_product_ids' ) ) {
+        $ids = array_merge( $ids, (array) sl_cwoo_get_native_sale_product_ids() );
+    }
+    $ids = array_values( array_unique( array_map( 'intval', $ids ) ) );
+    if ( empty( $ids ) ) {
+        return slm_empty_page( $page, $per );
+    }
+
+    if ( $campagne ) {
+        $term = (int) get_post_meta( $campagne, '_sl_cwoo_term_id', true );
+        if ( $term ) $cat = $term;
+    }
+
+    $args = [
+        'post_type'      => 'product',
+        'post_status'    => 'publish',
+        'post__in'       => $ids,
+        'posts_per_page' => $per,
+        'paged'          => $page,
+        'orderby'        => 'post__in',
+    ];
+    if ( $cat ) {
+        $args['tax_query'] = [ [ 'taxonomy' => 'product_cat', 'field' => 'term_id', 'terms' => $cat ] ];
+    }
+
+    $q     = new WP_Query( $args );
+    $items = array_map( 'slm_format_product', $q->posts );
+    return slm_paginated( $items, $q, $page, $per );
+}
+
+function slm_format_product( $post ) {
+    $id = $post->ID;
+    $reg = $sale = $price = null;
+    $on_sale = false;
+
+    if ( function_exists( 'wc_get_product' ) ) {
+        $p = wc_get_product( $id );
+        if ( $p ) {
+            $reg     = ( $p->get_regular_price() !== '' ) ? (float) $p->get_regular_price() : null;
+            $sale    = ( $p->get_sale_price() !== '' ) ? (float) $p->get_sale_price() : null;
+            $price   = ( $p->get_price() !== '' ) ? (float) $p->get_price() : null;
+            $on_sale = $p->is_on_sale();
+        }
+    } else {
+        $reg   = (float) get_post_meta( $id, '_regular_price', true ) ?: null;
+        $sale  = (float) get_post_meta( $id, '_sale_price', true ) ?: null;
+        $price = (float) get_post_meta( $id, '_price', true ) ?: null;
+        $on_sale = ( $sale && $reg && $sale < $reg );
+    }
+
+    $reduction = ( $reg && $sale && $sale < $reg ) ? (int) round( 100 * ( $reg - $sale ) / $reg ) : 0;
+
+    $cats = wp_get_post_terms( $id, 'product_cat' );
+    $catlist = ( ! is_wp_error( $cats ) ) ? array_map( function ( $t ) {
+        return [ 'id' => $t->term_id, 'slug' => $t->slug, 'nom' => $t->name ];
+    }, $cats ) : [];
+
+    return [
+        'id'            => $id,
+        'titre'         => get_the_title( $id ),
+        'prix_avant'    => $reg,
+        'prix_apres'    => ( $sale !== null ? $sale : $price ),
+        'reduction_pct' => $reduction,
+        'en_promo'      => (bool) $on_sale,
+        'categories'    => $catlist,
+        'image'         => slm_image( get_post_thumbnail_id( $id ) ),
+        'permalink'     => get_permalink( $id ),
     ];
 }

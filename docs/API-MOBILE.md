@@ -24,7 +24,16 @@ Les listes paginées renvoient :
 ```
 Paramètres de pagination communs : `page` (défaut 1), `per_page` (1–100, défaut 50).
 
-Les images sont des URL absolues (ou `null` si absente). Les prix sont en **FCFA** (nombres).
+Les **images** sont renvoyées en objet multi-tailles (ou `null` si absente) :
+```json
+"image": {
+  "thumbnail": "https://.../img-150x150.jpg",
+  "medium":    "https://.../img-300x200.jpg",
+  "large":     "https://.../img-1024x683.jpg",
+  "full":      "https://.../img.jpg"
+}
+```
+Les prix sont en **FCFA** (nombres).
 
 ---
 
@@ -79,7 +88,7 @@ Liste des agences (partagées entre Fast Food et Bons Plans).
   "jours": ["lundi","mardi","mercredi"],
   "disponible_aujourdhui": true,
   "promo": { "prix": 2500, "debut": "2026-06-01", "fin": "2026-06-30" },
-  "image": "https://complexesantalucia.com/wp-content/uploads/.../plat.jpg"
+  "image": { "thumbnail": "...", "medium": "...", "large": "...", "full": "..." }
 }
 ```
 - `jours` : jours où le plat est proposé. `disponible_aujourdhui` : raccourci basé sur la date serveur.
@@ -122,10 +131,46 @@ Liste des agences (partagées entre Fast Food et Bons Plans).
   "economie": 1000,
   "badge": "TOP VENTE",
   "date_fin": "2026-06-30",
-  "image": "https://complexesantalucia.com/wp-content/uploads/.../vin.jpg"
+  "image": { "thumbnail": "...", "medium": "...", "large": "...", "full": "..." }
 }
 ```
 - `actifs=true` filtre par `date_fin >= aujourd'hui` (ou sans date de fin).
+
+---
+
+## 4. Promotions (produits WooCommerce)
+
+Produits en promotion = produits des **campagnes actives** + produits **en solde** WooCommerce.
+
+### 4.1 Campagnes
+`GET /promotions/campagnes`
+```json
+[ { "id": 1116, "titre": "Foire aux Vins", "categorie_id": 87, "date_debut": "2026-06-10", "date_fin": "2026-06-25", "active": true } ]
+```
+
+### 4.2 Produits en promo
+`GET /promotions`
+
+| Param | Type | Description |
+|---|---|---|
+| `campagne` | int | ID de campagne → ne garde que ses produits. Optionnel. |
+| `category` | int | ID de catégorie produit WooCommerce (`product_cat`). Optionnel. |
+| `page`, `per_page` | int | Pagination. |
+
+**Élément `items[]` :**
+```json
+{
+  "id": 5388,
+  "titre": "Vin Santero Moscato 75cl",
+  "prix_avant": 9500,
+  "prix_apres": 8500,
+  "reduction_pct": 11,
+  "en_promo": true,
+  "categories": [ { "id": 87, "slug": "foire-aux-vins", "nom": "Foire aux Vins" } ],
+  "image": { "thumbnail": "...", "medium": "...", "large": "...", "full": "..." },
+  "permalink": "https://complexesantalucia.com/produit/vin-santero-moscato/"
+}
+```
 
 ---
 
@@ -151,3 +196,5 @@ Liste des agences (partagées entre Fast Food et Bons Plans).
 | GET | `/fastfood/menu` | Plats (filtres : agence, jour, catégorie) |
 | GET | `/bons-plans/categories` | Catégories Bons Plans |
 | GET | `/bons-plans` | Offres (filtres : agence, catégorie, tri, actifs) |
+| GET | `/promotions/campagnes` | Campagnes WooCommerce |
+| GET | `/promotions` | Produits en promo (filtres : campagne, catégorie) |
