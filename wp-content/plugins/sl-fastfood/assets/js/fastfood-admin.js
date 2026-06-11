@@ -48,7 +48,7 @@ jQuery(function ($) {
     /* ================================================================
        PROMOTIONS — Auto-sauvegarde quand un champ change
     ================================================================ */
-    $(document).on('change', '.sl-ff-promo-pct, .sl-ff-promo-debut, .sl-ff-promo-fin', function () {
+    $(document).on('change', '.sl-ff-promo-pct, .sl-ff-promo-debut, .sl-ff-promo-fin, .sl-ff-promo-prix, .sl-ff-promo-prix-promo', function () {
         var $row  = $(this).closest('tr.sl-ff-meal-row');
         var id    = $row.data('id');
         var $icon = $row.find('.sl-ff-save-icon');
@@ -62,9 +62,11 @@ jQuery(function ($) {
                 action:      'sl_ff_save_promo',
                 nonce:       slFF.nonce,
                 post_id:     id,
-                promo_pct:   $row.find('.sl-ff-promo-pct').val()   || 0,
-                promo_debut: $row.find('.sl-ff-promo-debut').val()  || '',
-                promo_fin:   $row.find('.sl-ff-promo-fin').val()    || ''
+                promo_pct:   $row.find('.sl-ff-promo-pct').val()        || 0,
+                prix:        $row.find('.sl-ff-promo-prix').val()       || 0,
+                prix_promo:  $row.find('.sl-ff-promo-prix-promo').val() || 0,
+                promo_debut: $row.find('.sl-ff-promo-debut').val()      || '',
+                promo_fin:   $row.find('.sl-ff-promo-fin').val()        || ''
             })
             .done(function (res) {
                 if (res.success) {

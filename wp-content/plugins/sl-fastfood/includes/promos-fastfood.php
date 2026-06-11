@@ -45,7 +45,7 @@ function sl_ff_promos_page() {
     }
     ksort( $grouped );
 
-    $nb_cols = $is_admin ? 6 : 5; // Plat, Remise%, Debut, Fin, Statut, [Agence si admin]
+    $nb_cols = $is_admin ? 8 : 7; // Plat, Prix, PrixPromo, Remise%, Debut, Fin, Statut, [Agence si admin]
     ?>
     <div class="wrap sl-ff-planning-wrap">
 
@@ -92,6 +92,8 @@ function sl_ff_promos_page() {
                     <?php if ( $is_admin ) : ?>
                     <th>Agence</th>
                     <?php endif; ?>
+                    <th>Prix&nbsp;actuel&nbsp;(FCFA)</th>
+                    <th>Prix&nbsp;promo&nbsp;(FCFA)</th>
                     <th>Remise&nbsp;(%)</th>
                     <th>D&eacute;but</th>
                     <th>Fin</th>
@@ -108,6 +110,8 @@ function sl_ff_promos_page() {
                     $agence_r    = get_post_meta( $ri->ID, '_sl_ff_agence', true );
                     $thumb_url   = get_the_post_thumbnail_url( $ri->ID, 'thumbnail' );
                     $promo_pct   = (int) get_post_meta( $ri->ID, '_sl_ff_promo_prix',  true );
+                    $prix        = (int) get_post_meta( $ri->ID, '_sl_ff_prix',        true );
+                    $prix_promo  = (int) get_post_meta( $ri->ID, '_sl_ff_prix_promo',  true );
                     $promo_debut = get_post_meta( $ri->ID, '_sl_ff_promo_debut', true );
                     $promo_fin   = get_post_meta( $ri->ID, '_sl_ff_promo_fin',   true );
                     $promo_info  = sl_ff_get_promo_info( $ri->ID );
@@ -133,11 +137,27 @@ function sl_ff_promos_page() {
                     <td style="font-size:12px;color:#888;"><?php echo esc_html( sl_ff_agency_name( $agence_r ) ); ?></td>
                     <?php endif; ?>
 
+                    <!-- Prix actuel -->
+                    <td>
+                        <input type="number" class="sl-ff-promo-prix"
+                               value="<?php echo esc_attr( $prix ?: '' ); ?>"
+                               min="0" step="50" placeholder="—"
+                               style="width:90px;text-align:center;padding:4px 6px;">
+                    </td>
+
+                    <!-- Prix promo -->
+                    <td>
+                        <input type="number" class="sl-ff-promo-prix-promo"
+                               value="<?php echo esc_attr( $prix_promo ?: '' ); ?>"
+                               min="0" step="50" placeholder="—"
+                               style="width:90px;text-align:center;padding:4px 6px;">
+                    </td>
+
                     <!-- Remise % -->
                     <td>
                         <input type="number" class="sl-ff-promo-pct"
                                value="<?php echo esc_attr( $promo_pct ?: '' ); ?>"
-                               min="0" max="100" placeholder="0"
+                               min="0" max="100" placeholder="auto"
                                style="width:60px;text-align:center;padding:4px 6px;">
                         <span style="font-size:12px;color:#888;">%</span>
                     </td>
@@ -159,8 +179,11 @@ function sl_ff_promos_page() {
                     <!-- Statut -->
                     <td>
                         <?php if ( $is_active ) : ?>
-                        <span class="sl-ff-promo-badge-actif">&#10003; Actif -<?php echo $promo_info['pct_reduction']; ?>%</span>
-                        <?php elseif ( $promo_pct > 0 ) : ?>
+                        <span class="sl-ff-promo-badge-actif">&#10003; Actif
+                            <?php if ( $promo_info['pct_reduction'] > 0 ) echo ' -' . (int) $promo_info['pct_reduction'] . '%'; ?>
+                            <?php if ( $promo_info['prix_promo'] > 0 ) echo ' ' . esc_html( sl_ff_format_prix( $promo_info['prix_promo'] ) ); ?>
+                        </span>
+                        <?php elseif ( $promo_pct > 0 || $prix_promo > 0 ) : ?>
                         <span style="font-size:12px;color:#aaa;">&#9679; Planifie</span>
                         <?php else : ?>
                         <span style="font-size:12px;color:#ccc;">&#8212; Aucune</span>
@@ -206,30 +229,59 @@ function sl_ff_ajax_save_promo() {
         wp_send_json_error( 'Acces refuse' );
     }
 
-    $post_id    = intval( $_POST['post_id'] ?? 0 );
-    $promo_pct  = intval( $_POST['promo_pct']   ?? 0 );
+    $post_id     = intval( $_POST['post_id'] ?? 0 );
+    $promo_pct   = intval( $_POST['promo_pct']  ?? 0 );
+    $prix        = intval( $_POST['prix']       ?? 0 );
+    $prix_promo  = intval( $_POST['prix_promo'] ?? 0 );
     $promo_debut = sanitize_text_field( $_POST['promo_debut'] ?? '' );
     $promo_fin   = sanitize_text_field( $_POST['promo_fin']   ?? '' );
 
     if ( ! $post_id ) wp_send_json_error( 'ID invalide' );
 
-    // Verifier l'acces a ce repas
+    // Verifier l'acces a ce repas (multi-agences : matcher n'importe quelle ligne)
     if ( ! current_user_can( 'manage_options' ) && ! current_user_can( 'sl_ff_all_agencies' ) ) {
-        $agence_user = get_user_meta( get_current_user_id(), '_sl_agence_ff', true );
-        $agence_post = get_post_meta( $post_id, '_sl_ff_agence', true );
-        if ( $agence_user !== $agence_post ) wp_send_json_error( 'Acces refuse' );
+        $agence_user  = get_user_meta( get_current_user_id(), '_sl_agence_ff', true );
+        $agences_post = (array) get_post_meta( $post_id, '_sl_ff_agence' );
+        if ( ! $agence_user || ! in_array( $agence_user, $agences_post, true ) ) {
+            wp_send_json_error( 'Acces refuse' );
+        }
     }
 
-    if ( $promo_pct > 0 ) {
-        update_post_meta( $post_id, '_sl_ff_promo_prix',  $promo_pct );
+    // Prix actuel : indépendant de la promo (affiché en permanence sur le site)
+    if ( $prix > 0 ) {
+        update_post_meta( $post_id, '_sl_ff_prix', $prix );
+    } else {
+        delete_post_meta( $post_id, '_sl_ff_prix' );
+    }
+
+    // Promo = remise % et/ou prix promo, avec période
+    if ( $promo_pct > 0 || $prix_promo > 0 ) {
+        if ( $promo_pct > 0 ) {
+            update_post_meta( $post_id, '_sl_ff_promo_prix', $promo_pct );
+        } else {
+            delete_post_meta( $post_id, '_sl_ff_promo_prix' );
+        }
+        if ( $prix_promo > 0 ) {
+            update_post_meta( $post_id, '_sl_ff_prix_promo', $prix_promo );
+        } else {
+            delete_post_meta( $post_id, '_sl_ff_prix_promo' );
+        }
         update_post_meta( $post_id, '_sl_ff_promo_debut', $promo_debut );
         update_post_meta( $post_id, '_sl_ff_promo_fin',   $promo_fin );
     } else {
         delete_post_meta( $post_id, '_sl_ff_promo_prix' );
+        delete_post_meta( $post_id, '_sl_ff_prix_promo' );
         delete_post_meta( $post_id, '_sl_ff_promo_debut' );
         delete_post_meta( $post_id, '_sl_ff_promo_fin' );
     }
 
+    if ( function_exists( 'sl_ff_bump_menu_cache' ) ) sl_ff_bump_menu_cache();
+
     $promo_info = sl_ff_get_promo_info( $post_id );
-    wp_send_json_success( [ 'est_promo' => $promo_info['est_promo'], 'pct' => $promo_info['pct_reduction'] ] );
+    wp_send_json_success( [
+        'est_promo'  => $promo_info['est_promo'],
+        'pct'        => $promo_info['pct_reduction'],
+        'prix'       => $promo_info['prix'],
+        'prix_promo' => $promo_info['prix_promo'],
+    ] );
 }

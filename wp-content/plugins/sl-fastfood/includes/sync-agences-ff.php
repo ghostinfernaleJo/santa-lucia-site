@@ -24,6 +24,43 @@ function sl_ff_city_map() {
 }
 
 /* ============================================================
+   JOURNAL DES OPÉRATIONS (option, 50 dernières entrées)
+   ============================================================ */
+function sl_ff_sync_log_get() {
+    return (array) get_option( 'sl_ff_sync_log', [] );
+}
+function sl_ff_sync_log_start( $job, $action, $source, $targets, $total ) {
+    $log = sl_ff_sync_log_get();
+    $u   = wp_get_current_user();
+    $log[] = [
+        'job'     => $job,
+        'date'    => current_time( 'Y-m-d H:i' ),
+        'user'    => ( $u && $u->exists() ) ? $u->display_name : '?',
+        'action'  => $action,
+        'source'  => $source,
+        'targets' => $targets,
+        'total'   => (int) $total,
+        'done1'   => 0,
+        'done2'   => 0,
+        'fini'    => false,
+    ];
+    if ( count( $log ) > 50 ) $log = array_slice( $log, -50 );
+    update_option( 'sl_ff_sync_log', $log, false );
+}
+function sl_ff_sync_log_progress( $job, $d1, $d2, $fini ) {
+    $log = sl_ff_sync_log_get();
+    for ( $i = count( $log ) - 1; $i >= 0; $i-- ) {
+        if ( $log[ $i ]['job'] === $job ) {
+            $log[ $i ]['done1'] += (int) $d1;
+            $log[ $i ]['done2'] += (int) $d2;
+            if ( $fini ) $log[ $i ]['fini'] = true;
+            break;
+        }
+    }
+    update_option( 'sl_ff_sync_log', $log, false );
+}
+
+/* ============================================================
    MENU ADMIN (prio 1000 : après sl_ff_build_menu qui tourne à 999)
    ============================================================ */
 add_action( 'admin_menu', 'sl_ff_sync_menu', 1000 );
@@ -147,6 +184,31 @@ function sl_ff_sync_page() {
 
             <div id="sl-ff-sync-progress" style="display:none;"></div>
         </div>
+
+        <?php $jlog = array_reverse( array_slice( sl_ff_sync_log_get(), -12 ) ); if ( $jlog ) : ?>
+        <div class="sl-ff-sync-card" style="margin-top:18px;">
+            <h2>Journal des opérations (12 dernières)</h2>
+            <table class="widefat striped" style="margin-top:8px;">
+                <thead><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Source</th><th>Cibles</th><th>Résultat</th></tr></thead>
+                <tbody>
+                <?php foreach ( $jlog as $e ) : ?>
+                    <tr>
+                        <td><?php echo esc_html( $e['date'] ); ?></td>
+                        <td><?php echo esc_html( $e['user'] ); ?></td>
+                        <td><?php echo $e['action'] === 'desactivation'
+                            ? '<span style="color:#b32d2e;font-weight:600;">Désactivation</span>'
+                            : '<span style="color:#2271b1;font-weight:600;">Activation</span>'; ?></td>
+                        <td><?php echo esc_html( $e['source'] ); ?></td>
+                        <td><?php echo (int) count( (array) $e['targets'] ); ?> agence(s)</td>
+                        <td><?php echo ! empty( $e['fini'] )
+                            ? esc_html( $e['done1'] . ' traités, ' . $e['done2'] . ' déjà OK' )
+                            : '<em>interrompu (' . (int) ( $e['done1'] + $e['done2'] ) . '/' . (int) $e['total'] . ')</em>'; ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
     </div>
 
     <style>
@@ -372,6 +434,7 @@ function sl_ff_ajax_sync_start() {
 
     $job = 'sl_ff_syn_' . wp_generate_password( 12, false );
     set_transient( $job, $units, HOUR_IN_SECONDS );
+    sl_ff_sync_log_start( $job, 'activation', $source, $targets, count( $units ) );
 
     wp_send_json_success( [
         'job'   => $job,
@@ -416,6 +479,8 @@ function sl_ff_ajax_sync_chunk() {
     if ( $done ) {
         delete_transient( $job );
     }
+    if ( function_exists( 'sl_ff_bump_menu_cache' ) ) sl_ff_bump_menu_cache();
+    sl_ff_sync_log_progress( $job, $done1, $done2, $done );
 
     wp_send_json_success( [
         'done1'  => $done1,
@@ -479,6 +544,7 @@ function sl_ff_ajax_deact_start() {
 
     $job = 'sl_ff_dea_' . wp_generate_password( 12, false );
     set_transient( $job, $units, HOUR_IN_SECONDS );
+    sl_ff_sync_log_start( $job, 'desactivation', $source, $targets, count( $units ) );
 
     wp_send_json_success( [ 'job' => $job, 'total' => count( $units ) ] );
 }
@@ -518,6 +584,8 @@ function sl_ff_ajax_deact_chunk() {
     $next = $offset + count( $slice );
     $done = ( $next >= $total );
     if ( $done ) delete_transient( $job );
+    if ( function_exists( 'sl_ff_bump_menu_cache' ) ) sl_ff_bump_menu_cache();
+    sl_ff_sync_log_progress( $job, $done1, $done2, $done );
 
     wp_send_json_success( [
         'done1'  => $done1,

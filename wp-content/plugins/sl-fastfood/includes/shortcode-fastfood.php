@@ -36,7 +36,8 @@ function sl_ff_shortcode( $atts ) {
     $share_url   = add_query_arg( [ 'agence' => $agence, 'vue' => 'fastfood' ], get_permalink() );
     $share_text  = 'Menu Fast Food du ' . date_i18n( 'd/m/Y', strtotime( $today ) ) . ( $agence_nom ? ' - ' . $agence_nom : '' );
 
-    ob_start(); ?>
+    ob_start();
+    echo sl_ff_prix_css(); ?>
     <div class="sl-ff-wrap" id="<?php echo esc_attr( $uid ); ?>" data-agence="<?php echo esc_attr( $agence ); ?>">
 
         <!-- En-tete -->
@@ -108,6 +109,7 @@ function sl_ff_shortcode( $atts ) {
                             <?php if ( $desc ) : ?>
                             <p class="sl-ff-item-desc"><?php echo esc_html( $desc ); ?></p>
                             <?php endif; ?>
+                            <?php echo sl_ff_prix_html( $promo ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
                         </div>
                         <span class="sl-ff-dispo-ok">&#10003; Disponible</span>
                     </div>
@@ -144,24 +146,31 @@ function sl_ff_browser_shortcode( $atts ) {
         $agence_active = $agences[0]->slug;
     }
 
-    // Compter les repas disponibles aujourd'hui par agence (via _sl_ff_jours)
-    $counts = [];
-    foreach ( $agences as $a ) {
-        $n = count( get_posts( [
-            'post_type'      => 'sl_repas',
-            'post_status'    => 'publish',
-            'posts_per_page' => -1,
-            'fields'         => 'ids',
-            'meta_query'     => [
-                'relation' => 'AND',
-                sl_ff_day_meta_query( $today_jour ),
-                sl_ff_agency_meta_query( $a->slug ),
-            ],
-        ] ) );
-        $counts[ $a->slug ] = $n;
+    // Compter les repas disponibles aujourd'hui par agence (via _sl_ff_jours).
+    // 18 requêtes coûteuses → mises en cache (même invalidation que le menu).
+    $ckey   = 'sl_ff_counts_' . sl_ff_menu_cache_ver() . '_' . md5( current_time( 'Y-m-d' ) );
+    $counts = get_transient( $ckey );
+    if ( ! is_array( $counts ) ) {
+        $counts = [];
+        foreach ( $agences as $a ) {
+            $n = count( get_posts( [
+                'post_type'      => 'sl_repas',
+                'post_status'    => 'publish',
+                'posts_per_page' => -1,
+                'fields'         => 'ids',
+                'meta_query'     => [
+                    'relation' => 'AND',
+                    sl_ff_day_meta_query( $today_jour ),
+                    sl_ff_agency_meta_query( $a->slug ),
+                ],
+            ] ) );
+            $counts[ $a->slug ] = $n;
+        }
+        set_transient( $ckey, $counts, 6 * HOUR_IN_SECONDS );
     }
 
-    ob_start(); ?>
+    ob_start();
+    echo sl_ff_prix_css(); ?>
     <div class="sl-ff-browser" data-ajaxurl="<?php echo esc_attr( admin_url( 'admin-ajax.php' ) ); ?>"
          data-nonce="<?php echo esc_attr( wp_create_nonce( 'sl_ff_get_menu' ) ); ?>">
 
@@ -244,6 +253,14 @@ function sl_ff_browser_shortcode( $atts ) {
 function sl_ff_render_menu_html( $agence, $date = '' ) {
     $today_jour = sl_ff_today_jour();
 
+    // Cache : ce HTML est demandé par chaque visiteur via admin-ajax
+    // (non cacheable par Varnish). Invalidé par bump de version.
+    $ckey   = sl_ff_menu_cache_key( $agence );
+    $cached = get_transient( $ckey );
+    if ( $cached !== false ) {
+        return $cached;
+    }
+
     $repas = get_posts( [
         'post_type'      => 'sl_repas',
         'post_status'    => 'publish',
@@ -258,7 +275,9 @@ function sl_ff_render_menu_html( $agence, $date = '' ) {
     ] );
 
     if ( empty( $repas ) ) {
-        return '<div class="sl-ff-vide"><span class="sl-ff-vide-icon">&#127869;</span><p>Aucun plat disponible aujourd&#39;hui pour cette agence.</p></div>';
+        $vide = '<div class="sl-ff-vide"><span class="sl-ff-vide-icon">&#127869;</span><p>Aucun plat disponible aujourd&#39;hui pour cette agence.</p></div>';
+        set_transient( $ckey, $vide, 6 * HOUR_IN_SECONDS );
+        return $vide;
     }
 
     $grouped = [];
@@ -300,11 +319,49 @@ function sl_ff_render_menu_html( $agence, $date = '' ) {
             if ( $desc ) {
                 $html .= '<p class="sl-ff-item-desc">' . esc_html( $desc ) . '</p>';
             }
+            $html .= sl_ff_prix_html( $promo );
             $html .= '</div>';
             $html .= '<span class="sl-ff-dispo-ok">&#10003; Disponible</span>';
             $html .= '</div>';
         }
         $html .= '</div></div>';
     }
+
+    set_transient( $ckey, $html, 6 * HOUR_IN_SECONDS );
     return $html;
+}
+
+/**
+ * CSS des prix, inline (une fois par page) : le fichier CSS front est
+ * caché par Varnish PAR NOM DE FICHIER, le modifier ne suffirait pas.
+ */
+function sl_ff_prix_css() {
+    static $done = false;
+    if ( $done ) return '';
+    $done = true;
+    return '<style>
+    .sl-ff-prix{margin:6px 0 0;font-size:15px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+    .sl-ff-prix-avant{color:#9aa0a6;font-size:13px;text-decoration:line-through;}
+    .sl-ff-prix-promo{color:#e91e8c;font-weight:800;}
+    .sl-ff-prix-normal{color:#1d2327;font-weight:700;}
+    .sl-ff-view-list .sl-ff-prix{margin:2px 0 0;}
+    </style>';
+}
+
+/**
+ * Bloc prix d'un plat : prix barré + prix promo si promo active,
+ * sinon prix normal seul. Rien si aucun prix saisi.
+ */
+function sl_ff_prix_html( $promo ) {
+    if ( $promo['est_promo'] && $promo['prix_promo'] > 0 ) {
+        $avant = $promo['prix'] > 0
+            ? '<del class="sl-ff-prix-avant">' . esc_html( sl_ff_format_prix( $promo['prix'] ) ) . '</del> '
+            : '';
+        return '<p class="sl-ff-prix">' . $avant
+             . '<strong class="sl-ff-prix-promo">' . esc_html( sl_ff_format_prix( $promo['prix_promo'] ) ) . '</strong></p>';
+    }
+    if ( $promo['prix'] > 0 ) {
+        return '<p class="sl-ff-prix"><strong class="sl-ff-prix-normal">' . esc_html( sl_ff_format_prix( $promo['prix'] ) ) . '</strong></p>';
+    }
+    return '';
 }

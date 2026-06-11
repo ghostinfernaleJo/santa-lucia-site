@@ -12,9 +12,10 @@ function sl_ff_ajax_save_planning() {
     // Verifier les droits : l'utilisateur doit gerer ce repas.
     // Les administrateurs WP et administrateurs Fast Food gerent toutes les agences.
     if ( ! current_user_can( 'manage_options' ) && ! current_user_can( 'sl_ff_all_agencies' ) ) {
-        $agence_user = get_user_meta( get_current_user_id(), '_sl_agence_ff', true );
-        $agence_post = get_post_meta( $post_id, '_sl_ff_agence', true );
-        if ( ! $agence_user || $agence_user !== $agence_post ) {
+        $agence_user  = get_user_meta( get_current_user_id(), '_sl_agence_ff', true );
+        // Multi-agences : un repas peut porter plusieurs lignes méta agence
+        $agences_post = (array) get_post_meta( $post_id, '_sl_ff_agence' );
+        if ( ! $agence_user || ! in_array( $agence_user, $agences_post, true ) ) {
             wp_send_json_error( 'Acces refuse' );
         }
     }
@@ -26,6 +27,7 @@ function sl_ff_ajax_save_planning() {
     ) );
 
     update_post_meta( $post_id, '_sl_ff_jours', $jours );
+    if ( function_exists( 'sl_ff_bump_menu_cache' ) ) sl_ff_bump_menu_cache();
     wp_send_json_success( [ 'jours' => $jours ] );
 }
 

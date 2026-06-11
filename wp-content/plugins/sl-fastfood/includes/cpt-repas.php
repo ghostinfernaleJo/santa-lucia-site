@@ -426,25 +426,67 @@ function sl_ff_sync_repas_to_all_agencies( $source_id, $jours, $promo_prix, $pro
 }
 
 /**
- * Helper : retourne l'indicateur de promo (badge %) s'il est actif.
- * @return array { est_promo, pct_reduction }
+ * Helper : retourne l'indicateur de promo s'il est actif.
+ * Métas : _sl_ff_promo_prix (remise %), _sl_ff_prix (prix actuel FCFA),
+ * _sl_ff_prix_promo (prix promo FCFA), _sl_ff_promo_debut/_fin (période).
+ * La promo est active si une remise % OU un prix promo est défini, dans la période.
+ * Le % affiché est calculé depuis les prix si la remise % n'est pas saisie.
+ * @return array { est_promo, pct_reduction, prix, prix_promo }
  */
 function sl_ff_get_promo_info( $post_id ) {
-    $today      = current_time( 'Y-m-d' );
-    $promo_pct  = (int) get_post_meta( $post_id, '_sl_ff_promo_prix',  true );
+    $today       = current_time( 'Y-m-d' );
+    $promo_pct   = (int) get_post_meta( $post_id, '_sl_ff_promo_prix',  true );
+    $prix        = (int) get_post_meta( $post_id, '_sl_ff_prix',        true );
+    $prix_promo  = (int) get_post_meta( $post_id, '_sl_ff_prix_promo',  true );
     $promo_debut = get_post_meta( $post_id, '_sl_ff_promo_debut', true );
     $promo_fin   = get_post_meta( $post_id, '_sl_ff_promo_fin',   true );
 
     $est_promo = false;
-    if ( $promo_pct > 0 ) {
+    if ( $promo_pct > 0 || $prix_promo > 0 ) {
         $debut_ok  = empty( $promo_debut ) || $today >= $promo_debut;
         $fin_ok    = empty( $promo_fin )   || $today <= $promo_fin;
         $est_promo = $debut_ok && $fin_ok;
     }
+    if ( $est_promo && $promo_pct <= 0 && $prix > 0 && $prix_promo > 0 && $prix_promo < $prix ) {
+        $promo_pct = (int) round( 100 * ( 1 - $prix_promo / $prix ) );
+    }
     return [
         'est_promo'     => $est_promo,
         'pct_reduction' => $est_promo ? $promo_pct : 0,
+        'prix'          => $prix,
+        'prix_promo'    => $est_promo ? $prix_promo : 0,
     ];
+}
+
+/** Formate un prix FCFA pour l'affichage. */
+function sl_ff_format_prix( $n ) {
+    return number_format( (int) $n, 0, ',', ' ' ) . ' FCFA';
+}
+
+/* ============================================================
+   CACHE DU MENU FRONT (transients versionnés)
+   Le HTML du menu par agence est coûteux (requête + boucle) et
+   demandé par chaque visiteur via admin-ajax (non cacheable par
+   Varnish). On le met en transient, invalidé en masse par bump
+   de version à chaque changement de repas/planning/promo/sync.
+   ============================================================ */
+function sl_ff_menu_cache_ver() {
+    return (int) get_option( 'sl_ff_menu_cache_ver', 1 );
+}
+function sl_ff_bump_menu_cache() {
+    static $done = false; // 1 bump par requête suffit
+    if ( $done ) return;
+    $done = true;
+    update_option( 'sl_ff_menu_cache_ver', sl_ff_menu_cache_ver() + 1, false );
+}
+add_action( 'save_post_sl_repas', 'sl_ff_bump_menu_cache' );
+add_action( 'deleted_post', function ( $post_id ) {
+    if ( get_post_type( $post_id ) === 'sl_repas' ) sl_ff_bump_menu_cache();
+} );
+
+/** Clé de cache du menu : version + agence + date du jour (les promos dépendent de la date). */
+function sl_ff_menu_cache_key( $agence ) {
+    return 'sl_ff_menu_' . sl_ff_menu_cache_ver() . '_' . md5( $agence . '|' . current_time( 'Y-m-d' ) );
 }
 
 // Compatibilite ascendante si sl_ff_get_prix_info() est encore appelée ailleurs
@@ -459,6 +501,38 @@ if ( ! function_exists( 'sl_ff_get_prix_info' ) ) {
         ];
     }
 }
+
+/* ============================================================
+   COLONNE « AGENCES » dans la liste admin des repas
+   Montre d'un coup d'œil où chaque plat est actif (multi-agences).
+   ============================================================ */
+add_filter( 'manage_sl_repas_posts_columns', function ( $cols ) {
+    $new = [];
+    foreach ( $cols as $k => $v ) {
+        $new[ $k ] = $v;
+        if ( $k === 'title' ) $new['sl_ff_agences'] = 'Agences';
+    }
+    return $new;
+} );
+add_action( 'manage_sl_repas_posts_custom_column', function ( $col, $post_id ) {
+    if ( $col !== 'sl_ff_agences' ) return;
+    $slugs = (array) get_post_meta( $post_id, '_sl_ff_agence' );
+    $slugs = array_values( array_filter( array_unique( $slugs ) ) );
+    if ( empty( $slugs ) ) { echo '<span style="color:#ccc;">—</span>'; return; }
+    sort( $slugs );
+    $names = [];
+    foreach ( $slugs as $s ) {
+        $t = get_term_by( 'slug', $s, 'sl_agence_promo' );
+        $names[] = ( $t && ! is_wp_error( $t ) ) ? $t->name : $s;
+    }
+    $n = count( $names );
+    if ( $n <= 3 ) {
+        echo esc_html( implode( ', ', $names ) );
+    } else {
+        echo '<span title="' . esc_attr( implode( ', ', $names ) ) . '" style="cursor:help;border-bottom:1px dotted #999;">'
+           . esc_html( $names[0] . ' + ' . ( $n - 1 ) . ' agences' ) . '</span>';
+    }
+}, 10, 2 );
 
 add_action( 'pre_get_posts', 'sl_ff_filter_by_agence' );
 function sl_ff_filter_by_agence( $query ) {
