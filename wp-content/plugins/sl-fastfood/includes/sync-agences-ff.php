@@ -85,9 +85,11 @@ function sl_ff_sync_page() {
     ?>
     <div class="wrap">
         <h1>Disponibilité multi-agences</h1>
-        <p>Active le menu d'une agence dans les agences de votre choix, <strong>sans dupliquer les repas</strong>
+        <p>Active ou désactive le menu d'une agence dans les agences de votre choix, <strong>sans dupliquer les repas</strong>
            (la base de données n'est pas alourdie : le plat existant devient simplement disponible ailleurs,
-           avec le même programme hebdomadaire). Les images suivent automatiquement. Rien n'est supprimé.</p>
+           avec le même programme hebdomadaire). Les images suivent automatiquement.
+           La désactivation retire le plat du menu des agences ciblées (mise en brouillon ou retrait de l'étiquette agence) :
+           <strong>rien n'est jamais supprimé</strong>, une réactivation restaure tout à l'identique.</p>
 
         <div class="sl-ff-sync-card"
              id="sl-ff-sync-app"
@@ -528,22 +530,56 @@ function sl_ff_ajax_deact_chunk() {
 }
 
 /**
- * Désactive un plat dans une agence cible :
- *  - supprime la méta `_sl_ff_agence = target` du post source si elle existe ;
- *  - ne touche jamais aux posts natifs de la cible (ID différent du source).
+ * Désactive un plat dans une agence cible. Deux cas, miroir de l'activation :
+ *  - le post source porte la méta `_sl_ff_agence = target` (plat partagé)
+ *    → on supprime cette ligne méta (les autres agences restent intactes) ;
+ *  - un post NATIF du même nom existe dans la cible (ancien modèle dupliqué)
+ *    → on le passe en BROUILLON : invisible sur le front/AJAX/API qui ne
+ *    requêtent que `publish`, et 100 % réversible (l'activation re-publie
+ *    ce même post via wp_update_post). Rien n'est jamais supprimé.
  */
 function sl_ff_sync_deactivate_unit( $unit, &$deactivated, &$skipped, &$errors ) {
     $src    = (int) $unit['src'];
+    $nom    = $unit['nom'];
     $target = $unit['agence'];
+    $done   = false;
 
     if ( ! get_post( $src ) ) {
-        $errors[] = $unit['nom'] . ' : post source introuvable.';
+        $errors[] = $nom . ' : post source introuvable.';
         return;
     }
 
+    // Cas 1 : étiquette partagée sur le post source
     $rows = get_post_meta( $src, '_sl_ff_agence' );
     if ( in_array( $target, (array) $rows, true ) ) {
         delete_post_meta( $src, '_sl_ff_agence', $target );
+        $done = true;
+    }
+
+    // Cas 2 : post(s) natif(s) publié(s) du même nom dans la cible
+    $natives = get_posts( [
+        'post_type'              => 'sl_repas',
+        'post_status'            => 'publish',
+        'posts_per_page'         => -1,
+        'fields'                 => 'ids',
+        'title'                  => $nom,
+        'post__not_in'           => [ $src ],
+        'meta_query'             => [ [ 'key' => '_sl_ff_agence', 'value' => $target ] ],
+        'no_found_rows'          => true,
+        'update_post_term_cache' => false,
+        'update_post_meta_cache' => false,
+        'suppress_filters'       => true,
+    ] );
+    foreach ( $natives as $pid ) {
+        $res = wp_update_post( [ 'ID' => (int) $pid, 'post_status' => 'draft' ], true );
+        if ( is_wp_error( $res ) ) {
+            $errors[] = $nom . ' (' . $target . ') : ' . $res->get_error_message();
+        } else {
+            $done = true;
+        }
+    }
+
+    if ( $done ) {
         $deactivated++;
     } else {
         $skipped++;
