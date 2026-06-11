@@ -99,7 +99,10 @@ jQuery(function ($) {
             var mealAgency = ($row.find('.sl-ff-plat-agence').text() || '').toLowerCase();
             var categoryName = ($row.prevAll('tr.sl-ff-cat-row:first').text() || '').toLowerCase();
             var searchableText = mealName + ' ' + mealAgency + ' ' + categoryName;
-            var agenceMatch = !agence || $row.data('agence') === agence;
+            // data-agence peut contenir PLUSIEURS slugs séparés par des espaces
+            // (plat multi-agences) : on matche par jeton, pas par égalité stricte.
+            var rowAg = String($row.attr('data-agence') || '');
+            var agenceMatch = !agence || (' ' + rowAg + ' ').indexOf(' ' + agence + ' ') !== -1;
             var searchMatch = !search || searchableText.indexOf(search) !== -1;
 
             $row.toggle(agenceMatch && searchMatch);

@@ -158,6 +158,26 @@ function sl_ff_register_taxonomies() {
    METABOX
    ============================================================ */
 
+/**
+ * Écrit la méta agence SANS casser un post multi-agences.
+ * Depuis la « Disponibilité multi-agences », un repas peut porter PLUSIEURS
+ * lignes `_sl_ff_agence`. `update_post_meta` écraserait TOUTES les lignes
+ * avec la même valeur → on ne remplace que si le post est mono-agence ;
+ * sinon on ajoute l'agence si elle manque (jamais de suppression ici).
+ */
+function sl_ff_set_agence_meta( $post_id, $slug ) {
+    $slug = sanitize_title( $slug );
+    if ( $slug === '' ) return;
+    $rows = get_post_meta( $post_id, '_sl_ff_agence' );
+    if ( count( (array) $rows ) > 1 ) {
+        if ( ! in_array( $slug, $rows, true ) ) {
+            add_post_meta( $post_id, '_sl_ff_agence', $slug );
+        }
+        return;
+    }
+    update_post_meta( $post_id, '_sl_ff_agence', $slug );
+}
+
 add_action( 'add_meta_boxes', 'sl_ff_meta_boxes' );
 function sl_ff_meta_boxes() {
     add_meta_box( 'sl_ff_details', 'Details du repas', 'sl_ff_details_cb', 'sl_repas', 'side', 'high' );
@@ -231,6 +251,18 @@ function sl_ff_details_cb( $post ) {
         </select></label></p>
     <?php endif; endif; ?>
 
+    <?php
+    // Post multi-agences (via « Disponibilité multi-agences ») : informer l'éditeur
+    $agences_all = (array) get_post_meta( $post->ID, '_sl_ff_agence' );
+    if ( count( $agences_all ) > 1 ) : ?>
+        <p style="background:#f0f6fc;border-left:3px solid #2271b1;padding:6px 8px;font-size:11px;margin:0 0 12px;">
+            <strong>Disponible dans <?php echo count( $agences_all ); ?> agences :</strong>
+            <?php echo esc_html( implode( ', ', array_map( 'sl_ff_agency_name', $agences_all ) ) ); ?>.<br>
+            Changer l'agence ci-dessus l'<em>ajoute</em> à la liste (gérez les retraits depuis
+            « Disponibilité multi-agences »).
+        </p>
+    <?php endif; ?>
+
     <hr style="margin:12px 0;border:none;border-top:1px solid #ddd;">
     <p style="color:#e91e8c;font-weight:600;margin:0 0 8px;">&#127991; Promotion (optionnel)</p>
 
@@ -281,15 +313,15 @@ function sl_ff_save_details( $post_id ) {
                 $sync_to_all_agencies = true;
                 $agences = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] );
                 if ( ! is_wp_error( $agences ) && ! empty( $agences ) ) {
-                    update_post_meta( $post_id, '_sl_ff_agence', sanitize_title( $agences[0]->slug ) );
+                    sl_ff_set_agence_meta( $post_id, $agences[0]->slug );
                 }
             } else {
-                update_post_meta( $post_id, '_sl_ff_agence', sanitize_title( $requested_agence ) );
+                sl_ff_set_agence_meta( $post_id, $requested_agence );
             }
         } else {
             $user_agence = get_user_meta( get_current_user_id(), '_sl_agence_ff', true );
             if ( $user_agence ) {
-                update_post_meta( $post_id, '_sl_ff_agence', sanitize_title( $user_agence ) );
+                sl_ff_set_agence_meta( $post_id, $user_agence );
             }
         }
     }
