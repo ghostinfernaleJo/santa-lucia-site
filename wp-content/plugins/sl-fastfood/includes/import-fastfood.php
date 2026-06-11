@@ -766,6 +766,9 @@ function sl_ff_upsert_unit( $unit, &$created, &$updated, &$errors ) {
     $term_id = $unit['term_id'];
 
     $meta_q = $agence ? [ [ 'key' => '_sl_ff_agence', 'value' => $agence ] ] : [];
+    // Ignorer les doublons fusionnés dans un post partagé (migration) :
+    // les re-publier recréerait les doublons que la fusion a éliminés.
+    $meta_q[] = [ 'key' => '_sl_ff_merged_into', 'compare' => 'NOT EXISTS' ];
     $existing = get_posts( [
         'post_type'              => 'sl_repas',
         'post_status'            => [ 'publish', 'draft', 'pending', 'private' ],
@@ -796,7 +799,18 @@ function sl_ff_upsert_unit( $unit, &$created, &$updated, &$errors ) {
         $created++;
     }
 
-    if ( $agence ) update_post_meta( $post_id, '_sl_ff_agence', $agence );
+    if ( $agence ) {
+        // Non destructif : un post peut être multi-agences (Disponibilité multi-agences).
+        // update_post_meta écraserait TOUTES les lignes → on n'ajoute que si absente.
+        $ag_rows = get_post_meta( $post_id, '_sl_ff_agence' );
+        if ( ! in_array( $agence, (array) $ag_rows, true ) ) {
+            if ( empty( $ag_rows ) ) {
+                update_post_meta( $post_id, '_sl_ff_agence', $agence );
+            } else {
+                add_post_meta( $post_id, '_sl_ff_agence', $agence );
+            }
+        }
+    }
     update_post_meta( $post_id, '_sl_ff_jours', $jours );
     if ( $term_id ) wp_set_post_terms( $post_id, [ $term_id ], 'sl_repas_cat' );
 }
@@ -940,14 +954,19 @@ function sl_ff_export_repas() {
     foreach ( $posts as $p ) {
         $terms  = get_the_terms( $p->ID, 'sl_repas_cat' );
         $cat    = ( $terms && ! is_wp_error( $terms ) ) ? sl_ff_cat_display( $terms[0]->name ) : '';
-        $agence = (string) get_post_meta( $p->ID, '_sl_ff_agence', true );
         $jours  = (array) get_post_meta( $p->ID, '_sl_ff_jours', true );
 
-        $row = [ $p->post_title, $cat, $agence ];
-        foreach ( $jours_all as $j ) {
-            $row[] = in_array( $j, $jours, true ) ? '1' : '0';
+        // Multi-agences : une ligne par agence du post (export ré-importable)
+        $agences_rows = (array) get_post_meta( $p->ID, '_sl_ff_agence' );
+        if ( empty( $agences_rows ) ) $agences_rows = [ '' ];
+
+        foreach ( $agences_rows as $agence ) {
+            $row = [ $p->post_title, $cat, (string) $agence ];
+            foreach ( $jours_all as $j ) {
+                $row[] = in_array( $j, $jours, true ) ? '1' : '0';
+            }
+            fputcsv( $out, $row );
         }
-        fputcsv( $out, $row );
     }
     fclose( $out );
     exit;

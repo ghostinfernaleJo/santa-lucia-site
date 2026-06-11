@@ -603,7 +603,12 @@ function sl_ff_sync_activate_unit( $unit, &$activated, &$aligned, &$errors ) {
         'posts_per_page'         => 1,
         'fields'                 => 'ids',
         'title'                  => $nom,
-        'meta_query'             => [ [ 'key' => '_sl_ff_agence', 'value' => $target ] ],
+        'meta_query'             => [
+            [ 'key' => '_sl_ff_agence', 'value' => $target ],
+            // Ignorer les doublons fusionnés dans un post partagé (migration) :
+            // les re-publier recréerait les doublons que la fusion a éliminés.
+            [ 'key' => '_sl_ff_merged_into', 'compare' => 'NOT EXISTS' ],
+        ],
         'no_found_rows'          => true,
         'update_post_term_cache' => false,
         'update_post_meta_cache' => false,
