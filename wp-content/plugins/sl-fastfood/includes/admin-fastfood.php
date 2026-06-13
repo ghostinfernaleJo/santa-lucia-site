@@ -354,7 +354,9 @@ function sl_ff_admin_page() {
                     <td colspan="<?php echo $nb_cols; ?>"><?php echo esc_html( $cat_name ); ?></td>
                 </tr>
                 <?php foreach ( $items as $ri ) :
-                    $agences_r = array_values( array_filter( array_unique( array_map( 'sanitize_title', (array) get_post_meta( $ri->ID, '_sl_ff_agence' ) ) ) ) );
+                    $agences_r = function_exists( 'sl_ff_post_agence_slugs' )
+                        ? sl_ff_post_agence_slugs( $ri->ID )
+                        : array_values( array_filter( array_unique( array_map( 'sanitize_title', (array) get_post_meta( $ri->ID, '_sl_ff_agence' ) ) ) ) );
                     if ( empty( $agences_r ) ) {
                         $agences_r = [ '' ];
                     }

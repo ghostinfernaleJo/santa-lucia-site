@@ -128,6 +128,28 @@ function sl_ff_set_agence_jours( $post_id, $agence, $jours ) {
     }
 }
 
+function sl_ff_post_agence_slugs( $post_id ) {
+    $raw = (array) get_post_meta( $post_id, '_sl_ff_agence' );
+    $slugs = [];
+
+    foreach ( $raw as $value ) {
+        if ( is_array( $value ) ) {
+            $items = $value;
+        } else {
+            $items = preg_split( '/[\s,;|]+/', (string) $value );
+        }
+
+        foreach ( (array) $items as $item ) {
+            $slug = sanitize_title( $item );
+            if ( $slug !== '' ) {
+                $slugs[] = $slug;
+            }
+        }
+    }
+
+    return array_values( array_unique( $slugs ) );
+}
+
 function sl_ff_is_repas_available_for_agence( $post_id, $agence, $jour ) {
     return in_array( sanitize_text_field( $jour ), sl_ff_get_agence_jours( $post_id, $agence ), true );
 }

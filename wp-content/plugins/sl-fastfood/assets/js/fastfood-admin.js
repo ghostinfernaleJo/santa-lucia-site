@@ -94,7 +94,7 @@ jQuery(function ($) {
        FILTRES PLANNING (recherche repas + agence)
     ================================================================ */
     function slFfApplyPlanningFilters() {
-        var agence = $('#sl-ff-agence-filter').val() || '';
+        var agence = String($('#sl-ff-agence-filter').val() || '').toLowerCase().trim();
         var search = ($('#sl-ff-meal-search').val() || '').toLowerCase();
 
         $('tr.sl-ff-meal-row').each(function () {
@@ -103,9 +103,7 @@ jQuery(function ($) {
             var mealAgency = ($row.find('.sl-ff-plat-agence').text() || '').toLowerCase();
             var categoryName = ($row.prevAll('tr.sl-ff-cat-row:first').text() || '').toLowerCase();
             var searchableText = mealName + ' ' + mealAgency + ' ' + categoryName;
-            // data-agence peut contenir PLUSIEURS slugs séparés par des espaces
-            // (plat multi-agences) : on matche par jeton, pas par égalité stricte.
-            var rowAg = String($row.attr('data-agence') || '');
+            var rowAg = String($row.attr('data-agence') || '').toLowerCase().trim();
             var agenceMatch = !agence || (' ' + rowAg + ' ').indexOf(' ' + agence + ' ') !== -1;
             var searchMatch = !search || searchableText.indexOf(search) !== -1;
 
