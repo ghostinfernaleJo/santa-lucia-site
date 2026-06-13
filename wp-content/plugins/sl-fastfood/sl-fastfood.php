@@ -12,6 +12,7 @@ define( 'SL_FF_PATH',    plugin_dir_path( __FILE__ ) );
 define( 'SL_FF_URL',     plugin_dir_url(  __FILE__ ) );
 
 require_once SL_FF_PATH . 'includes/cpt-repas.php';
+require_once SL_FF_PATH . 'includes/availability-ff.php';
 require_once SL_FF_PATH . 'includes/roles-fastfood.php';
 require_once SL_FF_PATH . 'includes/ajax-fastfood.php';
 require_once SL_FF_PATH . 'includes/admin-fastfood.php';

@@ -185,18 +185,20 @@ function slm_rest_ff_menu( $req ) {
         'order'          => 'ASC',
     ];
     $meta = [];
-    if ( $agence ) {
-        $meta[] = function_exists( 'sl_ff_agency_meta_query' )
-            ? sl_ff_agency_meta_query( $agence )
-            : [ 'key' => '_sl_ff_agence', 'value' => $agence ];
-    }
     if ( $jour ) {
-        $meta[] = function_exists( 'sl_ff_day_meta_query' )
-            ? sl_ff_day_meta_query( $jour )
-            : [ 'key' => '_sl_ff_jours', 'value' => '"' . $jour . '"', 'compare' => 'LIKE' ];
+        // Disponibilité PAR VILLE un jour donné (_sl_ff_avail = "agence:jour").
+        if ( function_exists( 'sl_ff_avail_meta_query' ) ) {
+            $meta[] = sl_ff_avail_meta_query( $agence, $jour );
+        } else {
+            $meta[] = $agence
+                ? [ 'key' => '_sl_ff_avail', 'value' => $agence . ':' . $jour ]
+                : [ 'key' => '_sl_ff_avail', 'value' => ':' . $jour, 'compare' => 'LIKE' ];
+        }
+    } elseif ( $agence ) {
+        // Tous les plats rattachés à l'agence (semaine entière).
+        $meta[] = [ 'key' => '_sl_ff_agence', 'value' => $agence ];
     }
     if ( $meta ) {
-        if ( count( $meta ) > 1 ) $meta['relation'] = 'AND';
         $args['meta_query'] = $meta;
     }
     if ( $cat ) {
@@ -204,13 +206,19 @@ function slm_rest_ff_menu( $req ) {
     }
 
     $q     = new WP_Query( $args );
-    $items = array_map( 'slm_format_repas', $q->posts );
+    $items = array_map( function ( $p ) use ( $agence ) { return slm_format_repas( $p, $agence ); }, $q->posts );
     return slm_paginated( $items, $q, $page, $per );
 }
 
-function slm_format_repas( $post ) {
+function slm_format_repas( $post, $agence = '' ) {
     $id    = $post->ID;
-    $jours = get_post_meta( $id, '_sl_ff_jours', true );
+    $agence = sanitize_title( (string) $agence );
+    // Jours de dispo : propres à l'agence demandée (sinon legacy global).
+    if ( $agence && function_exists( 'sl_ff_avail_jours' ) ) {
+        $jours = sl_ff_avail_jours( $id, $agence );
+    } else {
+        $jours = get_post_meta( $id, '_sl_ff_jours', true );
+    }
     if ( ! is_array( $jours ) ) $jours = [];
     $cats  = wp_get_post_terms( $id, 'sl_repas_cat' );
     $cat   = ( ! is_wp_error( $cats ) && $cats ) ? [

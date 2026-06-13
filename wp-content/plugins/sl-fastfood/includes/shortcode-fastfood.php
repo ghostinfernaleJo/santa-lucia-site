@@ -13,12 +13,8 @@ function sl_ff_shortcode( $atts ) {
     $today_jour = sl_ff_today_jour();
 
     $meta_q = [
-        'relation' => 'AND',
-        sl_ff_day_meta_query( $today_jour ),
+        sl_ff_avail_meta_query( $agence, $today_jour ),
     ];
-    if ( $agence ) {
-        $meta_q[] = sl_ff_agency_meta_query( $agence );
-    }
 
     $repas = get_posts( [
         'post_type'      => 'sl_repas',
@@ -159,9 +155,7 @@ function sl_ff_browser_shortcode( $atts ) {
                 'posts_per_page' => -1,
                 'fields'         => 'ids',
                 'meta_query'     => [
-                    'relation' => 'AND',
-                    sl_ff_day_meta_query( $today_jour ),
-                    sl_ff_agency_meta_query( $a->slug ),
+                    sl_ff_avail_meta_query( $a->slug, $today_jour ),
                 ],
             ] ) );
             $counts[ $a->slug ] = $n;
@@ -268,9 +262,7 @@ function sl_ff_render_menu_html( $agence, $date = '' ) {
         'orderby'        => 'title',
         'order'          => 'ASC',
         'meta_query'     => [
-            'relation' => 'AND',
-            sl_ff_day_meta_query( $today_jour ),
-            sl_ff_agency_meta_query( $agence ),
+            sl_ff_avail_meta_query( $agence, $today_jour ),
         ],
     ] );
 

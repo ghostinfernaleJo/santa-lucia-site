@@ -3,6 +3,31 @@ jQuery(function ($) {
 
     var saveTimers = {};
 
+    /* Agence actuellement gérée (admin = sélecteur ; non-admin = la sienne). */
+    function slFfCurrentAgence() {
+        if (slFF.isAdmin) return $('#sl-ff-agence-filter').val() || '';
+        return slFF.userAgence || '';
+    }
+
+    /* Applique l'état des cases selon l'agence choisie (dispo PAR VILLE). */
+    function slFfApplyAgencyContext() {
+        var ag = slFfCurrentAgence();
+        $('tr.sl-ff-meal-row').each(function () {
+            var $row  = $(this);
+            var map   = $row.data('avail') || {};
+            var jours = (ag && map[ag]) ? map[ag] : [];
+            $row.find('.sl-ff-day-cb').each(function () {
+                this.checked  = jours.indexOf(this.value) !== -1;
+                this.disabled = slFF.isAdmin && !ag;
+            });
+            if (slFF.todayJour && jours.indexOf(slFF.todayJour) !== -1) {
+                $row.addClass('sl-ff-meal-dispo');
+            } else {
+                $row.removeClass('sl-ff-meal-dispo');
+            }
+        });
+    }
+
     /* ================================================================
        PLANNING — Auto-sauvegarde quand une case est cochee/decochee
     ================================================================ */
@@ -10,6 +35,13 @@ jQuery(function ($) {
         var $row  = $(this).closest('tr.sl-ff-meal-row');
         var id    = $row.data('id');
         var $icon = $row.find('.sl-ff-save-icon');
+        var ag    = slFfCurrentAgence();
+
+        if (!ag) {
+            this.checked = !this.checked; // annuler le changement
+            alert('Choisissez d\'abord une « Agence à gérer » en haut : la disponibilité est propre à chaque ville.');
+            return;
+        }
 
         var jours = [];
         $row.find('.sl-ff-day-cb:checked').each(function () {
@@ -24,10 +56,14 @@ jQuery(function ($) {
                 action:  'sl_ff_save_planning',
                 nonce:   slFF.nonce,
                 post_id: id,
+                agence:  ag,
                 jours:   jours
             })
             .done(function (res) {
                 if (res.success) {
+                    var map = $row.data('avail') || {};
+                    map[ag] = jours;            // mémoriser la dispo de cette ville
+                    $row.data('avail', map);
                     $icon.attr('class', 'sl-ff-save-icon sl-ff-saved').html('&#10003;');
                     if (slFF.todayJour && jours.indexOf(slFF.todayJour) !== -1) {
                         $row.addClass('sl-ff-meal-dispo');
@@ -37,6 +73,7 @@ jQuery(function ($) {
                     setTimeout(function () { $icon.html('').attr('class', 'sl-ff-save-icon'); }, 2000);
                 } else {
                     $icon.attr('class', 'sl-ff-save-icon sl-ff-error').html('&#10007;');
+                    if (res.data) { $row.find('.sl-ff-day-cb').prop('checked', false); }
                 }
             })
             .fail(function () {
@@ -116,8 +153,14 @@ jQuery(function ($) {
         });
     }
 
-    $('#sl-ff-agence-filter').on('change', slFfApplyPlanningFilters);
+    $('#sl-ff-agence-filter').on('change', function () {
+        slFfApplyPlanningFilters();
+        slFfApplyAgencyContext();
+    });
     $('#sl-ff-meal-search').on('input', slFfApplyPlanningFilters);
+
+    // État initial des cases selon l'agence (non-admin : la sienne ; admin : aucune au départ).
+    slFfApplyAgencyContext();
 
     /* ================================================================
        IMAGE REPAS — selection simple depuis la mediatheque WP

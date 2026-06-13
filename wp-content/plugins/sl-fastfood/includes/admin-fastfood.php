@@ -240,9 +240,11 @@ function sl_ff_admin_assets( $hook ) {
     wp_enqueue_style(  'sl-ff-admin', SL_FF_URL . 'assets/css/fastfood-admin.css', [], $admin_css_ver );
     wp_enqueue_script( 'sl-ff-admin', SL_FF_URL . 'assets/js/fastfood-admin.js', [ 'jquery' ], $admin_js_ver, true );
     wp_localize_script( 'sl-ff-admin', 'slFF', [
-        'ajaxurl'   => admin_url( 'admin-ajax.php' ),
-        'nonce'     => wp_create_nonce( 'sl_ff_toggle' ),
-        'todayJour' => sl_ff_today_jour(),
+        'ajaxurl'    => admin_url( 'admin-ajax.php' ),
+        'nonce'      => wp_create_nonce( 'sl_ff_toggle' ),
+        'todayJour'  => sl_ff_today_jour(),
+        'isAdmin'    => ( current_user_can( 'manage_options' ) || current_user_can( 'sl_ff_all_agencies' ) ) ? 1 : 0,
+        'userAgence' => sanitize_title( (string) get_user_meta( get_current_user_id(), '_sl_agence_ff', true ) ),
     ] );
 }
 
@@ -312,9 +314,9 @@ function sl_ff_admin_page() {
                     <input type="search" id="sl-ff-meal-search" placeholder="Nom du repas..." style="min-width:240px;">
                 </label>
                 <label>
-                    <strong>Filtrer par agence</strong>
+                    <strong>Agence à gérer</strong>
                     <select id="sl-ff-agence-filter">
-                        <option value="">Toutes les agences</option>
+                        <option value="">— Choisir une agence —</option>
                         <?php
                         $agences = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false ] );
                         if ( ! is_wp_error( $agences ) ) :
@@ -324,6 +326,9 @@ function sl_ff_admin_page() {
                     </select>
                 </label>
             </div>
+            <p class="sl-ff-avail-note" style="margin:4px 0 0;padding:9px 13px;background:#fff5fa;border:1px solid #f3c6df;border-radius:8px;color:#9a2b66;font-size:13px;">
+                La disponibilité est <strong>propre à chaque ville</strong>. Choisissez une <strong>agence</strong> ci-dessus pour cocher ses jours — les autres villes ne sont pas affectées.
+            </p>
             <?php endif; ?>
         </div>
 
@@ -354,16 +359,22 @@ function sl_ff_admin_page() {
                     <td colspan="<?php echo $nb_cols; ?>"><?php echo esc_html( $cat_name ); ?></td>
                 </tr>
                 <?php foreach ( $items as $ri ) :
-                    $jours_saved = (array) get_post_meta( $ri->ID, '_sl_ff_jours', true );
-                    // Multi-agences : data-agence = liste des slugs (le filtre JS matche par jeton)
-                    $agences_r   = (array) get_post_meta( $ri->ID, '_sl_ff_agence' );
+                    // Multi-agences : data-agence = liste des slugs (filtre JS par jeton).
+                    $agences_r   = array_map( 'sanitize_title', array_filter( (array) get_post_meta( $ri->ID, '_sl_ff_agence' ) ) );
                     $agence_r    = $agences_r ? (string) $agences_r[0] : '';
+                    // Disponibilité PAR VILLE : map agence => [jours] (lue par le JS au changement d'agence).
+                    $avail_map   = [];
+                    foreach ( $agences_r as $ag ) { $avail_map[ $ag ] = sl_ff_avail_jours( $ri->ID, $ag ); }
+                    // Agence effective au chargement : non-admin = la sienne ; admin = aucune (à choisir).
+                    $eff_agence  = $is_admin ? '' : sanitize_title( $agence_user );
+                    $jours_eff   = ( $eff_agence && isset( $avail_map[ $eff_agence ] ) ) ? $avail_map[ $eff_agence ] : [];
                     $thumb_url   = get_the_post_thumbnail_url( $ri->ID, 'thumbnail' );
-                    $is_today    = in_array( $today_jour, $jours_saved, true );
+                    $is_today    = in_array( $today_jour, $jours_eff, true );
                 ?>
                 <tr class="sl-ff-meal-row<?php echo $is_today ? ' sl-ff-meal-dispo' : ''; ?>"
                     data-id="<?php echo (int) $ri->ID; ?>"
-                    data-agence="<?php echo esc_attr( implode( ' ', array_map( 'sanitize_title', $agences_r ) ) ); ?>">
+                    data-agence="<?php echo esc_attr( implode( ' ', $agences_r ) ); ?>"
+                    data-avail="<?php echo esc_attr( wp_json_encode( $avail_map ) ); ?>">
                     <td class="sl-ff-col-plat">
                         <div class="sl-ff-plat-info">
                             <?php if ( $thumb_url ) : ?>
@@ -384,14 +395,14 @@ function sl_ff_admin_page() {
                         </div>
                     </td>
                     <?php foreach ( $jours_list as $slug => $label ) :
-                        $is_checked   = in_array( $slug, $jours_saved, true );
+                        $is_checked   = in_array( $slug, $jours_eff, true );
                         $is_today_col = ( $slug === $today_jour );
                     ?>
                     <td class="sl-ff-day-cell<?php echo $is_today_col ? ' sl-ff-today-col-body' : ''; ?>">
                         <label class="sl-ff-cb-label">
                             <input type="checkbox" class="sl-ff-day-cb"
                                    value="<?php echo esc_attr( $slug ); ?>"
-                                   <?php checked( $is_checked ); ?>>
+                                   <?php checked( $is_checked ); ?><?php echo ( $is_admin && ! $eff_agence ) ? ' disabled' : ''; ?>>
                         </label>
                     </td>
                     <?php endforeach; ?>
