@@ -53,7 +53,7 @@ function sl_ff_images_menu() {
         'sl-fastfood',
         'Images des plats',
         'Images des plats',
-        'manage_options',
+        'edit_sl_repas_items',
         'sl-ff-images',
         'sl_ff_images_page'
     );
@@ -61,7 +61,7 @@ function sl_ff_images_menu() {
 
 /* ── Page ── */
 function sl_ff_images_page() {
-    if ( ! current_user_can( 'manage_options' ) ) {
+    if ( ! current_user_can( 'edit_sl_repas_items' ) ) {
         wp_die( 'Acces refuse.' );
     }
     global $wpdb;
