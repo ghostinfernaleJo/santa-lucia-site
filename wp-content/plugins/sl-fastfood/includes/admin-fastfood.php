@@ -354,16 +354,23 @@ function sl_ff_admin_page() {
                     <td colspan="<?php echo $nb_cols; ?>"><?php echo esc_html( $cat_name ); ?></td>
                 </tr>
                 <?php foreach ( $items as $ri ) :
-                    $jours_saved = (array) get_post_meta( $ri->ID, '_sl_ff_jours', true );
-                    // Multi-agences : data-agence = liste des slugs (le filtre JS matche par jeton)
-                    $agences_r   = (array) get_post_meta( $ri->ID, '_sl_ff_agence' );
-                    $agence_r    = $agences_r ? (string) $agences_r[0] : '';
-                    $thumb_url   = get_the_post_thumbnail_url( $ri->ID, 'thumbnail' );
-                    $is_today    = in_array( $today_jour, $jours_saved, true );
+                    $agences_r = array_values( array_filter( array_unique( array_map( 'sanitize_title', (array) get_post_meta( $ri->ID, '_sl_ff_agence' ) ) ) ) );
+                    if ( empty( $agences_r ) ) {
+                        $agences_r = [ '' ];
+                    }
+                    if ( ! $is_admin && $agence_user ) {
+                        $agences_r = in_array( sanitize_title( $agence_user ), $agences_r, true ) ? [ sanitize_title( $agence_user ) ] : [];
+                    }
+                    $thumb_url = get_the_post_thumbnail_url( $ri->ID, 'thumbnail' );
+                    foreach ( $agences_r as $agence_r ) :
+                    $jours_saved = function_exists( 'sl_ff_get_agence_jours' )
+                        ? sl_ff_get_agence_jours( $ri->ID, $agence_r )
+                        : (array) get_post_meta( $ri->ID, '_sl_ff_jours', true );
+                    $is_today = in_array( $today_jour, $jours_saved, true );
                 ?>
                 <tr class="sl-ff-meal-row<?php echo $is_today ? ' sl-ff-meal-dispo' : ''; ?>"
                     data-id="<?php echo (int) $ri->ID; ?>"
-                    data-agence="<?php echo esc_attr( implode( ' ', array_map( 'sanitize_title', $agences_r ) ) ); ?>">
+                    data-agence="<?php echo esc_attr( $agence_r ); ?>">
                     <td class="sl-ff-col-plat">
                         <div class="sl-ff-plat-info">
                             <?php if ( $thumb_url ) : ?>
@@ -373,12 +380,8 @@ function sl_ff_admin_page() {
                             <?php endif; ?>
                             <div>
                                 <div class="sl-ff-plat-nom"><?php echo esc_html( $ri->post_title ); ?></div>
-                                <?php if ( $is_admin && $agences_r ) : ?>
-                                <div class="sl-ff-plat-agence"><?php
-                                    echo esc_html( count( $agences_r ) > 3
-                                        ? sl_ff_agency_name( $agences_r[0] ) . ' + ' . ( count( $agences_r ) - 1 ) . ' agences'
-                                        : implode( ' · ', array_map( 'sl_ff_agency_name', $agences_r ) ) );
-                                ?></div>
+                                <?php if ( $is_admin && $agence_r ) : ?>
+                                <div class="sl-ff-plat-agence"><?php echo esc_html( sl_ff_agency_name( $agence_r ) ); ?></div>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -403,6 +406,7 @@ function sl_ff_admin_page() {
                     <?php endif; ?>
                     <td class="sl-ff-col-status"><span class="sl-ff-save-icon"></span></td>
                 </tr>
+                <?php endforeach; ?>
                 <?php endforeach; ?>
                 <?php endforeach; ?>
             </tbody>

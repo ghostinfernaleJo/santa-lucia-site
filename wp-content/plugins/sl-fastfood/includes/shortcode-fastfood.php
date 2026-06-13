@@ -12,12 +12,11 @@ function sl_ff_shortcode( $atts ) {
     $today      = current_time( 'Y-m-d' );
     $today_jour = sl_ff_today_jour();
 
-    $meta_q = [
-        'relation' => 'AND',
-        sl_ff_day_meta_query( $today_jour ),
-    ];
+    $meta_q = [];
     if ( $agence ) {
         $meta_q[] = sl_ff_agency_meta_query( $agence );
+    } else {
+        $meta_q[] = sl_ff_day_meta_query( $today_jour );
     }
 
     $repas = get_posts( [
@@ -28,6 +27,9 @@ function sl_ff_shortcode( $atts ) {
         'order'          => 'ASC',
         'meta_query'     => $meta_q,
     ] );
+    if ( $agence && function_exists( 'sl_ff_filter_repas_available_for_agence' ) ) {
+        $repas = sl_ff_filter_repas_available_for_agence( $repas, $agence, $today_jour );
+    }
 
     $agence_term = $agence ? get_term_by( 'slug', $agence, 'sl_agence_promo' ) : null;
     $agence_nom  = ( $agence_term && ! is_wp_error( $agence_term ) )
@@ -146,24 +148,23 @@ function sl_ff_browser_shortcode( $atts ) {
         $agence_active = $agences[0]->slug;
     }
 
-    // Compter les repas disponibles aujourd'hui par agence (via _sl_ff_jours).
+    // Compter les repas disponibles aujourd'hui par agence.
     // 18 requêtes coûteuses → mises en cache (même invalidation que le menu).
     $ckey   = 'sl_ff_counts_' . sl_ff_menu_cache_ver() . '_' . md5( current_time( 'Y-m-d' ) );
     $counts = get_transient( $ckey );
     if ( ! is_array( $counts ) ) {
         $counts = [];
         foreach ( $agences as $a ) {
-            $n = count( get_posts( [
+            $posts_for_agence = get_posts( [
                 'post_type'      => 'sl_repas',
                 'post_status'    => 'publish',
                 'posts_per_page' => -1,
                 'fields'         => 'ids',
-                'meta_query'     => [
-                    'relation' => 'AND',
-                    sl_ff_day_meta_query( $today_jour ),
-                    sl_ff_agency_meta_query( $a->slug ),
-                ],
-            ] ) );
+                'meta_query'     => [ sl_ff_agency_meta_query( $a->slug ) ],
+            ] );
+            $n = function_exists( 'sl_ff_filter_repas_available_for_agence' )
+                ? count( sl_ff_filter_repas_available_for_agence( array_map( 'get_post', $posts_for_agence ), $a->slug, $today_jour ) )
+                : count( $posts_for_agence );
             $counts[ $a->slug ] = $n;
         }
         set_transient( $ckey, $counts, 6 * HOUR_IN_SECONDS );
@@ -267,12 +268,11 @@ function sl_ff_render_menu_html( $agence, $date = '' ) {
         'posts_per_page' => -1,
         'orderby'        => 'title',
         'order'          => 'ASC',
-        'meta_query'     => [
-            'relation' => 'AND',
-            sl_ff_day_meta_query( $today_jour ),
-            sl_ff_agency_meta_query( $agence ),
-        ],
+        'meta_query'     => [ sl_ff_agency_meta_query( $agence ) ],
     ] );
+    if ( function_exists( 'sl_ff_filter_repas_available_for_agence' ) ) {
+        $repas = sl_ff_filter_repas_available_for_agence( $repas, $agence, $today_jour );
+    }
 
     if ( empty( $repas ) ) {
         $vide = '<div class="sl-ff-vide"><span class="sl-ff-vide-icon">&#127869;</span><p>Aucun plat disponible aujourd&#39;hui pour cette agence.</p></div>';

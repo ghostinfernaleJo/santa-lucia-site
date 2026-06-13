@@ -9,6 +9,7 @@ jQuery(function ($) {
     $(document).on('change', '.sl-ff-day-cb', function () {
         var $row  = $(this).closest('tr.sl-ff-meal-row');
         var id    = $row.data('id');
+        var agence = $row.attr('data-agence') || '';
         var $icon = $row.find('.sl-ff-save-icon');
 
         var jours = [];
@@ -24,6 +25,7 @@ jQuery(function ($) {
                 action:  'sl_ff_save_planning',
                 nonce:   slFF.nonce,
                 post_id: id,
+                agence:  agence,
                 jours:   jours
             })
             .done(function (res) {

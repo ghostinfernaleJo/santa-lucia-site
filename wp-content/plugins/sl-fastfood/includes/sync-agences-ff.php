@@ -417,7 +417,9 @@ function sl_ff_ajax_sync_start() {
     $units = [];
     $seen  = [];
     foreach ( $posts as $p ) {
-        $jours = get_post_meta( $p->ID, '_sl_ff_jours', true );
+        $jours = function_exists( 'sl_ff_get_agence_jours' )
+            ? sl_ff_get_agence_jours( $p->ID, $source )
+            : get_post_meta( $p->ID, '_sl_ff_jours', true );
         $jours = is_array( $jours ) ? array_values( $jours ) : [];
         foreach ( $targets as $ta ) {
             $key = mb_strtolower( $p->post_title, 'UTF-8' ) . '|' . $ta;
@@ -686,7 +688,11 @@ function sl_ff_sync_activate_unit( $unit, &$activated, &$aligned, &$errors ) {
     if ( ! empty( $existing ) ) {
         $pid = (int) $existing[0];
         wp_update_post( [ 'ID' => $pid, 'post_status' => 'publish' ] );
-        update_post_meta( $pid, '_sl_ff_jours', $jours );
+        if ( function_exists( 'sl_ff_set_agence_jours' ) ) {
+            sl_ff_set_agence_jours( $pid, $target, $jours );
+        } else {
+            update_post_meta( $pid, '_sl_ff_jours', $jours );
+        }
         $aligned++;
         return;
     }
@@ -698,6 +704,9 @@ function sl_ff_sync_activate_unit( $unit, &$activated, &$aligned, &$errors ) {
     $rows = get_post_meta( $src, '_sl_ff_agence' );
     if ( ! in_array( $target, (array) $rows, true ) ) {
         add_post_meta( $src, '_sl_ff_agence', $target );
+    }
+    if ( function_exists( 'sl_ff_set_agence_jours' ) ) {
+        sl_ff_set_agence_jours( $src, $target, $jours );
     }
     $activated++;
 }

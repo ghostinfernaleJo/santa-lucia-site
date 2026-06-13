@@ -811,7 +811,11 @@ function sl_ff_upsert_unit( $unit, &$created, &$updated, &$errors ) {
             }
         }
     }
-    update_post_meta( $post_id, '_sl_ff_jours', $jours );
+    if ( function_exists( 'sl_ff_set_agence_jours' ) ) {
+        sl_ff_set_agence_jours( $post_id, $agence, $jours );
+    } else {
+        update_post_meta( $post_id, '_sl_ff_jours', $jours );
+    }
     if ( $term_id ) wp_set_post_terms( $post_id, [ $term_id ], 'sl_repas_cat' );
 }
 
@@ -954,13 +958,14 @@ function sl_ff_export_repas() {
     foreach ( $posts as $p ) {
         $terms  = get_the_terms( $p->ID, 'sl_repas_cat' );
         $cat    = ( $terms && ! is_wp_error( $terms ) ) ? sl_ff_cat_display( $terms[0]->name ) : '';
-        $jours  = (array) get_post_meta( $p->ID, '_sl_ff_jours', true );
-
         // Multi-agences : une ligne par agence du post (export ré-importable)
         $agences_rows = (array) get_post_meta( $p->ID, '_sl_ff_agence' );
         if ( empty( $agences_rows ) ) $agences_rows = [ '' ];
 
         foreach ( $agences_rows as $agence ) {
+            $jours = function_exists( 'sl_ff_get_agence_jours' )
+                ? sl_ff_get_agence_jours( $p->ID, $agence )
+                : (array) get_post_meta( $p->ID, '_sl_ff_jours', true );
             $row = [ $p->post_title, $cat, (string) $agence ];
             foreach ( $jours_all as $j ) {
                 $row[] = in_array( $j, $jours, true ) ? '1' : '0';

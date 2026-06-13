@@ -8,27 +8,36 @@ function sl_ff_ajax_save_planning() {
 
     $post_id = intval( $_POST['post_id'] ?? 0 );
     if ( ! $post_id ) wp_send_json_error( 'ID invalide' );
+    $agence = sanitize_title( $_POST['agence'] ?? '' );
 
     // Verifier les droits : l'utilisateur doit gerer ce repas.
     // Les administrateurs WP et administrateurs Fast Food gerent toutes les agences.
+    $agences_post = array_map( 'sanitize_title', (array) get_post_meta( $post_id, '_sl_ff_agence' ) );
     if ( ! current_user_can( 'manage_options' ) && ! current_user_can( 'sl_ff_all_agencies' ) ) {
         $agence_user  = get_user_meta( get_current_user_id(), '_sl_agence_ff', true );
-        // Multi-agences : un repas peut porter plusieurs lignes méta agence
-        $agences_post = (array) get_post_meta( $post_id, '_sl_ff_agence' );
-        if ( ! $agence_user || ! in_array( $agence_user, $agences_post, true ) ) {
+        $agence = $agence ?: sanitize_title( $agence_user );
+        if ( ! $agence_user || $agence !== sanitize_title( $agence_user ) || ! in_array( $agence, $agences_post, true ) ) {
             wp_send_json_error( 'Acces refuse' );
         }
+    } elseif ( $agence && ! in_array( $agence, $agences_post, true ) ) {
+        wp_send_json_error( 'Agence invalide pour ce repas' );
     }
 
-    $jours_valides = [ 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche' ];
-    $jours = array_values( array_intersect(
-        (array) ( $_POST['jours'] ?? [] ),
-        $jours_valides
-    ) );
+    if ( ! $agence ) {
+        $agence = get_post_meta( $post_id, '_sl_ff_agence', true );
+    }
 
-    update_post_meta( $post_id, '_sl_ff_jours', $jours );
+    $jours = function_exists( 'sl_ff_normalize_jours' )
+        ? sl_ff_normalize_jours( $_POST['jours'] ?? [] )
+        : array_values( (array) ( $_POST['jours'] ?? [] ) );
+
+    if ( function_exists( 'sl_ff_set_agence_jours' ) ) {
+        sl_ff_set_agence_jours( $post_id, $agence, $jours );
+    } else {
+        update_post_meta( $post_id, '_sl_ff_jours', $jours );
+    }
     if ( function_exists( 'sl_ff_bump_menu_cache' ) ) sl_ff_bump_menu_cache();
-    wp_send_json_success( [ 'jours' => $jours ] );
+    wp_send_json_success( [ 'agence' => $agence, 'jours' => $jours ] );
 }
 
 /* ── Charge le menu d'une agence (front, browser shortcode) ── */

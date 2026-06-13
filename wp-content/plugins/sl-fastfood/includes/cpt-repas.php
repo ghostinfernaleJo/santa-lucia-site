@@ -88,6 +88,56 @@ function sl_ff_day_meta_query( $jour ) {
     ];
 }
 
+function sl_ff_normalize_jours( $jours ) {
+    $jours_valides = [ 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche' ];
+    return array_values( array_intersect( (array) $jours, $jours_valides ) );
+}
+
+/**
+ * Retourne le planning d'un repas pour une agence precise.
+ * Repli sur l'ancien champ global `_sl_ff_jours` pour les donnees existantes.
+ */
+function sl_ff_get_agence_jours( $post_id, $agence = '' ) {
+    $agence = sanitize_title( $agence );
+    $by_agence = get_post_meta( $post_id, '_sl_ff_jours_by_agence', true );
+
+    if ( $agence && is_array( $by_agence ) && array_key_exists( $agence, $by_agence ) ) {
+        return sl_ff_normalize_jours( $by_agence[ $agence ] );
+    }
+
+    return sl_ff_normalize_jours( get_post_meta( $post_id, '_sl_ff_jours', true ) );
+}
+
+function sl_ff_set_agence_jours( $post_id, $agence, $jours ) {
+    $agence = sanitize_title( $agence );
+    $jours  = sl_ff_normalize_jours( $jours );
+
+    if ( $agence === '' ) {
+        update_post_meta( $post_id, '_sl_ff_jours', $jours );
+        return;
+    }
+
+    $by_agence = get_post_meta( $post_id, '_sl_ff_jours_by_agence', true );
+    $by_agence = is_array( $by_agence ) ? $by_agence : [];
+    $by_agence[ $agence ] = $jours;
+    update_post_meta( $post_id, '_sl_ff_jours_by_agence', $by_agence );
+
+    $agences = array_values( array_filter( (array) get_post_meta( $post_id, '_sl_ff_agence' ) ) );
+    if ( count( array_unique( $agences ) ) <= 1 ) {
+        update_post_meta( $post_id, '_sl_ff_jours', $jours );
+    }
+}
+
+function sl_ff_is_repas_available_for_agence( $post_id, $agence, $jour ) {
+    return in_array( sanitize_text_field( $jour ), sl_ff_get_agence_jours( $post_id, $agence ), true );
+}
+
+function sl_ff_filter_repas_available_for_agence( $repas, $agence, $jour ) {
+    return array_values( array_filter( (array) $repas, function ( $r ) use ( $agence, $jour ) {
+        return $r && isset( $r->ID ) && sl_ff_is_repas_available_for_agence( $r->ID, $agence, $jour );
+    } ) );
+}
+
 /**
  * Renomme les catégories pour l'affichage frontend.
  */
@@ -187,7 +237,7 @@ function sl_ff_details_cb( $post ) {
     wp_nonce_field( 'sl_ff_save_details', 'sl_ff_nonce' );
 
     $agence      = get_post_meta( $post->ID, '_sl_ff_agence', true );
-    $jours_saved = (array) get_post_meta( $post->ID, '_sl_ff_jours', true );
+    $jours_saved = sl_ff_get_agence_jours( $post->ID, $agence );
     $user_agence = get_user_meta( get_current_user_id(), '_sl_agence_ff', true );
 
     $jours_list = [
@@ -298,12 +348,7 @@ function sl_ff_save_details( $post_id ) {
     $sync_to_all_agencies = false;
 
     // Jours de disponibilite
-    $jours_valides = [ 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche' ];
-    $jours = array_values( array_intersect(
-        (array) ( $_POST['sl_ff_jours'] ?? [] ),
-        $jours_valides
-    ) );
-    update_post_meta( $post_id, '_sl_ff_jours', $jours );
+    $jours = sl_ff_normalize_jours( $_POST['sl_ff_jours'] ?? [] );
 
     // Agence
     if ( isset( $_POST['sl_ff_agence'] ) ) {
@@ -314,16 +359,21 @@ function sl_ff_save_details( $post_id ) {
                 $agences = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] );
                 if ( ! is_wp_error( $agences ) && ! empty( $agences ) ) {
                     sl_ff_set_agence_meta( $post_id, $agences[0]->slug );
+                    sl_ff_set_agence_jours( $post_id, $agences[0]->slug, $jours );
                 }
             } else {
                 sl_ff_set_agence_meta( $post_id, $requested_agence );
+                sl_ff_set_agence_jours( $post_id, $requested_agence, $jours );
             }
         } else {
             $user_agence = get_user_meta( get_current_user_id(), '_sl_agence_ff', true );
             if ( $user_agence ) {
                 sl_ff_set_agence_meta( $post_id, $user_agence );
+                sl_ff_set_agence_jours( $post_id, $user_agence, $jours );
             }
         }
+    } else {
+        sl_ff_set_agence_jours( $post_id, get_post_meta( $post_id, '_sl_ff_agence', true ), $jours );
     }
 
     // Promotions
@@ -401,7 +451,7 @@ function sl_ff_sync_repas_to_all_agencies( $source_id, $jours, $promo_prix, $pro
         if ( ! $target_id || is_wp_error( $target_id ) ) continue;
 
         update_post_meta( $target_id, '_sl_ff_agence', $agence_slug );
-        update_post_meta( $target_id, '_sl_ff_jours', $jours );
+        sl_ff_set_agence_jours( $target_id, $agence_slug, $jours );
 
         if ( $promo_prix > 0 ) {
             update_post_meta( $target_id, '_sl_ff_promo_prix',  $promo_prix );
