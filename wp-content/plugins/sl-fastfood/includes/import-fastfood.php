@@ -811,10 +811,7 @@ function sl_ff_upsert_unit( $unit, &$created, &$updated, &$errors ) {
             }
         }
     }
-    update_post_meta( $post_id, '_sl_ff_jours', $jours ); // legacy / repli
-    if ( $agence && function_exists( 'sl_ff_set_avail_jours' ) ) {
-        sl_ff_set_avail_jours( $post_id, $agence, $jours ); // disponibilité PAR VILLE
-    }
+    update_post_meta( $post_id, '_sl_ff_jours', $jours );
     if ( $term_id ) wp_set_post_terms( $post_id, [ $term_id ], 'sl_repas_cat' );
 }
 
