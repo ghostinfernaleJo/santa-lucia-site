@@ -105,6 +105,10 @@ function sl_ff_get_agence_jours( $post_id, $agence = '' ) {
         return sl_ff_normalize_jours( $by_agence[ $agence ] );
     }
 
+    if ( $agence && ! in_array( $agence, sl_ff_post_agence_slugs( $post_id ), true ) ) {
+        return [];
+    }
+
     return sl_ff_normalize_jours( get_post_meta( $post_id, '_sl_ff_jours', true ) );
 }
 
@@ -148,6 +152,15 @@ function sl_ff_post_agence_slugs( $post_id ) {
     }
 
     return array_values( array_unique( $slugs ) );
+}
+
+function sl_ff_all_agence_slugs() {
+    $terms = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'fields' => 'slugs' ] );
+    if ( is_wp_error( $terms ) || empty( $terms ) ) {
+        return [];
+    }
+
+    return array_values( array_unique( array_filter( array_map( 'sanitize_title', $terms ) ) ) );
 }
 
 function sl_ff_is_repas_available_for_agence( $post_id, $agence, $jour ) {

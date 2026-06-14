@@ -255,6 +255,7 @@ function sl_ff_admin_page() {
     $today_long  = date_i18n( 'l j F Y', strtotime( $today ) );
     $agence_user = get_user_meta( get_current_user_id(), '_sl_agence_ff', true );
     $is_admin    = current_user_can( 'manage_options' ) || current_user_can( 'sl_ff_all_agencies' );
+    $all_agences = function_exists( 'sl_ff_all_agence_slugs' ) ? sl_ff_all_agence_slugs() : [];
 
     $jours_list = [
         'lundi'    => 'Lun',
@@ -273,11 +274,6 @@ function sl_ff_admin_page() {
         'orderby'        => 'title',
         'order'          => 'ASC',
     ];
-    if ( ! $is_admin && $agence_user ) {
-        $args['meta_query'] = [
-            [ 'key' => '_sl_ff_agence', 'value' => $agence_user ],
-        ];
-    }
     $repas = get_posts( $args );
 
     $grouped = [];
@@ -357,11 +353,12 @@ function sl_ff_admin_page() {
                     $agences_r = function_exists( 'sl_ff_post_agence_slugs' )
                         ? sl_ff_post_agence_slugs( $ri->ID )
                         : array_values( array_filter( array_unique( array_map( 'sanitize_title', (array) get_post_meta( $ri->ID, '_sl_ff_agence' ) ) ) ) );
-                    if ( empty( $agences_r ) ) {
+                    if ( $is_admin && ! empty( $all_agences ) ) {
+                        $agences_r = $all_agences;
+                    } elseif ( ! $is_admin && $agence_user ) {
+                        $agences_r = [ sanitize_title( $agence_user ) ];
+                    } elseif ( empty( $agences_r ) ) {
                         $agences_r = [ '' ];
-                    }
-                    if ( ! $is_admin && $agence_user ) {
-                        $agences_r = in_array( sanitize_title( $agence_user ), $agences_r, true ) ? [ sanitize_title( $agence_user ) ] : [];
                     }
                     $thumb_url = get_the_post_thumbnail_url( $ri->ID, 'thumbnail' );
                     foreach ( $agences_r as $agence_r ) :
