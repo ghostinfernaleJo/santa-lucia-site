@@ -300,6 +300,14 @@ class SL_Bons_Plans_Widget extends Widget_Base {
                                 <?php endforeach; ?>
                             </div>
                         </div>
+
+                        <a class="slbp-pdf-btn"
+                           href="<?php echo esc_url( add_query_arg( 'sl_bp_pdf', '1', home_url( '/' ) ) ); ?>"
+                           data-base="<?php echo esc_url( home_url( '/' ) ); ?>">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Télécharger en PDF
+                        </a>
+                        <p class="slbp-pdf-hint">PDF des offres selon les agences cochées (toutes si aucune).</p>
                     </div>
                     <?php endif; ?>
 
@@ -404,6 +412,12 @@ class SL_Bons_Plans_Widget extends Widget_Base {
                     <!-- Toutes les cartes (masquées — JS gère l'affichage) -->
                     <div class="slbp-all-cards" style="display:none !important;">
                         <?php foreach ( $posts as $p ) :
+                            $stock_actif = get_post_meta( $p->ID, '_sl_bp_stock_actif', true );
+                            $stock_qty   = get_post_meta( $p->ID, '_sl_bp_stock_qty', true );
+                            // Masquer l'offre si la limite de stock est active ET la quantité renseignée atteint 0.
+                            if ( $stock_actif === '1' && $stock_qty !== '' && (int) $stock_qty <= 0 ) {
+                                continue;
+                            }
                             $prix_av     = (float) get_post_meta( $p->ID, '_sl_bp_prix_avant', true );
                             $prix_ap     = (float) get_post_meta( $p->ID, '_sl_bp_prix_apres', true );
                             $reduc       = (int)   get_post_meta( $p->ID, '_sl_bp_reduction_pct', true );
@@ -456,6 +470,13 @@ class SL_Bons_Plans_Widget extends Widget_Base {
                                     <?php endif; ?>
 
                                      <div class="slbp-eye-btn" title="Voir l'offre">👁</div>
+
+                                     <button type="button" class="slbp-share-btn"
+                                             data-titre="<?php echo esc_attr( $p->post_title ); ?>"
+                                             data-prix="<?php echo esc_attr( $prix_ap > 0 ? number_format( $prix_ap, 0, ',', ' ' ) . ' FCFA' : '' ); ?>"
+                                             aria-label="Partager ce bon plan" title="Partager">
+                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                                     </button>
                                  </div>
 
                                 <div class="slbp-card-body">
@@ -487,6 +508,10 @@ class SL_Bons_Plans_Widget extends Widget_Base {
                                         <p class="slbp-date-fin">
                                             Valable jusqu'au <?php echo date_i18n( 'd M Y', strtotime( $date_fin ) ); ?>
                                         </p>
+                                    <?php endif; ?>
+
+                                    <?php if ( $stock_actif === '1' ) : ?>
+                                        <p class="slbp-stock-mention">Dans la limite des stocks disponibles</p>
                                     <?php endif; ?>
                                 </div>
 

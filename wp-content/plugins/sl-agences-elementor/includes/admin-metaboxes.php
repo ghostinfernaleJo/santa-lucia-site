@@ -25,6 +25,8 @@ function sl_bp_render_metabox( $post ) {
     $prix_ap  = get_post_meta( $post_id = $post->ID, '_sl_bp_prix_apres', true );
     $badge    = get_post_meta( $post->ID, '_sl_bp_badge_type', true ) ?: 'none';
     $date_fin = get_post_meta( $post->ID, '_sl_bp_date_fin', true );
+    $stock_actif = get_post_meta( $post->ID, '_sl_bp_stock_actif', true );
+    $stock_qty   = get_post_meta( $post->ID, '_sl_bp_stock_qty', true );
 
     $badges = [
         'none'      => 'Aucun badge',
@@ -39,6 +41,12 @@ function sl_bp_render_metabox( $post ) {
         .sl-bp-admin-field { flex: 1; }
         .sl-bp-admin-field label { font-weight: bold; display: block; margin-bottom: 5px; }
         .sl-bp-admin-field input[type="number"], .sl-bp-admin-field input[type="date"] { width: 100%; padding: 5px; }
+        .sl-bp-stock-box { background:#fff8f1; border:1px solid #f3d9bd; border-radius:6px; padding:12px 14px; margin-bottom:15px; }
+        .sl-bp-stock-box .sl-bp-stock-toggle { font-weight:bold; display:flex; align-items:center; gap:8px; margin-bottom:0; }
+        .sl-bp-stock-box .sl-bp-stock-toggle input { width:auto; }
+        .sl-bp-stock-qty-wrap { margin-top:12px; max-width:260px; }
+        .sl-bp-stock-qty-wrap label { font-weight:bold; display:block; margin-bottom:5px; }
+        .sl-bp-stock-qty-wrap input[type="number"] { width:100%; padding:5px; }
     </style>
     <div class="sl-bp-admin-row">
         <div class="sl-bp-admin-field">
@@ -65,6 +73,19 @@ function sl_bp_render_metabox( $post ) {
             <?php endforeach; ?>
         </div>
     </div>
+    <div class="sl-bp-stock-box">
+        <label class="sl-bp-stock-toggle">
+            <input type="checkbox" id="sl_stock_actif" name="sl_stock_actif" value="1" <?php checked( $stock_actif, '1' ); ?>>
+            Limite de stock disponible
+        </label>
+        <p class="description" style="margin:6px 0 0;">Affiche la mention « <em>Dans la limite des stocks disponibles</em> » sur la carte. Le bon plan reste affiché tant que cette option est cochée.</p>
+        <div class="sl-bp-stock-qty-wrap">
+            <label for="sl_stock_qty">Quantité disponible (optionnel)</label>
+            <input type="number" id="sl_stock_qty" name="sl_stock_qty" value="<?php echo esc_attr( $stock_qty ); ?>" step="1" min="0" placeholder="Vide = illimité">
+            <p class="description" style="margin:6px 0 0;">Si renseignée et qu'elle atteint <strong>0</strong>, le bon plan est automatiquement masqué de la page.</p>
+        </div>
+    </div>
+
     <p class="description">N'oubliez pas d'assigner une <strong>Catégorie</strong>, une <strong>Agence</strong>, et une <strong>Image mise en avant</strong> dans les panneaux sur la droite.</p>
     <?php
 }
@@ -97,4 +118,10 @@ function sl_bp_save_native_meta( $post_id ) {
     update_post_meta( $post_id, '_sl_bp_reduction_pct', $reduction );
     update_post_meta( $post_id, '_sl_bp_badge_type', $badge );
     update_post_meta( $post_id, '_sl_bp_date_fin', $date_fin );
+
+    $stock_actif   = ! empty( $_POST['sl_stock_actif'] ) ? '1' : '';
+    $stock_qty_raw = isset( $_POST['sl_stock_qty'] ) ? trim( wp_unslash( $_POST['sl_stock_qty'] ) ) : '';
+    $stock_qty     = ( $stock_qty_raw === '' ) ? '' : max( 0, (int) $stock_qty_raw );
+    update_post_meta( $post_id, '_sl_bp_stock_actif', $stock_actif );
+    update_post_meta( $post_id, '_sl_bp_stock_qty', $stock_qty );
 }

@@ -394,6 +394,8 @@ function sl_bp_clear_offer_cache_after_meta_change( $meta_id, $post_id, $meta_ke
         '_sl_bp_prix_avant',
         '_sl_bp_prix_apres',
         '_sl_bp_reduction_pct',
+        '_sl_bp_stock_actif',
+        '_sl_bp_stock_qty',
     ];
 
     if ( ! in_array( $meta_key, $watched_keys, true ) ) {
@@ -402,6 +404,73 @@ function sl_bp_clear_offer_cache_after_meta_change( $meta_id, $post_id, $meta_ke
 
     clean_post_cache( $post_id );
     delete_transient( 'wc_products_onsale' );
+    sl_bp_purge_front_cache( $post_id );
+}
+
+/* ============================================================
+ *  5B. PURGER LE CACHE VARNISH DE LA PAGE BONS PLANS
+ *  WordPress vide son cache objet mais PAS Varnish : sans cette
+ *  purge, modifier la date (ou tout champ) d'un bon plan ne se
+ *  voit pas côté visiteur (page /bon-plans/ servie depuis le cache).
+ * ============================================================ */
+function sl_bp_purge_front_cache( $post_id = 0 ) {
+    $urls = [
+        home_url( '/bon-plans/' ),
+        home_url( '/' ),
+    ];
+    if ( $post_id ) {
+        $permalink = get_permalink( $post_id );
+        if ( $permalink ) {
+            $urls[] = $permalink;
+        }
+    }
+
+    $urls = array_unique( array_filter( $urls ) );
+
+    foreach ( $urls as $url ) {
+        // 1) Varnish (PURGE HTTP)
+        wp_remote_request( $url, [
+            'method'    => 'PURGE',
+            'timeout'   => 3,
+            'blocking'  => true,
+            'sslverify' => false,
+        ] );
+        // 2) LiteSpeed Cache (plugin actif) — hook officiel, sans effet si absent.
+        //    Sans cette purge, LiteSpeed ressert sa copie périmée de /bon-plans/
+        //    même après la purge Varnish (Varnish re-demande au backend, qui sert LiteSpeed).
+        do_action( 'litespeed_purge_url', $url );
+    }
+
+    // LiteSpeed : purge ciblée par post (le bon plan + la page /bon-plans/)
+    if ( $post_id ) {
+        do_action( 'litespeed_purge_post', $post_id );
+    }
+    $bp_page = get_page_by_path( 'bon-plans' );
+    if ( $bp_page ) {
+        do_action( 'litespeed_purge_post', $bp_page->ID );
+    }
+}
+
+/* Purger aussi à chaque enregistrement / corbeille / suppression d'un bon plan
+   (couvre titre, prix, badge, image, stock — pas seulement les métas surveillées). */
+add_action( 'save_post_sl_bon_plan', 'sl_bp_purge_after_save', 99, 1 );
+function sl_bp_purge_after_save( $post_id ) {
+    if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+        return;
+    }
+    if ( wp_is_post_revision( $post_id ) ) {
+        return;
+    }
+    sl_bp_purge_front_cache( $post_id );
+}
+
+add_action( 'trashed_post', 'sl_bp_purge_on_status_change' );
+add_action( 'untrashed_post', 'sl_bp_purge_on_status_change' );
+add_action( 'deleted_post', 'sl_bp_purge_on_status_change' );
+function sl_bp_purge_on_status_change( $post_id ) {
+    if ( 'sl_bon_plan' === get_post_type( $post_id ) ) {
+        sl_bp_purge_front_cache( $post_id );
+    }
 }
 
 /* ============================================================
