@@ -45,6 +45,7 @@ function sl_ff_create_roles() {
             'edit_published_sl_repas_items' => true,
             'edit_others_sl_repas_items'    => true,
             'delete_others_sl_repas_items'  => true,
+            'create_sl_repas_items'         => true,  // ajouter des repas
             'manage_options'                => false,
             // Capacites specifiques FF Admin
             'sl_ff_all_agencies'            => true,  // acces toutes agences
@@ -71,6 +72,7 @@ function sl_ff_create_roles() {
             'delete_others_sl_repas_items',
             'edit_private_sl_repas_items',
             'edit_published_sl_repas_items',
+            'create_sl_repas_items',
             'sl_ff_all_agencies',
             'sl_ff_import',
             'sl_ff_manage_promos',
@@ -90,6 +92,7 @@ function sl_ff_create_roles() {
             'delete_sl_repas_items', 'delete_private_sl_repas_items',
             'delete_published_sl_repas_items', 'delete_others_sl_repas_items',
             'edit_private_sl_repas_items', 'edit_published_sl_repas_items',
+            'create_sl_repas_items',
             'manage_sl_repas_terms',
             'sl_ff_all_agencies', 'sl_ff_import', 'sl_ff_manage_promos',
         ];
@@ -117,11 +120,48 @@ function sl_ff_grant_admin_caps( $allcaps, $caps, $args ) {
         'delete_sl_repas_items', 'delete_private_sl_repas_items',
         'delete_published_sl_repas_items', 'delete_others_sl_repas_items',
         'edit_private_sl_repas_items', 'edit_published_sl_repas_items',
+        'create_sl_repas_items',
         'manage_sl_repas_terms',
         'sl_ff_all_agencies', 'sl_ff_import', 'sl_ff_manage_promos',
     ];
     foreach ( $sl_caps as $cap ) {
         $allcaps[ $cap ] = true;
+    }
+    return $allcaps;
+}
+
+/* ============================================================
+   AJOUT DE REPAS PAR LE RESPONSABLE : autorisable/interdisable
+   Reglage (option sl_ff_resp_can_add, defaut active) controle par
+   l'admin/editeur. On accorde dynamiquement create_sl_repas_items au
+   responsable selon ce reglage, sans toucher a edit_sl_repas_items
+   (il garde le droit de modifier le planning dans tous les cas).
+   ============================================================ */
+function sl_ff_resp_can_add() {
+    // Defaut : autorise (comportement historique)
+    return get_option( 'sl_ff_resp_can_add', '1' ) === '1';
+}
+
+/** Qui peut modifier ce reglage : admin WP, admin Fast Food, editeur WP. */
+function sl_ff_can_manage_settings() {
+    return current_user_can( 'manage_options' )
+        || current_user_can( 'sl_ff_all_agencies' )
+        || current_user_can( 'edit_others_posts' );
+}
+
+add_filter( 'user_has_cap', 'sl_ff_grant_resp_create_cap', 10, 4 );
+function sl_ff_grant_resp_create_cap( $allcaps, $caps, $args, $user ) {
+    // Ne concerne que la capacite de creation de repas
+    if ( ! in_array( 'create_sl_repas_items', (array) $caps, true ) ) {
+        return $allcaps;
+    }
+    // Admin WP / FF Admin : toujours autorises (geres ailleurs)
+    if ( ! empty( $allcaps['manage_options'] ) || ! empty( $allcaps['sl_ff_all_agencies'] ) ) {
+        return $allcaps;
+    }
+    // Responsable Fast Food (peut editer mais pas toutes agences) : selon le reglage
+    if ( ! empty( $allcaps['edit_sl_repas_items'] ) ) {
+        $allcaps['create_sl_repas_items'] = sl_ff_resp_can_add();
     }
     return $allcaps;
 }

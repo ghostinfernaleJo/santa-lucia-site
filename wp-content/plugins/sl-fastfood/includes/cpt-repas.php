@@ -29,6 +29,19 @@ function sl_ff_agency_name( $name ) {
 }
 
 /**
+ * Normalise un texte pour la recherche/filtre admin : minuscules, sans
+ * accents, espaces compactés. Sert aux attributs data-* du planning.
+ */
+function sl_ff_norm_txt( $s ) {
+    $s = mb_strtolower( trim( (string) $s ), 'UTF-8' );
+    $tr = @iconv( 'UTF-8', 'ASCII//TRANSLIT//IGNORE', $s );
+    if ( $tr !== false ) {
+        $s = strtolower( $tr );
+    }
+    return preg_replace( '/\s+/', ' ', $s );
+}
+
+/**
  * Retourne les variantes possibles d'une agence pour les anciens repas
  * enregistres avec le nom ("Ahala") au lieu du slug ("ahala").
  */
@@ -210,6 +223,10 @@ function sl_ff_register_cpt() {
         'supports'           => [ 'title', 'thumbnail', 'editor' ],
         'capability_type'    => [ 'sl_repas', 'sl_repas_items' ],
         'map_meta_cap'       => true,
+        // Capacite de CREATION dediee (distincte de l'edition) : permet a
+        // l'admin d'autoriser/interdire l'ajout de repas au responsable sans
+        // toucher a son droit de modifier le planning (edit_sl_repas_items).
+        'capabilities'       => [ 'create_posts' => 'create_sl_repas_items' ],
         'has_archive'        => false,
         'rewrite'            => false,
     ] );

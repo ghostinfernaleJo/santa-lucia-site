@@ -31,11 +31,11 @@ jQuery(function ($) {
             .done(function (res) {
                 if (res.success) {
                     $icon.attr('class', 'sl-ff-save-icon sl-ff-saved').html('&#10003;');
-                    if (slFF.todayJour && jours.indexOf(slFF.todayJour) !== -1) {
-                        $row.addClass('sl-ff-meal-dispo');
-                    } else {
-                        $row.removeClass('sl-ff-meal-dispo');
-                    }
+                    var isToday = slFF.todayJour && jours.indexOf(slFF.todayJour) !== -1;
+                    $row.toggleClass('sl-ff-meal-dispo', !!isToday);
+                    // Maj des attributs pour que le filtre Disponibilite reste juste
+                    $row.attr('data-checked', jours.length ? '1' : '0');
+                    $row.attr('data-today', isToday ? '1' : '0');
                     setTimeout(function () { $icon.html('').attr('class', 'sl-ff-save-icon'); }, 2000);
                 } else {
                     $icon.attr('class', 'sl-ff-save-icon sl-ff-error').html('&#10007;');
@@ -91,33 +91,75 @@ jQuery(function ($) {
     });
 
     /* ================================================================
-       FILTRES PLANNING (recherche repas + agence)
+       FILTRES PLANNING (recherche + agence + categorie + disponibilite)
+       Filtrage par attributs data-* precalcules : pas de lecture du DOM
+       texte ligne par ligne -> rapide meme avec des milliers de lignes.
     ================================================================ */
-    function slFfApplyPlanningFilters() {
-        var agence = String($('#sl-ff-agence-filter').val() || '').toLowerCase().trim();
-        var search = ($('#sl-ff-meal-search').val() || '').toLowerCase();
-
-        $('tr.sl-ff-meal-row').each(function () {
-            var $row = $(this);
-            var mealName = ($row.find('.sl-ff-plat-nom').text() || '').toLowerCase();
-            var mealAgency = ($row.find('.sl-ff-plat-agence').text() || '').toLowerCase();
-            var categoryName = ($row.prevAll('tr.sl-ff-cat-row:first').text() || '').toLowerCase();
-            var searchableText = mealName + ' ' + mealAgency + ' ' + categoryName;
-            var rowAg = String($row.attr('data-agence') || '').toLowerCase().trim();
-            var agenceMatch = !agence || (' ' + rowAg + ' ').indexOf(' ' + agence + ' ') !== -1;
-            var searchMatch = !search || searchableText.indexOf(search) !== -1;
-
-            $row.toggle(agenceMatch && searchMatch);
-        });
-
-        $('tr.sl-ff-cat-row').each(function () {
-            var $vis = $(this).nextUntil('tr.sl-ff-cat-row', 'tr.sl-ff-meal-row:visible');
-            $(this).toggle($vis.length > 0);
-        });
+    function slFfNorm(s) {
+        s = String(s || '').toLowerCase();
+        // retire les accents pour matcher data-search (deja sans accents cote PHP)
+        if (s.normalize) { s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+        return s.replace(/\s+/g, ' ').trim();
     }
 
-    $('#sl-ff-agence-filter').on('change', slFfApplyPlanningFilters);
-    $('#sl-ff-meal-search').on('input', slFfApplyPlanningFilters);
+    var $rows    = null;  // cache des lignes (rempli au 1er filtrage)
+    var $catRows = null;
+
+    function slFfApplyPlanningFilters() {
+        if (!$rows) {
+            $rows    = $('tr.sl-ff-meal-row');
+            $catRows = $('tr.sl-ff-cat-row');
+        }
+        var agence = String($('#sl-ff-agence-filter').val() || '').toLowerCase().trim();
+        var search = slFfNorm($('#sl-ff-meal-search').val());
+        var cat    = String($('#sl-ff-cat-filter').val() || '');
+        var dispo  = String($('#sl-ff-dispo-filter').val() || '');
+        var shown  = 0;
+
+        $rows.each(function () {
+            var r = this;
+            var ok = true;
+
+            if (agence) {
+                var rowAg = ' ' + String(r.getAttribute('data-agence') || '').toLowerCase().trim() + ' ';
+                if (rowAg.indexOf(' ' + agence + ' ') === -1) ok = false;
+            }
+            if (ok && cat && r.getAttribute('data-cat') !== cat) ok = false;
+            if (ok && search && (r.getAttribute('data-search') || '').indexOf(search) === -1) ok = false;
+            if (ok && dispo) {
+                if (dispo === 'today')     ok = r.getAttribute('data-today')   === '1';
+                else if (dispo === 'checked')   ok = r.getAttribute('data-checked') === '1';
+                else if (dispo === 'unchecked') ok = r.getAttribute('data-checked') === '0';
+            }
+
+            r.style.display = ok ? '' : 'none';
+            if (ok) shown++;
+        });
+
+        // Masquer les en-tetes de categorie sans ligne visible
+        $catRows.each(function () {
+            var visible = false, n = this.nextElementSibling;
+            while (n && n.className.indexOf('sl-ff-cat-row') === -1) {
+                if (n.className.indexOf('sl-ff-meal-row') !== -1 && n.style.display !== 'none') { visible = true; break; }
+                n = n.nextElementSibling;
+            }
+            this.style.display = visible ? '' : 'none';
+        });
+
+        var $count = $('#sl-ff-filter-count');
+        if ($count.length) {
+            var total = $rows.length;
+            $count.text(shown === total ? (total + ' ligne(s)') : (shown + ' / ' + total + ' ligne(s)'));
+        }
+    }
+
+    var searchTimer = null;
+    $('#sl-ff-meal-search').on('input', function () {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(slFfApplyPlanningFilters, 200);
+    });
+    $('#sl-ff-agence-filter, #sl-ff-cat-filter, #sl-ff-dispo-filter').on('change', slFfApplyPlanningFilters);
+    if ($('#sl-ff-planning-table').length) { slFfApplyPlanningFilters(); }
 
     /* ================================================================
        IMAGE REPAS — selection simple depuis la mediatheque WP

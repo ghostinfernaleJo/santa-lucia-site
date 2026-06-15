@@ -35,6 +35,8 @@ function sl_ff_build_menu() {
             'manage_options', 'post-new.php?post_type=sl_repas' );
         add_submenu_page( 'sl-fastfood', 'Categories', 'Categories',
             'manage_options', 'sl-ff-categories', 'sl_ff_categories_page' );
+        add_submenu_page( 'sl-fastfood', 'Reglages', 'Reglages',
+            'manage_options', 'sl-ff-settings', 'sl_ff_settings_page' );
         return;
     }
 
@@ -54,6 +56,8 @@ function sl_ff_build_menu() {
             'read', 'post-new.php?post_type=sl_repas' );
         add_submenu_page( 'sl-fastfood', 'Categories', 'Categories',
             'read', 'sl-ff-categories', 'sl_ff_categories_page' );
+        add_submenu_page( 'sl-fastfood', 'Reglages', 'Reglages',
+            'read', 'sl-ff-settings', 'sl_ff_settings_page' );
         return;
     }
 
@@ -67,15 +71,26 @@ function sl_ff_build_menu() {
     }
 
     /* ── Responsable Fast Food (agence unique) ── */
-    if ( ! sl_ff_is_responsable() ) return;
-    add_menu_page( 'Fast Food', 'Fast Food', 'edit_sl_repas_items',
-        'sl-fastfood', 'sl_ff_admin_page', 'dashicons-food', 26 );
-    add_submenu_page( 'sl-fastfood', 'Planning', 'Planning',
-        'edit_sl_repas_items', 'sl-fastfood', 'sl_ff_admin_page' );
-    add_submenu_page( 'sl-fastfood', 'Mes repas', 'Mes repas',
-        'edit_sl_repas_items', 'edit.php?post_type=sl_repas' );
-    add_submenu_page( 'sl-fastfood', 'Ajouter un repas', 'Ajouter un repas',
-        'edit_sl_repas_items', 'post-new.php?post_type=sl_repas' );
+    if ( sl_ff_is_responsable() ) {
+        add_menu_page( 'Fast Food', 'Fast Food', 'edit_sl_repas_items',
+            'sl-fastfood', 'sl_ff_admin_page', 'dashicons-food', 26 );
+        add_submenu_page( 'sl-fastfood', 'Planning', 'Planning',
+            'edit_sl_repas_items', 'sl-fastfood', 'sl_ff_admin_page' );
+        add_submenu_page( 'sl-fastfood', 'Mes repas', 'Mes repas',
+            'edit_sl_repas_items', 'edit.php?post_type=sl_repas' );
+        // « Ajouter un repas » seulement si l'ajout est autorise (reglage admin)
+        if ( current_user_can( 'create_sl_repas_items' ) ) {
+            add_submenu_page( 'sl-fastfood', 'Ajouter un repas', 'Ajouter un repas',
+                'create_sl_repas_items', 'post-new.php?post_type=sl_repas' );
+        }
+        return;
+    }
+
+    /* ── Editeur WP : acces au seul reglage (ni admin FF, ni responsable) ── */
+    if ( sl_ff_can_manage_settings() ) {
+        add_menu_page( 'Fast Food', 'Fast Food', 'edit_others_posts',
+            'sl-ff-settings', 'sl_ff_settings_page', 'dashicons-food', 26 );
+    }
 }
 
 /* ============================================================
@@ -224,6 +239,83 @@ function sl_ff_categories_page() {
 }
 
 /* ============================================================
+   PAGE REGLAGES
+   ============================================================ */
+function sl_ff_settings_page() {
+    if ( ! sl_ff_can_manage_settings() ) {
+        wp_die( 'Acces refuse.' );
+    }
+
+    $message = '';
+    if ( isset( $_POST['sl_ff_save_settings'] ) ) {
+        check_admin_referer( 'sl_ff_save_settings' );
+        $val = isset( $_POST['sl_ff_resp_can_add'] ) ? '1' : '0';
+        update_option( 'sl_ff_resp_can_add', $val, false );
+        $message = ( $val === '1' )
+            ? 'Les responsables Fast Food peuvent desormais ajouter des repas.'
+            : 'L\'ajout de repas est desormais bloque pour les responsables Fast Food.';
+    }
+
+    $can_add = sl_ff_resp_can_add();
+    ?>
+    <div class="wrap sl-ff-planning-wrap">
+        <div class="sl-ff-planning-header">
+            <div class="sl-ff-planning-header-left">
+                <h1 class="sl-ff-planning-titre">
+                    <span class="dashicons dashicons-admin-settings"></span>
+                    Reglages Fast Food
+                </h1>
+                <p class="sl-ff-subtitle">Controlez les droits des responsables Fast Food.</p>
+            </div>
+        </div>
+
+        <?php if ( $message ) : ?>
+            <div class="notice notice-success is-dismissible"><p><?php echo esc_html( $message ); ?></p></div>
+        <?php endif; ?>
+
+        <div class="sl-ff-import-card" style="background:#fff;border-radius:10px;padding:22px;box-shadow:0 1px 4px rgba(0,0,0,.08);max-width:640px;">
+            <form method="post">
+                <?php wp_nonce_field( 'sl_ff_save_settings' ); ?>
+                <h2 style="margin-top:0;">Ajout de repas par les responsables</h2>
+                <p style="color:#555;">
+                    Quand cette option est activee, chaque responsable Fast Food peut creer de
+                    nouveaux repas (menu &laquo;&nbsp;Ajouter un repas&nbsp;&raquo;). Quand elle est
+                    desactivee, ils peuvent toujours gerer le planning et modifier les repas
+                    existants, mais ne peuvent plus en ajouter.
+                </p>
+                <p>
+                    <label style="display:flex;align-items:center;gap:10px;font-size:15px;">
+                        <input type="checkbox" name="sl_ff_resp_can_add" value="1" <?php checked( $can_add ); ?>>
+                        <strong>Autoriser les responsables a ajouter des repas</strong>
+                    </label>
+                </p>
+                <p style="margin-top:18px;">
+                    <button type="submit" name="sl_ff_save_settings" class="button button-primary">Enregistrer</button>
+                </p>
+            </form>
+        </div>
+    </div>
+    <?php
+}
+
+/* ============================================================
+   GARDE-FOU : bloquer l'ecran "Ajouter un repas" si non autorise
+   (defense en profondeur, au cas ou l'URL serait ouverte directement)
+   ============================================================ */
+add_action( 'load-post-new.php', 'sl_ff_guard_add_repas' );
+function sl_ff_guard_add_repas() {
+    $pt = isset( $_GET['post_type'] ) ? sanitize_key( $_GET['post_type'] ) : 'post';
+    if ( $pt === 'sl_repas' && ! current_user_can( 'create_sl_repas_items' ) ) {
+        wp_die(
+            'L\'ajout de nouveaux repas a ete desactive par l\'administrateur. '
+            . 'Vous pouvez toujours modifier les repas existants et le planning.',
+            'Ajout de repas desactive',
+            [ 'response' => 403, 'back_link' => true ]
+        );
+    }
+}
+
+/* ============================================================
    ASSETS ADMIN
    ============================================================ */
 add_action( 'admin_enqueue_scripts', 'sl_ff_admin_assets' );
@@ -301,12 +393,12 @@ function sl_ff_admin_page() {
                     <span class="sl-ff-today-badge">Aujourd&#39;hui&nbsp;: <?php echo esc_html( $today_long ); ?></span>
                 </p>
             </div>
-            <?php if ( $is_admin ) : ?>
             <div class="sl-ff-filter-bar">
                 <label>
                     <strong>Rechercher un repas</strong>
                     <input type="search" id="sl-ff-meal-search" placeholder="Nom du repas..." style="min-width:240px;">
                 </label>
+                <?php if ( $is_admin ) : ?>
                 <label>
                     <strong>Filtrer par agence</strong>
                     <select id="sl-ff-agence-filter">
@@ -319,8 +411,27 @@ function sl_ff_admin_page() {
                         <?php endforeach; endif; ?>
                     </select>
                 </label>
+                <?php endif; ?>
+                <label>
+                    <strong>Categorie</strong>
+                    <select id="sl-ff-cat-filter">
+                        <option value="">Toutes les categories</option>
+                        <?php foreach ( array_keys( $grouped ) as $cat_name ) : ?>
+                        <option value="<?php echo esc_attr( sl_ff_norm_txt( $cat_name ) ); ?>"><?php echo esc_html( $cat_name ); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label>
+                    <strong>Disponibilite</strong>
+                    <select id="sl-ff-dispo-filter">
+                        <option value="">Tous les repas</option>
+                        <option value="today">Disponibles aujourd&#39;hui</option>
+                        <option value="checked">Au moins un jour coch&eacute;</option>
+                        <option value="unchecked">Aucun jour coch&eacute;</option>
+                    </select>
+                </label>
+                <span class="sl-ff-filter-count" id="sl-ff-filter-count"></span>
             </div>
-            <?php endif; ?>
         </div>
 
         <?php if ( empty( $repas ) ) : ?>
@@ -346,7 +457,7 @@ function sl_ff_admin_page() {
             </thead>
             <tbody>
                 <?php foreach ( $grouped as $cat_name => $items ) : ?>
-                <tr class="sl-ff-cat-row">
+                <tr class="sl-ff-cat-row" data-cat="<?php echo esc_attr( sl_ff_norm_txt( $cat_name ) ); ?>">
                     <td colspan="<?php echo $nb_cols; ?>"><?php echo esc_html( $cat_name ); ?></td>
                 </tr>
                 <?php foreach ( $items as $ri ) :
@@ -365,11 +476,18 @@ function sl_ff_admin_page() {
                     $jours_saved = function_exists( 'sl_ff_get_agence_jours' )
                         ? sl_ff_get_agence_jours( $ri->ID, $agence_r )
                         : (array) get_post_meta( $ri->ID, '_sl_ff_jours', true );
-                    $is_today = in_array( $today_jour, $jours_saved, true );
+                    $is_today    = in_array( $today_jour, $jours_saved, true );
+                    $has_checked = ! empty( $jours_saved );
+                    $search_str  = sl_ff_norm_txt( $ri->post_title . ' '
+                        . ( $agence_r ? sl_ff_agency_name( $agence_r ) : '' ) . ' ' . $cat_name );
                 ?>
                 <tr class="sl-ff-meal-row<?php echo $is_today ? ' sl-ff-meal-dispo' : ''; ?>"
                     data-id="<?php echo (int) $ri->ID; ?>"
-                    data-agence="<?php echo esc_attr( $agence_r ); ?>">
+                    data-agence="<?php echo esc_attr( $agence_r ); ?>"
+                    data-cat="<?php echo esc_attr( sl_ff_norm_txt( $cat_name ) ); ?>"
+                    data-search="<?php echo esc_attr( $search_str ); ?>"
+                    data-checked="<?php echo $has_checked ? '1' : '0'; ?>"
+                    data-today="<?php echo $is_today ? '1' : '0'; ?>">
                     <td class="sl-ff-col-plat">
                         <div class="sl-ff-plat-info">
                             <?php if ( $thumb_url ) : ?>
