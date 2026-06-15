@@ -12,7 +12,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'SL_AGENCES_VERSION', '3.2.7' );
+define( 'SL_AGENCES_VERSION', '3.3.1' );
 define( 'SL_AGENCES_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SL_AGENCES_URL', plugin_dir_url( __FILE__ ) );
 
@@ -130,7 +130,7 @@ function sl_agences_front_assets() {
     // Widget "Bons Plans"
     wp_enqueue_style(
         'sl-bons-plans',
-        SL_AGENCES_URL . 'assets/css/bons-plans-v3b.css',
+        SL_AGENCES_URL . 'assets/css/bons-plans-v3f.css',
         [],
         SL_AGENCES_VERSION
     );
@@ -139,7 +139,7 @@ function sl_agences_front_assets() {
     wp_add_inline_style( 'sl-bons-plans', 'html,body{overflow-x:clip!important;overflow-y:visible!important;max-width:100%}' );
     wp_enqueue_script(
         'sl-bons-plans',
-        SL_AGENCES_URL . 'assets/js/bons-plans-v3v.js',
+        SL_AGENCES_URL . 'assets/js/bons-plans-v3x.js',
         [],
         SL_AGENCES_VERSION,
         true
@@ -289,7 +289,7 @@ function sl_agences_editor_css() {
     );
     wp_enqueue_style(
         'sl-bons-plans',
-        SL_AGENCES_URL . 'assets/css/bons-plans-v3b.css',
+        SL_AGENCES_URL . 'assets/css/bons-plans-v3f.css',
         [],
         SL_AGENCES_VERSION
     );
