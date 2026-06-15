@@ -35,6 +35,7 @@ require_once SL_AGENCES_PATH . 'includes/admin-magic-import.php';
 require_once SL_AGENCES_PATH . 'includes/rest-api-mobile.php';
 require_once SL_AGENCES_PATH . 'includes/feedback-module.php';
 require_once SL_AGENCES_PATH . 'includes/disable-comments.php';
+require_once SL_AGENCES_PATH . 'includes/pdf-bons-plans.php';
 
 // Force single template for Bons Plans
 add_filter( 'template_include', 'sl_bp_single_template' );
