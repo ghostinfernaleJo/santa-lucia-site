@@ -15,9 +15,18 @@ nocache_headers();
 header( 'Content-Type: application/json; charset=utf-8' );
 
 $safe = [
+    // Lot sur
     'litespeed.conf.optm-html_min' => '1',
     'litespeed.conf.optm-emoji_rm' => '1',
     'litespeed.conf.optm-qs_rm'    => '1',
+    // Minification CSS/JS
+    'litespeed.conf.optm-css_min'  => '1',
+    'litespeed.conf.optm-js_min'   => '1',
+    // Combinaison (gros gain : reduit le nombre de fichiers)
+    'litespeed.conf.optm-css_comb' => '1',
+    'litespeed.conf.optm-js_comb'  => '1',
+    // Differer le JS (jQuery deja exclu dans optm-js_defer_exc)
+    'litespeed.conf.optm-js_defer' => '1',
 ];
 
 $result = [];
