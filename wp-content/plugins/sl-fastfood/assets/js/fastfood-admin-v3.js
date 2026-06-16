@@ -91,75 +91,16 @@ jQuery(function ($) {
     });
 
     /* ================================================================
-       FILTRES PLANNING (recherche + agence + categorie + disponibilite)
-       Filtrage par attributs data-* precalcules : pas de lecture du DOM
-       texte ligne par ligne -> rapide meme avec des milliers de lignes.
+       FILTRES PLANNING \u2014 recherche/filtres cote SERVEUR (pagination).
+       La recherche couvre TOUTE la base (pas seulement la page affichee).
+       Les menus deroulants soumettent le formulaire ; on revient page 1.
     ================================================================ */
-    function slFfNorm(s) {
-        s = String(s || '').toLowerCase();
-        // retire les accents pour matcher data-search (deja sans accents cote PHP)
-        if (s.normalize) { s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
-        return s.replace(/\s+/g, ' ').trim();
-    }
-
-    var $rows    = null;  // cache des lignes (rempli au 1er filtrage)
-    var $catRows = null;
-
-    function slFfApplyPlanningFilters() {
-        if (!$rows) {
-            $rows    = $('tr.sl-ff-meal-row');
-            $catRows = $('tr.sl-ff-cat-row');
-        }
-        var agence = String($('#sl-ff-agence-filter').val() || '').toLowerCase().trim();
-        var search = slFfNorm($('#sl-ff-meal-search').val());
-        var cat    = String($('#sl-ff-cat-filter').val() || '');
-        var dispo  = String($('#sl-ff-dispo-filter').val() || '');
-        var shown  = 0;
-
-        $rows.each(function () {
-            var r = this;
-            var ok = true;
-
-            if (agence) {
-                var rowAg = ' ' + String(r.getAttribute('data-agence') || '').toLowerCase().trim() + ' ';
-                if (rowAg.indexOf(' ' + agence + ' ') === -1) ok = false;
-            }
-            if (ok && cat && r.getAttribute('data-cat') !== cat) ok = false;
-            if (ok && search && (r.getAttribute('data-search') || '').indexOf(search) === -1) ok = false;
-            if (ok && dispo) {
-                if (dispo === 'today')     ok = r.getAttribute('data-today')   === '1';
-                else if (dispo === 'checked')   ok = r.getAttribute('data-checked') === '1';
-                else if (dispo === 'unchecked') ok = r.getAttribute('data-checked') === '0';
-            }
-
-            r.style.display = ok ? '' : 'none';
-            if (ok) shown++;
-        });
-
-        // Masquer les en-tetes de categorie sans ligne visible
-        $catRows.each(function () {
-            var visible = false, n = this.nextElementSibling;
-            while (n && n.className.indexOf('sl-ff-cat-row') === -1) {
-                if (n.className.indexOf('sl-ff-meal-row') !== -1 && n.style.display !== 'none') { visible = true; break; }
-                n = n.nextElementSibling;
-            }
-            this.style.display = visible ? '' : 'none';
-        });
-
-        var $count = $('#sl-ff-filter-count');
-        if ($count.length) {
-            var total = $rows.length;
-            $count.text(shown === total ? (total + ' ligne(s)') : (shown + ' / ' + total + ' ligne(s)'));
-        }
-    }
-
-    var searchTimer = null;
-    $('#sl-ff-meal-search').on('input', function () {
-        clearTimeout(searchTimer);
-        searchTimer = setTimeout(slFfApplyPlanningFilters, 200);
+    $('#sl-ff-filter-form').on('change', '.sl-ff-autosubmit', function () {
+        // Tout changement de filtre repart de la page 1
+        var $form = $(this).closest('form');
+        $form.find('input[name="ffp"]').remove();
+        $form.trigger('submit');
     });
-    $('#sl-ff-agence-filter, #sl-ff-cat-filter, #sl-ff-dispo-filter').on('change', slFfApplyPlanningFilters);
-    if ($('#sl-ff-planning-table').length) { slFfApplyPlanningFilters(); }
 
     /* ================================================================
        IMAGE REPAS — selection simple depuis la mediatheque WP

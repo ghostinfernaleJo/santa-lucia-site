@@ -327,10 +327,10 @@ function sl_ff_admin_assets( $hook ) {
     if ( ! $is_ff_page ) return;
 
     $admin_css_ver = @filemtime( SL_FF_PATH . 'assets/css/fastfood-admin.css' ) ?: SL_FF_VERSION;
-    $admin_js_ver  = @filemtime( SL_FF_PATH . 'assets/js/fastfood-admin-v2.js' ) ?: SL_FF_VERSION;
+    $admin_js_ver  = @filemtime( SL_FF_PATH . 'assets/js/fastfood-admin-v3.js' ) ?: SL_FF_VERSION;
 
     wp_enqueue_style(  'sl-ff-admin', SL_FF_URL . 'assets/css/fastfood-admin.css', [], $admin_css_ver );
-    wp_enqueue_script( 'sl-ff-admin', SL_FF_URL . 'assets/js/fastfood-admin-v2.js', [ 'jquery' ], $admin_js_ver, true );
+    wp_enqueue_script( 'sl-ff-admin', SL_FF_URL . 'assets/js/fastfood-admin-v3.js', [ 'jquery' ], $admin_js_ver, true );
     wp_localize_script( 'sl-ff-admin', 'slFF', [
         'ajaxurl'   => admin_url( 'admin-ajax.php' ),
         'nonce'     => wp_create_nonce( 'sl_ff_toggle' ),
@@ -347,35 +347,98 @@ function sl_ff_admin_page() {
     $today_long  = date_i18n( 'l j F Y', strtotime( $today ) );
     $agence_user = get_user_meta( get_current_user_id(), '_sl_agence_ff', true );
     $is_admin    = current_user_can( 'manage_options' ) || current_user_can( 'sl_ff_all_agencies' );
-    $all_agences = function_exists( 'sl_ff_all_agence_slugs' ) ? sl_ff_all_agence_slugs() : [];
 
     $jours_list = [
-        'lundi'    => 'Lun',
-        'mardi'    => 'Mar',
-        'mercredi' => 'Mer',
-        'jeudi'    => 'Jeu',
-        'vendredi' => 'Ven',
-        'samedi'   => 'Sam',
-        'dimanche' => 'Dim',
+        'lundi' => 'Lun', 'mardi' => 'Mar', 'mercredi' => 'Mer', 'jeudi' => 'Jeu',
+        'vendredi' => 'Ven', 'samedi' => 'Sam', 'dimanche' => 'Dim',
     ];
 
-    $args = [
-        'post_type'      => 'sl_repas',
-        'post_status'    => 'publish',
-        'posts_per_page' => -1,
-        'orderby'        => 'title',
-        'order'          => 'ASC',
+    /* ---- Parametres de filtre/pagination (GET, couvrent TOUTE la base) ---- */
+    $per_page   = 25;
+    $cur_page   = isset( $_GET['ffp'] ) ? max( 1, (int) $_GET['ffp'] ) : 1;
+    $search     = isset( $_GET['ffs'] ) ? sanitize_text_field( wp_unslash( $_GET['ffs'] ) ) : '';
+    $agency_sel = ( $is_admin && isset( $_GET['ffa'] ) ) ? sanitize_title( wp_unslash( $_GET['ffa'] ) ) : '';
+    $cat_sel    = isset( $_GET['ffc'] ) ? sanitize_title( wp_unslash( $_GET['ffc'] ) ) : '';
+    $dispo      = isset( $_GET['ffd'] ) ? sanitize_key( wp_unslash( $_GET['ffd'] ) ) : '';
+
+    // Scope agence : responsable = son agence ; admin = agence choisie (ou toutes)
+    $scope_agence = $is_admin ? $agency_sel : sanitize_title( (string) $agence_user );
+
+    /* ---- 1) IDs candidats (recherche + categorie + agence), sans limite ---- */
+    $q_args = [
+        'post_type'        => 'sl_repas',
+        'post_status'      => 'publish',
+        'posts_per_page'   => -1,
+        'orderby'          => 'title',
+        'order'            => 'ASC',
+        'fields'           => 'ids',
+        'no_found_rows'    => true,
+        'suppress_filters' => true,
     ];
-    $repas = get_posts( $args );
+    if ( $search !== '' ) {
+        $q_args['s'] = $search;
+    }
+    if ( $cat_sel !== '' ) {
+        $q_args['tax_query'] = [ [ 'taxonomy' => 'sl_repas_cat', 'field' => 'slug', 'terms' => $cat_sel ] ];
+    }
+    if ( $scope_agence !== '' ) {
+        $q_args['meta_query'] = [ [ 'key' => '_sl_ff_agence', 'value' => $scope_agence ] ];
+    }
+    $all_ids = get_posts( $q_args );
+
+    /* ---- 2) Filtre disponibilite (calcule, sur le jeu candidat reduit) ---- */
+    if ( $dispo !== '' && ! empty( $all_ids ) ) {
+        $all_ids = array_values( array_filter( $all_ids, function ( $pid ) use ( $scope_agence, $today_jour ) {
+            $jours = sl_ff_jours_for_filter( $pid, $scope_agence );
+            if ( $dispo === 'today' )     return in_array( $today_jour, $jours, true );
+            if ( $dispo === 'checked' )   return ! empty( $jours );
+            if ( $dispo === 'unchecked' ) return empty( $jours );
+            return true;
+        } ) );
+    }
+
+    /* ---- 3) Pagination de la liste d'IDs ---- */
+    $total      = count( $all_ids );
+    $page_count = max( 1, (int) ceil( $total / $per_page ) );
+    if ( $cur_page > $page_count ) $cur_page = $page_count;
+    $offset    = ( $cur_page - 1 ) * $per_page;
+    $page_ids  = array_slice( $all_ids, $offset, $per_page );
+
+    /* ---- 4) Charger les posts de la page (amorce les caches meta/terms) ---- */
+    $repas = [];
+    if ( ! empty( $page_ids ) ) {
+        $repas = get_posts( [
+            'post_type'      => 'sl_repas',
+            'post_status'    => 'publish',
+            'post__in'       => $page_ids,
+            'orderby'        => 'post__in',
+            'posts_per_page' => count( $page_ids ),
+        ] );
+    }
 
     $grouped = [];
     foreach ( $repas as $r ) {
-        $cats = wp_get_post_terms( $r->ID, 'sl_repas_cat' );
-        $cat  = ( ! empty( $cats ) && ! is_wp_error( $cats ) )
-                ? sl_ff_cat_display( $cats[0]->name ) : 'Sans categorie';
+        $terms = get_the_terms( $r->ID, 'sl_repas_cat' );
+        $cat   = ( $terms && ! is_wp_error( $terms ) ) ? sl_ff_cat_display( $terms[0]->name ) : 'Sans categorie';
         $grouped[ $cat ][] = $r;
     }
     ksort( $grouped );
+
+    // Liste complete des categories pour le menu deroulant (toute la base)
+    $cat_terms = get_terms( [ 'taxonomy' => 'sl_repas_cat', 'hide_empty' => false, 'orderby' => 'name' ] );
+    $cat_terms = is_wp_error( $cat_terms ) ? [] : $cat_terms;
+    $agence_terms = [];
+    if ( $is_admin ) {
+        $agence_terms = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] );
+        $agence_terms = is_wp_error( $agence_terms ) ? [] : $agence_terms;
+    }
+
+    // URL de base pour les liens de pagination (conserve les filtres)
+    $base_args = [ 'page' => 'sl-fastfood' ];
+    if ( $search !== '' )     $base_args['ffs'] = $search;
+    if ( $agency_sel !== '' ) $base_args['ffa'] = $agency_sel;
+    if ( $cat_sel !== '' )    $base_args['ffc'] = $cat_sel;
+    if ( $dispo !== '' )      $base_args['ffd'] = $dispo;
 
     $nb_cols = 1 + 7 + ( $is_admin ? 1 : 0 ) + 1;
     ?>
@@ -393,51 +456,63 @@ function sl_ff_admin_page() {
                     <span class="sl-ff-today-badge">Aujourd&#39;hui&nbsp;: <?php echo esc_html( $today_long ); ?></span>
                 </p>
             </div>
-            <div class="sl-ff-filter-bar">
+            <form class="sl-ff-filter-bar" id="sl-ff-filter-form" method="get">
+                <input type="hidden" name="page" value="sl-fastfood">
                 <label>
                     <strong>Rechercher un repas</strong>
-                    <input type="search" id="sl-ff-meal-search" placeholder="Nom du repas..." style="min-width:240px;">
+                    <input type="search" name="ffs" value="<?php echo esc_attr( $search ); ?>" placeholder="Nom du repas (toute la base)..." style="min-width:240px;">
                 </label>
                 <?php if ( $is_admin ) : ?>
                 <label>
                     <strong>Filtrer par agence</strong>
-                    <select id="sl-ff-agence-filter">
+                    <select name="ffa" class="sl-ff-autosubmit">
                         <option value="">Toutes les agences</option>
-                        <?php
-                        $agences = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false ] );
-                        if ( ! is_wp_error( $agences ) ) :
-                            foreach ( $agences as $a ) : ?>
-                            <option value="<?php echo esc_attr( $a->slug ); ?>"><?php echo esc_html( sl_ff_agency_name( $a->name ) ); ?></option>
-                        <?php endforeach; endif; ?>
+                        <?php foreach ( $agence_terms as $a ) : ?>
+                            <option value="<?php echo esc_attr( $a->slug ); ?>" <?php selected( $agency_sel, $a->slug ); ?>><?php echo esc_html( sl_ff_agency_name( $a->name ) ); ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </label>
                 <?php endif; ?>
                 <label>
                     <strong>Categorie</strong>
-                    <select id="sl-ff-cat-filter">
+                    <select name="ffc" class="sl-ff-autosubmit">
                         <option value="">Toutes les categories</option>
-                        <?php foreach ( array_keys( $grouped ) as $cat_name ) : ?>
-                        <option value="<?php echo esc_attr( sl_ff_norm_txt( $cat_name ) ); ?>"><?php echo esc_html( $cat_name ); ?></option>
+                        <?php foreach ( $cat_terms as $t ) : ?>
+                        <option value="<?php echo esc_attr( $t->slug ); ?>" <?php selected( $cat_sel, $t->slug ); ?>><?php echo esc_html( sl_ff_cat_display( $t->name ) ); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </label>
                 <label>
                     <strong>Disponibilite</strong>
-                    <select id="sl-ff-dispo-filter">
+                    <select name="ffd" class="sl-ff-autosubmit">
                         <option value="">Tous les repas</option>
-                        <option value="today">Disponibles aujourd&#39;hui</option>
-                        <option value="checked">Au moins un jour coch&eacute;</option>
-                        <option value="unchecked">Aucun jour coch&eacute;</option>
+                        <option value="today"     <?php selected( $dispo, 'today' ); ?>>Disponibles aujourd&#39;hui</option>
+                        <option value="checked"   <?php selected( $dispo, 'checked' ); ?>>Au moins un jour coch&eacute;</option>
+                        <option value="unchecked" <?php selected( $dispo, 'unchecked' ); ?>>Aucun jour coch&eacute;</option>
                     </select>
                 </label>
-                <span class="sl-ff-filter-count" id="sl-ff-filter-count"></span>
-            </div>
+                <button type="submit" class="button button-primary">Rechercher</button>
+                <?php if ( $search !== '' || $agency_sel !== '' || $cat_sel !== '' || $dispo !== '' ) : ?>
+                <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=sl-fastfood' ) ); ?>">R&eacute;initialiser</a>
+                <?php endif; ?>
+            </form>
         </div>
+
+        <p class="sl-ff-result-line">
+            <strong><?php echo (int) $total; ?></strong> repas trouv&eacute;(s)
+            <?php if ( $total > 0 ) : ?>
+                &mdash; page <?php echo (int) $cur_page; ?> / <?php echo (int) $page_count; ?>
+            <?php endif; ?>
+        </p>
 
         <?php if ( empty( $repas ) ) : ?>
         <div class="sl-ff-empty">
             <span class="dashicons dashicons-food" style="font-size:48px;color:#ddd;width:auto;height:auto;display:block;margin-bottom:8px;"></span>
+            <?php if ( $search !== '' || $agency_sel !== '' || $cat_sel !== '' || $dispo !== '' ) : ?>
+            <p>Aucun repas ne correspond &agrave; ces crit&egrave;res. <a href="<?php echo esc_url( admin_url( 'admin.php?page=sl-fastfood' ) ); ?>">R&eacute;initialiser la recherche</a></p>
+            <?php else : ?>
             <p>Aucun repas configure. <a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=sl_repas' ) ); ?>">Ajouter le premier repas &rarr;</a></p>
+            <?php endif; ?>
         </div>
         <?php else : ?>
 
@@ -461,15 +536,15 @@ function sl_ff_admin_page() {
                     <td colspan="<?php echo $nb_cols; ?>"><?php echo esc_html( $cat_name ); ?></td>
                 </tr>
                 <?php foreach ( $items as $ri ) :
-                    $agences_r = function_exists( 'sl_ff_post_agence_slugs' )
-                        ? sl_ff_post_agence_slugs( $ri->ID )
-                        : array_values( array_filter( array_unique( array_map( 'sanitize_title', (array) get_post_meta( $ri->ID, '_sl_ff_agence' ) ) ) ) );
-                    if ( $is_admin && ! empty( $all_agences ) ) {
-                        $agences_r = $all_agences;
-                    } elseif ( ! $is_admin && $agence_user ) {
-                        $agences_r = [ sanitize_title( $agence_user ) ];
-                    } elseif ( empty( $agences_r ) ) {
-                        $agences_r = [ '' ];
+                    if ( $scope_agence !== '' ) {
+                        // Une agence ciblee (responsable, ou admin filtre) : 1 ligne/repas
+                        $agences_r = [ $scope_agence ];
+                    } else {
+                        // Admin toutes agences : 1 ligne par agence reelle du repas
+                        $agences_r = function_exists( 'sl_ff_post_agence_slugs' )
+                            ? sl_ff_post_agence_slugs( $ri->ID )
+                            : array_values( array_filter( array_unique( array_map( 'sanitize_title', (array) get_post_meta( $ri->ID, '_sl_ff_agence' ) ) ) ) );
+                        if ( empty( $agences_r ) ) $agences_r = [ '' ];
                     }
                     $thumb_url = get_the_post_thumbnail_url( $ri->ID, 'thumbnail' );
                     foreach ( $agences_r as $agence_r ) :
@@ -528,7 +603,43 @@ function sl_ff_admin_page() {
                 <?php endforeach; ?>
             </tbody>
         </table>
+
+        <?php if ( $page_count > 1 ) :
+            $prev = max( 1, $cur_page - 1 );
+            $next = min( $page_count, $cur_page + 1 );
+        ?>
+        <div class="sl-ff-pagination tablenav-pages">
+            <?php if ( $cur_page > 1 ) : ?>
+                <a class="button" href="<?php echo esc_url( add_query_arg( array_merge( $base_args, [ 'ffp' => 1 ] ), admin_url( 'admin.php' ) ) ); ?>">&laquo; Premi&egrave;re</a>
+                <a class="button" href="<?php echo esc_url( add_query_arg( array_merge( $base_args, [ 'ffp' => $prev ] ), admin_url( 'admin.php' ) ) ); ?>">&lsaquo; Pr&eacute;c&eacute;dent</a>
+            <?php endif; ?>
+            <span class="sl-ff-page-indicator">Page <?php echo (int) $cur_page; ?> sur <?php echo (int) $page_count; ?></span>
+            <?php if ( $cur_page < $page_count ) : ?>
+                <a class="button" href="<?php echo esc_url( add_query_arg( array_merge( $base_args, [ 'ffp' => $next ] ), admin_url( 'admin.php' ) ) ); ?>">Suivant &rsaquo;</a>
+                <a class="button" href="<?php echo esc_url( add_query_arg( array_merge( $base_args, [ 'ffp' => $page_count ] ), admin_url( 'admin.php' ) ) ); ?>">Derni&egrave;re &raquo;</a>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
         <?php endif; ?>
     </div>
     <?php
+}
+
+/**
+ * Jours effectifs d'un repas pour le filtre de disponibilite.
+ * - agence precisee : jours de cette agence ;
+ * - sinon (admin toutes agences) : union des jours de toutes ses agences
+ *   (+ ancien champ global pour compat).
+ */
+function sl_ff_jours_for_filter( $post_id, $agence = '' ) {
+    if ( $agence !== '' ) {
+        return sl_ff_get_agence_jours( $post_id, $agence );
+    }
+    $u = (array) get_post_meta( $post_id, '_sl_ff_jours', true );
+    if ( function_exists( 'sl_ff_post_agence_slugs' ) ) {
+        foreach ( sl_ff_post_agence_slugs( $post_id ) as $ag ) {
+            $u = array_merge( $u, sl_ff_get_agence_jours( $post_id, $ag ) );
+        }
+    }
+    return array_values( array_unique( array_filter( $u ) ) );
 }

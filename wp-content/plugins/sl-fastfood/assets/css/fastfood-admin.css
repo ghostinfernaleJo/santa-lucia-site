@@ -73,6 +73,26 @@
     font-weight: 600;
     white-space: nowrap;
 }
+.sl-ff-filter-bar .button { align-self: flex-end; }
+
+/* Ligne de resultats + pagination */
+.sl-ff-result-line {
+    margin: 12px 0 6px;
+    color: #1d2327;
+    font-size: 13px;
+}
+.sl-ff-pagination {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 16px 0 8px;
+}
+.sl-ff-page-indicator {
+    font-weight: 600;
+    color: #1d2327;
+    padding: 0 6px;
+}
 
 /* Message vide */
 .sl-ff-empty {
