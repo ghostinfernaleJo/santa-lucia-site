@@ -110,7 +110,6 @@ jQuery(function ($) {
             $rows    = $('tr.sl-ff-meal-row');
             $catRows = $('tr.sl-ff-cat-row');
         }
-        var agence = String($('#sl-ff-agence-filter').val() || '').toLowerCase().trim();
         var search = slFfNorm($('#sl-ff-meal-search').val());
         var cat    = String($('#sl-ff-cat-filter').val() || '');
         var dispo  = String($('#sl-ff-dispo-filter').val() || '');
@@ -120,11 +119,7 @@ jQuery(function ($) {
             var r = this;
             var ok = true;
 
-            if (agence) {
-                var rowAg = ' ' + String(r.getAttribute('data-agence') || '').toLowerCase().trim() + ' ';
-                if (rowAg.indexOf(' ' + agence + ' ') === -1) ok = false;
-            }
-            if (ok && cat && r.getAttribute('data-cat') !== cat) ok = false;
+            if (cat && r.getAttribute('data-cat') !== cat) ok = false;
             if (ok && search && (r.getAttribute('data-search') || '').indexOf(search) === -1) ok = false;
             if (ok && dispo) {
                 if (dispo === 'today')     ok = r.getAttribute('data-today')   === '1';
@@ -158,8 +153,17 @@ jQuery(function ($) {
         clearTimeout(searchTimer);
         searchTimer = setTimeout(slFfApplyPlanningFilters, 200);
     });
-    $('#sl-ff-agence-filter, #sl-ff-cat-filter, #sl-ff-dispo-filter').on('change', slFfApplyPlanningFilters);
+    $('#sl-ff-cat-filter, #sl-ff-dispo-filter').on('change', slFfApplyPlanningFilters);
     if ($('#sl-ff-planning-table').length) { slFfApplyPlanningFilters(); }
+
+    // Selecteur d'agence (admin) : rechargement serveur -> on ne charge qu'une
+    // agence a la fois (perf). Le choix est memorise cote serveur.
+    $('#sl-ff-agence-select').on('change', function () {
+        var base = $(this).attr('data-base') || '';
+        if (!base) return;
+        var sep = base.indexOf('?') === -1 ? '?' : '&';
+        window.location.href = base + sep + 'ff_agence=' + encodeURIComponent(this.value);
+    });
 
     /* ================================================================
        IMAGE REPAS — selection simple depuis la mediatheque WP

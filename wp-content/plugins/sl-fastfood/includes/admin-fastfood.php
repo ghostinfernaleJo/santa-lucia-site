@@ -359,6 +359,28 @@ function sl_ff_admin_page() {
         'dimanche' => 'Dim',
     ];
 
+    // Liste des agences (pour le selecteur admin + le rendu)
+    $agences_terms = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] );
+    $agences_terms = is_wp_error( $agences_terms ) ? [] : $agences_terms;
+    $valid_slugs   = wp_list_pluck( $agences_terms, 'slug' );
+
+    // PERF : pour un admin, on n'affiche qu'UNE agence a la fois (sinon
+    // ~190 repas x 18 agences = des milliers de lignes a charger). Le choix
+    // est memorise par utilisateur. '__all' = tout afficher (lent, explicite).
+    $sel_agence = '';
+    if ( $is_admin ) {
+        if ( isset( $_GET['ff_agence'] ) ) {
+            $sel_agence = sanitize_title( wp_unslash( $_GET['ff_agence'] ) );
+            if ( $_GET['ff_agence'] === '__all' ) { $sel_agence = '__all'; }
+            update_user_meta( get_current_user_id(), '_sl_ff_planning_agence', $sel_agence );
+        } else {
+            $sel_agence = (string) get_user_meta( get_current_user_id(), '_sl_ff_planning_agence', true );
+        }
+        if ( $sel_agence !== '__all' && ! in_array( $sel_agence, $valid_slugs, true ) ) {
+            $sel_agence = ! empty( $valid_slugs ) ? $valid_slugs[0] : '__all';
+        }
+    }
+
     $args = [
         'post_type'      => 'sl_repas',
         'post_status'    => 'publish',
@@ -366,13 +388,19 @@ function sl_ff_admin_page() {
         'orderby'        => 'title',
         'order'          => 'ASC',
     ];
+    // Ne charger que les repas de l'agence concernee (grosse economie)
+    if ( $is_admin && $sel_agence && $sel_agence !== '__all' ) {
+        $args['meta_query'] = [ [ 'key' => '_sl_ff_agence', 'value' => $sel_agence ] ];
+    } elseif ( ! $is_admin && $agence_user ) {
+        $args['meta_query'] = [ [ 'key' => '_sl_ff_agence', 'value' => sanitize_title( $agence_user ) ] ];
+    }
     $repas = get_posts( $args );
 
     $grouped = [];
     foreach ( $repas as $r ) {
-        $cats = wp_get_post_terms( $r->ID, 'sl_repas_cat' );
-        $cat  = ( ! empty( $cats ) && ! is_wp_error( $cats ) )
-                ? sl_ff_cat_display( $cats[0]->name ) : 'Sans categorie';
+        $terms = get_the_terms( $r->ID, 'sl_repas_cat' ); // cache amorce par WP_Query
+        $cat   = ( $terms && ! is_wp_error( $terms ) )
+                ? sl_ff_cat_display( $terms[0]->name ) : 'Sans categorie';
         $grouped[ $cat ][] = $r;
     }
     ksort( $grouped );
@@ -400,15 +428,14 @@ function sl_ff_admin_page() {
                 </label>
                 <?php if ( $is_admin ) : ?>
                 <label>
-                    <strong>Filtrer par agence</strong>
-                    <select id="sl-ff-agence-filter">
-                        <option value="">Toutes les agences</option>
-                        <?php
-                        $agences = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false ] );
-                        if ( ! is_wp_error( $agences ) ) :
-                            foreach ( $agences as $a ) : ?>
-                            <option value="<?php echo esc_attr( $a->slug ); ?>"><?php echo esc_html( sl_ff_agency_name( $a->name ) ); ?></option>
-                        <?php endforeach; endif; ?>
+                    <strong>Agence affich&eacute;e</strong>
+                    <select id="sl-ff-agence-select" data-base="<?php echo esc_url( admin_url( 'admin.php?page=sl-fastfood' ) ); ?>">
+                        <?php foreach ( $agences_terms as $a ) : ?>
+                            <option value="<?php echo esc_attr( $a->slug ); ?>" <?php selected( $sel_agence, $a->slug ); ?>>
+                                <?php echo esc_html( sl_ff_agency_name( $a->name ) ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                        <option value="__all" <?php selected( $sel_agence, '__all' ); ?>>Toutes les agences (lent)</option>
                     </select>
                 </label>
                 <?php endif; ?>
@@ -464,8 +491,11 @@ function sl_ff_admin_page() {
                     $agences_r = function_exists( 'sl_ff_post_agence_slugs' )
                         ? sl_ff_post_agence_slugs( $ri->ID )
                         : array_values( array_filter( array_unique( array_map( 'sanitize_title', (array) get_post_meta( $ri->ID, '_sl_ff_agence' ) ) ) ) );
-                    if ( $is_admin && ! empty( $all_agences ) ) {
-                        $agences_r = $all_agences;
+                    if ( $is_admin && $sel_agence && $sel_agence !== '__all' ) {
+                        // Une seule agence affichee : une ligne par repas (perf)
+                        $agences_r = [ $sel_agence ];
+                    } elseif ( $is_admin && ! empty( $all_agences ) ) {
+                        $agences_r = $all_agences; // mode "Toutes les agences" (lent)
                     } elseif ( ! $is_admin && $agence_user ) {
                         $agences_r = [ sanitize_title( $agence_user ) ];
                     } elseif ( empty( $agences_r ) ) {
