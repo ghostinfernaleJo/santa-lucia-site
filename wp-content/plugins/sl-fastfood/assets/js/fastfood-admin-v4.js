@@ -95,11 +95,24 @@ jQuery(function ($) {
        La recherche couvre TOUTE la base (pas seulement la page affichee).
        Les menus deroulants soumettent le formulaire ; on revient page 1.
     ================================================================ */
-    $('#sl-ff-filter-form').on('change', '.sl-ff-autosubmit', function () {
+    var slFfForm = document.getElementById('sl-ff-filter-form');
+
+    function slFfSubmitForm() {
+        if (!slFfForm) return;
         // Tout changement de filtre repart de la page 1
-        var $form = $(this).closest('form');
-        $form.find('input[name="ffp"]').remove();
-        $form.trigger('submit');
+        var ffp = slFfForm.querySelector('input[name="ffp"]');
+        if (ffp) ffp.parentNode.removeChild(ffp);
+        slFfForm.submit(); // soumission NATIVE (fiable, pas de trigger jQuery)
+    }
+
+    // Menus deroulants (agence / categorie / disponibilite) : appliquer au changement
+    $('#sl-ff-filter-form').on('change', '.sl-ff-autosubmit', slFfSubmitForm);
+
+    // Recherche : appliquer apres une courte pause de frappe (et sur Entree / bouton)
+    var slFfSearchTimer = null;
+    $('#sl-ff-filter-form').on('input', 'input[name="ffs"]', function () {
+        clearTimeout(slFfSearchTimer);
+        slFfSearchTimer = setTimeout(slFfSubmitForm, 800);
     });
 
     /* ================================================================

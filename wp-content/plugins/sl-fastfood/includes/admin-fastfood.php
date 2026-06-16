@@ -356,10 +356,10 @@ function sl_ff_admin_assets( $hook ) {
     if ( ! $is_ff_page ) return;
 
     $admin_css_ver = @filemtime( SL_FF_PATH . 'assets/css/fastfood-admin.css' ) ?: SL_FF_VERSION;
-    $admin_js_ver  = @filemtime( SL_FF_PATH . 'assets/js/fastfood-admin-v3.js' ) ?: SL_FF_VERSION;
+    $admin_js_ver  = @filemtime( SL_FF_PATH . 'assets/js/fastfood-admin-v4.js' ) ?: SL_FF_VERSION;
 
     wp_enqueue_style(  'sl-ff-admin', SL_FF_URL . 'assets/css/fastfood-admin.css', [], $admin_css_ver );
-    wp_enqueue_script( 'sl-ff-admin', SL_FF_URL . 'assets/js/fastfood-admin-v3.js', [ 'jquery' ], $admin_js_ver, true );
+    wp_enqueue_script( 'sl-ff-admin', SL_FF_URL . 'assets/js/fastfood-admin-v4.js', [ 'jquery' ], $admin_js_ver, true );
     wp_localize_script( 'sl-ff-admin', 'slFF', [
         'ajaxurl'   => admin_url( 'admin-ajax.php' ),
         'nonce'     => wp_create_nonce( 'sl_ff_toggle' ),
@@ -396,14 +396,13 @@ function sl_ff_admin_page() {
 
     /* ---- 1) IDs candidats (recherche + categorie + agence), sans limite ---- */
     $q_args = [
-        'post_type'        => 'sl_repas',
-        'post_status'      => 'publish',
-        'posts_per_page'   => -1,
-        'orderby'          => 'title',
-        'order'            => 'ASC',
-        'fields'           => 'ids',
-        'no_found_rows'    => true,
-        'suppress_filters' => true,
+        'post_type'      => 'sl_repas',
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'orderby'        => 'title',
+        'order'          => 'ASC',
+        'fields'         => 'ids',
+        'no_found_rows'  => true,
     ];
     if ( $search !== '' ) {
         $q_args['s'] = $search;
