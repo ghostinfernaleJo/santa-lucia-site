@@ -347,6 +347,7 @@ function sl_ff_admin_page() {
     $today_long  = date_i18n( 'l j F Y', strtotime( $today ) );
     $agence_user = get_user_meta( get_current_user_id(), '_sl_agence_ff', true );
     $is_admin    = current_user_can( 'manage_options' ) || current_user_can( 'sl_ff_all_agencies' );
+    $all_agences = function_exists( 'sl_ff_all_agence_slugs' ) ? sl_ff_all_agence_slugs() : [];
 
     $jours_list = [
         'lundi' => 'Lun', 'mardi' => 'Mar', 'mercredi' => 'Mer', 'jeudi' => 'Jeu',
@@ -537,10 +538,13 @@ function sl_ff_admin_page() {
                 </tr>
                 <?php foreach ( $items as $ri ) :
                     if ( $scope_agence !== '' ) {
-                        // Une agence ciblee (responsable, ou admin filtre) : 1 ligne/repas
+                        // Une agence ciblee (responsable, ou admin filtre par agence) : 1 ligne/repas
                         $agences_r = [ $scope_agence ];
+                    } elseif ( $is_admin && ! empty( $all_agences ) ) {
+                        // Admin toutes agences : 1 ligne par agence, MEME non cochee,
+                        // pour pouvoir activer le repas dans n'importe quelle agence.
+                        $agences_r = $all_agences;
                     } else {
-                        // Admin toutes agences : 1 ligne par agence reelle du repas
                         $agences_r = function_exists( 'sl_ff_post_agence_slugs' )
                             ? sl_ff_post_agence_slugs( $ri->ID )
                             : array_values( array_filter( array_unique( array_map( 'sanitize_title', (array) get_post_meta( $ri->ID, '_sl_ff_agence' ) ) ) ) );
