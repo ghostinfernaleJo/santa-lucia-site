@@ -85,12 +85,10 @@ function sl_ff_build_menu() {
         }
         return;
     }
-
-    /* ── Editeur WP : acces au seul reglage (ni admin FF, ni responsable) ── */
-    if ( sl_ff_can_manage_settings() ) {
-        add_menu_page( 'Fast Food', 'Fast Food', 'edit_others_posts',
-            'sl-ff-settings', 'sl_ff_settings_page', 'dashicons-food', 26 );
-    }
+    // Note : l'editeur WP recoit sl_ff_all_agencies (roles-fastfood.php) ->
+    // il passe par la branche "Administrateur Fast Food" ci-dessus et obtient
+    // le menu complet (planning toutes agences, disponibilite multi-agences,
+    // reglages, etc.).
 }
 
 /* ============================================================
@@ -246,17 +244,19 @@ function sl_ff_settings_page() {
         wp_die( 'Acces refuse.' );
     }
 
+    // Liste des responsables Fast Food
+    $responsables = get_users( [ 'role' => 'sl_responsable_fastfood', 'orderby' => 'display_name' ] );
+
     $message = '';
     if ( isset( $_POST['sl_ff_save_settings'] ) ) {
         check_admin_referer( 'sl_ff_save_settings' );
-        $val = isset( $_POST['sl_ff_resp_can_add'] ) ? '1' : '0';
-        update_option( 'sl_ff_resp_can_add', $val, false );
-        $message = ( $val === '1' )
-            ? 'Les responsables Fast Food peuvent desormais ajouter des repas.'
-            : 'L\'ajout de repas est desormais bloque pour les responsables Fast Food.';
+        $managed = array_map( 'intval', (array) ( $_POST['sl_ff_managed_users'] ?? [] ) );
+        $allowed = array_map( 'intval', (array) ( $_POST['sl_ff_can_add'] ?? [] ) );
+        foreach ( $managed as $uid ) {
+            update_user_meta( $uid, 'sl_ff_can_add', in_array( $uid, $allowed, true ) ? '1' : '0' );
+        }
+        $message = 'Reglages enregistres.';
     }
-
-    $can_add = sl_ff_resp_can_add();
     ?>
     <div class="wrap sl-ff-planning-wrap">
         <div class="sl-ff-planning-header">
@@ -265,7 +265,7 @@ function sl_ff_settings_page() {
                     <span class="dashicons dashicons-admin-settings"></span>
                     Reglages Fast Food
                 </h1>
-                <p class="sl-ff-subtitle">Controlez les droits des responsables Fast Food.</p>
+                <p class="sl-ff-subtitle">Choisissez, responsable par responsable, qui peut ajouter de nouveaux repas.</p>
             </div>
         </div>
 
@@ -273,26 +273,55 @@ function sl_ff_settings_page() {
             <div class="notice notice-success is-dismissible"><p><?php echo esc_html( $message ); ?></p></div>
         <?php endif; ?>
 
-        <div class="sl-ff-import-card" style="background:#fff;border-radius:10px;padding:22px;box-shadow:0 1px 4px rgba(0,0,0,.08);max-width:640px;">
+        <div class="sl-ff-import-card" style="background:#fff;border-radius:10px;padding:22px;box-shadow:0 1px 4px rgba(0,0,0,.08);max-width:760px;">
+            <h2 style="margin-top:0;">Ajout de repas par les responsables</h2>
+            <p style="color:#555;">
+                Cochez les responsables autorises a creer de nouveaux repas (menu
+                &laquo;&nbsp;Ajouter un repas&nbsp;&raquo;). Decoche, un responsable peut toujours gerer
+                le planning et modifier les repas existants, mais ne peut plus en ajouter.
+            </p>
+
+            <?php if ( empty( $responsables ) ) : ?>
+                <p><em>Aucun responsable Fast Food n'est enregistre pour le moment.</em></p>
+            <?php else : ?>
             <form method="post">
                 <?php wp_nonce_field( 'sl_ff_save_settings' ); ?>
-                <h2 style="margin-top:0;">Ajout de repas par les responsables</h2>
-                <p style="color:#555;">
-                    Quand cette option est activee, chaque responsable Fast Food peut creer de
-                    nouveaux repas (menu &laquo;&nbsp;Ajouter un repas&nbsp;&raquo;). Quand elle est
-                    desactivee, ils peuvent toujours gerer le planning et modifier les repas
-                    existants, mais ne peuvent plus en ajouter.
-                </p>
-                <p>
-                    <label style="display:flex;align-items:center;gap:10px;font-size:15px;">
-                        <input type="checkbox" name="sl_ff_resp_can_add" value="1" <?php checked( $can_add ); ?>>
-                        <strong>Autoriser les responsables a ajouter des repas</strong>
-                    </label>
-                </p>
+                <table class="widefat striped" style="margin-top:8px;max-width:720px;">
+                    <thead>
+                        <tr>
+                            <th>Responsable</th>
+                            <th>Agence</th>
+                            <th style="text-align:center;width:200px;">Peut ajouter des repas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ( $responsables as $u ) :
+                            $uid     = (int) $u->ID;
+                            $ag      = get_user_meta( $uid, '_sl_agence_ff', true );
+                            $can_add = sl_ff_user_can_add_repas( $uid );
+                        ?>
+                        <tr>
+                            <td>
+                                <strong><?php echo esc_html( $u->display_name ); ?></strong><br>
+                                <span style="color:#888;font-size:12px;"><?php echo esc_html( $u->user_login ); ?></span>
+                                <input type="hidden" name="sl_ff_managed_users[]" value="<?php echo $uid; ?>">
+                            </td>
+                            <td><?php echo $ag ? esc_html( sl_ff_agency_name( $ag ) ) : '<span style="color:#bbb;">—</span>'; ?></td>
+                            <td style="text-align:center;">
+                                <label style="display:inline-flex;align-items:center;gap:8px;">
+                                    <input type="checkbox" name="sl_ff_can_add[]" value="<?php echo $uid; ?>" <?php checked( $can_add ); ?>>
+                                    <span><?php echo $can_add ? 'Autorise' : 'Bloque'; ?></span>
+                                </label>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
                 <p style="margin-top:18px;">
                     <button type="submit" name="sl_ff_save_settings" class="button button-primary">Enregistrer</button>
                 </p>
             </form>
+            <?php endif; ?>
         </div>
     </div>
     <?php

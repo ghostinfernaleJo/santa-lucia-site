@@ -110,8 +110,12 @@ function sl_ff_grant_admin_caps( $allcaps, $caps, $args ) {
     $user_id = isset( $args[1] ) ? (int) $args[1] : 0;
     $user    = $user_id ? get_userdata( $user_id ) : null;
     $is_ff_admin = $user && in_array( 'sl_ff_admin', (array) $user->roles, true );
+    // L'editeur WP a TOUS les droits Fast Food (= admin Fast Food complet) :
+    // planning toutes agences, import, promos, categories, disponibilite
+    // multi-agences, reglages.
+    $is_editor   = $user && in_array( 'editor', (array) $user->roles, true );
 
-    if ( empty( $allcaps['manage_options'] ) && ! $is_ff_admin ) return $allcaps;
+    if ( empty( $allcaps['manage_options'] ) && ! $is_ff_admin && ! $is_editor ) return $allcaps;
 
     $sl_caps = [
         'read_sl_repas', 'edit_sl_repas', 'delete_sl_repas',
@@ -132,17 +136,27 @@ function sl_ff_grant_admin_caps( $allcaps, $caps, $args ) {
 
 /* ============================================================
    AJOUT DE REPAS PAR LE RESPONSABLE : autorisable/interdisable
-   Reglage (option sl_ff_resp_can_add, defaut active) controle par
-   l'admin/editeur. On accorde dynamiquement create_sl_repas_items au
-   responsable selon ce reglage, sans toucher a edit_sl_repas_items
-   (il garde le droit de modifier le planning dans tous les cas).
+   PAR RESPONSABLE (reglage individuel). On accorde dynamiquement
+   create_sl_repas_items a chaque responsable selon son reglage, sans
+   toucher a edit_sl_repas_items (il garde la gestion du planning).
    ============================================================ */
+
+/** Reglage individuel d'un utilisateur (defaut : autorise). */
+function sl_ff_user_can_add_repas( $user_id ) {
+    $v = get_user_meta( $user_id, 'sl_ff_can_add', true );
+    if ( $v === '' ) {
+        // Pas de reglage individuel -> ancien reglage global (defaut autorise)
+        return get_option( 'sl_ff_resp_can_add', '1' ) === '1';
+    }
+    return $v === '1';
+}
+
+/** Compat : ancien helper global (defaut). */
 function sl_ff_resp_can_add() {
-    // Defaut : autorise (comportement historique)
     return get_option( 'sl_ff_resp_can_add', '1' ) === '1';
 }
 
-/** Qui peut modifier ce reglage : admin WP, admin Fast Food, editeur WP. */
+/** Qui peut modifier ces reglages : admin WP, admin Fast Food, editeur WP. */
 function sl_ff_can_manage_settings() {
     return current_user_can( 'manage_options' )
         || current_user_can( 'sl_ff_all_agencies' )
@@ -155,13 +169,14 @@ function sl_ff_grant_resp_create_cap( $allcaps, $caps, $args, $user ) {
     if ( ! in_array( 'create_sl_repas_items', (array) $caps, true ) ) {
         return $allcaps;
     }
-    // Admin WP / FF Admin : toujours autorises (geres ailleurs)
+    // Admin WP / FF Admin / Editeur : toujours autorises (geres ailleurs)
     if ( ! empty( $allcaps['manage_options'] ) || ! empty( $allcaps['sl_ff_all_agencies'] ) ) {
         return $allcaps;
     }
-    // Responsable Fast Food (peut editer mais pas toutes agences) : selon le reglage
+    // Responsable Fast Food : selon SON reglage individuel
     if ( ! empty( $allcaps['edit_sl_repas_items'] ) ) {
-        $allcaps['create_sl_repas_items'] = sl_ff_resp_can_add();
+        $uid = $user ? (int) $user->ID : 0;
+        $allcaps['create_sl_repas_items'] = $uid ? sl_ff_user_can_add_repas( $uid ) : true;
     }
     return $allcaps;
 }
