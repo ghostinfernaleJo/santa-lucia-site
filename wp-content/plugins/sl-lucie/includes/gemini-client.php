@@ -88,10 +88,14 @@ function sl_lucie_gemini_classify( $message ) {
     $res = sl_lucie_call_gemini( sl_lucie_google_model(), [
         'system_instruction' => [ 'parts' => [ [ 'text' => 'Tu es un classificateur. La question porte-t-elle sur le Complexe Santa Lucia (produits, agences, menus, promotions, bons plans, recrutement, horaires, infos pratiques) ? Reponds UNIQUEMENT par OUI ou NON.' ] ] ],
         'contents' => [ [ 'role' => 'user', 'parts' => [ [ 'text' => mb_substr( (string) $message, 0, 1000 ) ] ] ] ],
-        'generationConfig' => [ 'maxOutputTokens' => 5, 'temperature' => 0 ],
+        // thinkingBudget:0 sinon Gemini 2.5 consomme tout le budget en "thinking"
+        // et ne renvoie pas OUI/NON ; +tokens pour une reponse fiable.
+        'generationConfig' => [ 'maxOutputTokens' => 10, 'temperature' => 0, 'thinkingConfig' => [ 'thinkingBudget' => 0 ] ],
     ] );
     if ( ! $res['ok'] ) return true;
-    return strpos( strtoupper( sl_lucie_gemini_text( $res['data'] ) ), 'NON' ) === false;
+    $txt = strtoupper( sl_lucie_gemini_text( $res['data'] ) );
+    if ( $txt === '' ) return true;                 // pas de reponse claire -> on laisse passer
+    return strpos( $txt, 'NON' ) === false;         // hors-sujet seulement si "NON" explicite
 }
 
 /** Reponse complete : tente avec outils, et bascule sans outils si echec. */
