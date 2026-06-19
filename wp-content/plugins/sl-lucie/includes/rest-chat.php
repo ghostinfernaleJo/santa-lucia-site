@@ -37,19 +37,10 @@ function sl_lucie_system_prompt() {
     return $p;
 }
 
-/** Garde de perimetre : la question concerne-t-elle Santa Lucia ? (modele leger) */
+/** Garde de perimetre : la question concerne-t-elle Santa Lucia ? (fournisseur actif) */
 function sl_lucie_in_scope( $message ) {
     if ( get_option( 'sl_lucie_scope_guard', '1' ) !== '1' ) return true;
-
-    $res = sl_lucie_call_claude( [
-        'model'      => 'claude-haiku-4-5',
-        'max_tokens' => 5,
-        'system'     => 'Tu es un classificateur. La question porte-t-elle sur le Complexe Santa Lucia (ses produits, agences, menus, promotions, bons plans, recrutement, horaires, infos pratiques) ? Reponds UNIQUEMENT par OUI ou NON.',
-        'messages'   => [ [ 'role' => 'user', 'content' => mb_substr( (string) $message, 0, 1000 ) ] ],
-    ] );
-    if ( ! $res['ok'] ) return true; // en cas de panne du garde, on laisse passer (le prompt principal cadre aussi)
-    $txt = strtoupper( sl_lucie_extract_text( $res['data'] ) );
-    return strpos( $txt, 'NON' ) === false; // hors-sujet seulement si reponse claire "NON"
+    return sl_lucie_llm_classify( $message );
 }
 
 /** Limite anti-abus simple par IP (transient). */
@@ -63,7 +54,7 @@ function sl_lucie_rate_ok() {
 }
 
 function sl_lucie_chat_handler( WP_REST_Request $req ) {
-    if ( ! sl_lucie_has_key() ) {
+    if ( ! sl_lucie_provider_has_key() ) {
         return new WP_REST_Response( [ 'reply' => 'Le service n\'est pas encore configure. Merci de revenir bientot.' ], 200 );
     }
     if ( ! sl_lucie_rate_ok() ) {
@@ -95,48 +86,14 @@ function sl_lucie_chat_handler( WP_REST_Request $req ) {
         ], 200 );
     }
 
-    // 2) Appel principal avec outils (boucle max 4 tours)
-    $system = [ [ 'type' => 'text', 'text' => sl_lucie_system_prompt(), 'cache_control' => [ 'type' => 'ephemeral' ] ] ];
-    $tools  = sl_lucie_tools_defs();
+    // 2) Reponse via le fournisseur actif (Claude ou Gemini), avec outils
+    $reply = sl_lucie_llm_answer( sl_lucie_system_prompt(), $messages, sl_lucie_tools_defs() );
 
-    for ( $turn = 0; $turn < 4; $turn++ ) {
-        $res = sl_lucie_call_claude( [
-            'model'         => 'claude-opus-4-8',
-            'max_tokens'    => 1200,
-            'system'        => $system,
-            'tools'         => $tools,
-            'messages'      => $messages,
-            'output_config' => [ 'effort' => 'low' ],
-        ] );
-
-        if ( ! $res['ok'] ) {
-            return new WP_REST_Response( [ 'reply' => 'Desole, je rencontre un souci technique. Reessayez dans un instant 🙏' ], 200 );
-        }
-        $data = $res['data'];
-
-        if ( ( $data['stop_reason'] ?? '' ) === 'tool_use' ) {
-            // Rejoue le tour de l'assistant + resultats d'outils
-            $messages[] = [ 'role' => 'assistant', 'content' => $data['content'] ];
-            $tool_results = [];
-            foreach ( (array) $data['content'] as $block ) {
-                if ( ( $block['type'] ?? '' ) === 'tool_use' ) {
-                    $out = sl_lucie_run_tool( $block['name'] ?? '', $block['input'] ?? [] );
-                    $tool_results[] = [
-                        'type'        => 'tool_result',
-                        'tool_use_id' => $block['id'] ?? '',
-                        'content'     => $out,
-                    ];
-                }
-            }
-            $messages[] = [ 'role' => 'user', 'content' => $tool_results ];
-            continue; // nouveau tour : Claude redige avec les donnees
-        }
-
-        // Reponse finale
-        $reply = sl_lucie_extract_text( $data );
-        if ( $reply === '' ) $reply = 'Je n\'ai pas trouve d\'information sur ce point. N\'hesitez pas a contacter une agence Santa Lucia.';
-        return new WP_REST_Response( [ 'reply' => $reply ], 200 );
+    if ( $reply === null ) {
+        return new WP_REST_Response( [ 'reply' => 'Desole, je rencontre un souci technique. Reessayez dans un instant 🙏' ], 200 );
     }
-
-    return new WP_REST_Response( [ 'reply' => 'Je n\'ai pas pu finaliser la reponse. Reformulez votre question ou contactez une agence 🙂' ], 200 );
+    if ( trim( $reply ) === '' ) {
+        $reply = 'Je n\'ai pas trouve d\'information sur ce point. N\'hesitez pas a contacter une agence Santa Lucia.';
+    }
+    return new WP_REST_Response( [ 'reply' => $reply ], 200 );
 }

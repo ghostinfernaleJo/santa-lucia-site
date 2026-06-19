@@ -13,6 +13,8 @@ define( 'SL_LUCIE_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SL_LUCIE_URL',  plugin_dir_url( __FILE__ ) );
 
 require_once SL_LUCIE_PATH . 'includes/claude-client.php';
+require_once SL_LUCIE_PATH . 'includes/gemini-client.php';
+require_once SL_LUCIE_PATH . 'includes/provider.php';
 require_once SL_LUCIE_PATH . 'includes/knowledge.php';
 require_once SL_LUCIE_PATH . 'includes/tools.php';
 require_once SL_LUCIE_PATH . 'includes/rest-chat.php';

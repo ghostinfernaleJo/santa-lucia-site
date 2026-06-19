@@ -37,8 +37,8 @@ function sl_lucie_kb_append( $titre, $contenu ) {
  * @return array [ 'ok' => bool, 'text' => string, 'error' => string|null ]
  */
 function sl_lucie_kb_extract_pdf( $tmp_path, $filename ) {
-    if ( ! sl_lucie_has_key() ) {
-        return [ 'ok' => false, 'text' => '', 'error' => 'Configurez d\'abord une cle API, puis re-televersez le PDF (ou collez le texte directement).' ];
+    if ( ! sl_lucie_provider_has_key() ) {
+        return [ 'ok' => false, 'text' => '', 'error' => 'Configurez d\'abord une cle API (fournisseur actif), puis re-televersez le PDF (ou collez le texte directement).' ];
     }
     if ( ! file_exists( $tmp_path ) ) {
         return [ 'ok' => false, 'text' => '', 'error' => 'Fichier introuvable.' ];
@@ -51,32 +51,6 @@ function sl_lucie_kb_extract_pdf( $tmp_path, $filename ) {
     if ( strlen( $bytes ) > 9 * 1024 * 1024 ) {
         return [ 'ok' => false, 'text' => '', 'error' => 'PDF trop volumineux (max ~9 Mo). Decoupez-le ou collez le texte.' ];
     }
-
-    $payload = [
-        'model'      => 'claude-opus-4-8',
-        'max_tokens' => 16000,
-        'messages'   => [ [
-            'role' => 'user',
-            'content' => [
-                [ 'type' => 'document', 'source' => [
-                    'type' => 'base64', 'media_type' => 'application/pdf',
-                    'data' => base64_encode( $bytes ),
-                ] ],
-                [ 'type' => 'text', 'text' =>
-                    "Extrais tout le texte utile de ce document en clair (titres, paragraphes, listes), "
-                    . "sans aucun commentaire ni introduction de ta part. Si le document est une image scannee "
-                    . "sans texte, reponds exactement : [AUCUN_TEXTE]." ],
-            ],
-        ] ],
-    ];
-
-    $res = sl_lucie_call_claude( $payload );
-    if ( ! $res['ok'] ) {
-        return [ 'ok' => false, 'text' => '', 'error' => $res['error'] ];
-    }
-    $text = sl_lucie_extract_text( $res['data'] );
-    if ( $text === '' || strpos( $text, '[AUCUN_TEXTE]' ) !== false ) {
-        return [ 'ok' => false, 'text' => '', 'error' => 'Aucun texte exploitable (PDF scanne ?). Collez le texte manuellement.' ];
-    }
-    return [ 'ok' => true, 'text' => $text, 'error' => null ];
+    // Extraction via le fournisseur actif (Claude ou Gemini)
+    return sl_lucie_llm_extract_pdf( $bytes );
 }

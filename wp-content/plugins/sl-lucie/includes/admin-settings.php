@@ -25,9 +25,21 @@ function sl_lucie_admin_page() {
         check_admin_referer( 'sl_lucie_settings' );
         update_option( 'sl_lucie_enabled', isset( $_POST['enabled'] ) ? '1' : '0' );
         update_option( 'sl_lucie_scope_guard', isset( $_POST['scope_guard'] ) ? '1' : '0' );
+        update_option( 'sl_lucie_provider', ( ( $_POST['provider'] ?? '' ) === 'google' ) ? 'google' : 'anthropic' );
         update_option( 'sl_lucie_nom', sanitize_text_field( $_POST['nom'] ?? 'Lucie' ) );
         update_option( 'sl_lucie_message_accueil', sanitize_textarea_field( $_POST['accueil'] ?? '' ) );
         $msg = 'Reglages enregistres.';
+    }
+
+    /* ---- Sauvegarde des cles Google (Gemini) ---- */
+    if ( isset( $_POST['sl_lucie_save_gkeys'] ) ) {
+        check_admin_referer( 'sl_lucie_gkeys' );
+        $raw  = (string) ( $_POST['google_keys'] ?? '' );
+        $list = array_filter( array_map( 'trim', preg_split( '/[\r\n,]+/', $raw ) ) );
+        update_option( 'sl_lucie_google_keys', array_values( $list ), false );
+        update_option( 'sl_lucie_google_model', sanitize_text_field( $_POST['google_model'] ?? 'gemini-2.5-flash' ) );
+        update_option( 'sl_lucie_gkey_cursor', 0, false );
+        $msg = count( $list ) . ' cle(s) Google enregistree(s).';
     }
 
     /* ---- Sauvegarde des cles API ---- */
@@ -74,9 +86,12 @@ function sl_lucie_admin_page() {
         $msg = 'Base de connaissances videe.';
     }
 
-    $keys    = sl_lucie_get_keys();
-    $kb      = sl_lucie_kb_get();
-    $const   = defined( 'SL_LUCIE_API_KEYS' );
+    $keys     = sl_lucie_get_keys();
+    $gkeys    = sl_lucie_google_get_keys();
+    $kb       = sl_lucie_kb_get();
+    $const    = defined( 'SL_LUCIE_API_KEYS' );
+    $gconst   = defined( 'SL_LUCIE_GOOGLE_KEYS' );
+    $provider = sl_lucie_provider();
     ?>
     <div class="wrap">
         <h1><span class="dashicons dashicons-format-chat" style="font-size:28px;"></span> Lucie — Assistant IA</h1>
@@ -92,6 +107,10 @@ function sl_lucie_admin_page() {
                     <?php wp_nonce_field( 'sl_lucie_settings' ); ?>
                     <p><label><input type="checkbox" name="enabled" <?php checked( get_option( 'sl_lucie_enabled', '1' ), '1' ); ?>> <strong>Activer Lucie sur le site</strong></label></p>
                     <p><label><input type="checkbox" name="scope_guard" <?php checked( get_option( 'sl_lucie_scope_guard', '1' ), '1' ); ?>> Garde de perimetre (ne jamais repondre hors-sujet) — <em>recommande</em></label></p>
+                    <p><strong>Fournisseur d'IA</strong><br>
+                       <label style="margin-right:16px;"><input type="radio" name="provider" value="anthropic" <?php checked( $provider, 'anthropic' ); ?>> Anthropic (Claude)</label>
+                       <label><input type="radio" name="provider" value="google" <?php checked( $provider, 'google' ); ?>> Google (Gemini)</label>
+                    </p>
                     <p><label><strong>Nom de l'assistante</strong><br><input type="text" name="nom" class="regular-text" value="<?php echo esc_attr( get_option( 'sl_lucie_nom', 'Lucie' ) ); ?>"></label></p>
                     <p><label><strong>Message d'accueil</strong><br><textarea name="accueil" rows="3" class="large-text"><?php echo esc_textarea( get_option( 'sl_lucie_message_accueil', '' ) ); ?></textarea></label></p>
                     <p><button class="button button-primary" name="sl_lucie_save_settings">Enregistrer</button></p>
@@ -113,7 +132,26 @@ function sl_lucie_admin_page() {
                         <p><button class="button button-primary" name="sl_lucie_save_keys">Enregistrer les cles</button></p>
                     </form>
                 <?php endif; ?>
-                <p><?php echo sl_lucie_has_key() ? '✅ Au moins une cle est active.' : '⚠️ Aucune cle : Lucie ne peut pas repondre.'; ?></p>
+                <p><?php echo sl_lucie_has_key() ? '✅ Au moins une cle Anthropic active.' : 'Aucune cle Anthropic.'; ?></p>
+            </div>
+
+            <!-- Cles Google (Gemini) -->
+            <div class="card" style="padding:18px;">
+                <h2 style="margin-top:0;">Cles API Google (Gemini)</h2>
+                <?php if ( $gconst ) : ?>
+                    <p><em>Definies dans <code>wp-config.php</code> (<code>SL_LUCIE_GOOGLE_KEYS</code>). Edition desactivee ici.</em></p>
+                    <p><strong><?php echo count( $gkeys ); ?></strong> cle(s) chargee(s).</p>
+                <?php else : ?>
+                    <p style="color:#555;">Une cle par ligne. Basculement automatique en cas d'erreur, comme pour Anthropic.</p>
+                    <form method="post">
+                        <?php wp_nonce_field( 'sl_lucie_gkeys' ); ?>
+                        <textarea name="google_keys" rows="4" class="large-text" placeholder="AIza...&#10;AIza..."><?php echo esc_textarea( implode( "\n", $gkeys ) ); ?></textarea>
+                        <p><label><strong>Modele Gemini</strong> <input type="text" name="google_model" class="regular-text" value="<?php echo esc_attr( get_option( 'sl_lucie_google_model', 'gemini-2.5-flash' ) ); ?>"></label></p>
+                        <p style="color:#888;font-size:12px;">Securite : possible aussi via <code>define('SL_LUCIE_GOOGLE_KEYS', 'cle1,cle2');</code> dans wp-config.php.</p>
+                        <p><button class="button button-primary" name="sl_lucie_save_gkeys">Enregistrer les cles Google</button></p>
+                    </form>
+                <?php endif; ?>
+                <p><strong>Fournisseur actif : <?php echo $provider === 'google' ? 'Google (Gemini)' : 'Anthropic (Claude)'; ?></strong> — <?php echo sl_lucie_provider_has_key() ? '✅ pret' : '⚠️ aucune cle pour ce fournisseur'; ?></p>
             </div>
 
             <!-- Base de connaissances -->
