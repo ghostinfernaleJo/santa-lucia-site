@@ -94,8 +94,16 @@ function sl_lucie_gemini_classify( $message ) {
     return strpos( strtoupper( sl_lucie_gemini_text( $res['data'] ) ), 'NON' ) === false;
 }
 
-/** Reponse complete avec boucle d'outils (Gemini). Retourne string|null. */
+/** Reponse complete : tente avec outils, et bascule sans outils si echec. */
 function sl_lucie_gemini_answer( $system_text, $messages, $tools ) {
+    $r = sl_lucie_gemini_run( $system_text, $messages, $tools );      // avec outils (donnees live)
+    if ( $r !== null && trim( $r ) !== '' ) return $r;
+    // Repli : sans outils, Lucie repond au moins depuis la base de connaissances
+    return sl_lucie_gemini_run( $system_text, $messages, [] );
+}
+
+/** Boucle d'outils Gemini. Retourne string|null (null = aucune sortie exploitable). */
+function sl_lucie_gemini_run( $system_text, $messages, $tools ) {
     $contents = [];
     foreach ( $messages as $m ) {
         $role = ( ( $m['role'] ?? '' ) === 'assistant' ) ? 'model' : 'user';
@@ -103,20 +111,28 @@ function sl_lucie_gemini_answer( $system_text, $messages, $tools ) {
     }
     $decl  = sl_lucie_gemini_tools( $tools );
     $model = sl_lucie_google_model();
+    $use_tools = ! empty( $decl );
 
     for ( $turn = 0; $turn < 4; $turn++ ) {
         $body = [
             'system_instruction' => [ 'parts' => [ [ 'text' => $system_text ] ] ],
             'contents'           => $contents,
-            'tools'              => [ [ 'function_declarations' => $decl ] ],
-            'generationConfig'   => [ 'maxOutputTokens' => 1200, 'temperature' => 0.3 ],
+            // thinkingBudget:0 -> desactive le "thinking", principal correctif du
+            // bug MALFORMED_FUNCTION_CALL de Gemini 2.5 + reponses plus rapides.
+            'generationConfig'   => [ 'maxOutputTokens' => 1200, 'temperature' => 0.3, 'thinkingConfig' => [ 'thinkingBudget' => 0 ] ],
         ];
+        if ( $use_tools ) {
+            $body['tools'] = [ [ 'function_declarations' => $decl ] ];
+        }
+
         $res = sl_lucie_call_gemini( $model, $body );
         if ( ! $res['ok'] ) return null;
 
-        $parts = $res['data']['candidates'][0]['content']['parts'] ?? [];
-        $calls = [];
-        $text  = '';
+        $cand   = $res['data']['candidates'][0] ?? [];
+        $finish = $cand['finishReason'] ?? '';
+        $parts  = $cand['content']['parts'] ?? [];
+        $calls  = [];
+        $text   = '';
         foreach ( (array) $parts as $p ) {
             if ( isset( $p['functionCall'] ) ) $calls[] = $p['functionCall'];
             elseif ( isset( $p['text'] ) )     $text  .= $p['text'];
@@ -132,7 +148,11 @@ function sl_lucie_gemini_answer( $system_text, $messages, $tools ) {
             $contents[] = [ 'role' => 'user', 'parts' => $resp_parts ];
             continue;
         }
-        return trim( $text );
+
+        if ( trim( $text ) !== '' ) return trim( $text );
+
+        // Ni texte ni appel exploitable (ex: MALFORMED_FUNCTION_CALL) -> echec de ce chemin
+        return null;
     }
     return null;
 }
