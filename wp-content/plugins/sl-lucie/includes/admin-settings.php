@@ -28,6 +28,16 @@ function sl_lucie_admin_page() {
         update_option( 'sl_lucie_provider', ( ( $_POST['provider'] ?? '' ) === 'google' ) ? 'google' : 'anthropic' );
         update_option( 'sl_lucie_nom', sanitize_text_field( $_POST['nom'] ?? 'Lucie' ) );
         update_option( 'sl_lucie_message_accueil', sanitize_textarea_field( $_POST['accueil'] ?? '' ) );
+        // Planning horaire
+        update_option( 'sl_lucie_schedule_enabled', isset( $_POST['schedule_enabled'] ) ? '1' : '0' );
+        $st = preg_match( '/^\d{2}:\d{2}$/', $_POST['schedule_start'] ?? '' ) ? $_POST['schedule_start'] : '08:00';
+        $en = preg_match( '/^\d{2}:\d{2}$/', $_POST['schedule_end'] ?? '' )   ? $_POST['schedule_end']   : '20:00';
+        update_option( 'sl_lucie_schedule_start', $st );
+        update_option( 'sl_lucie_schedule_end', $en );
+        $days = array_values( array_intersect( array_map( 'strval', (array) ( $_POST['schedule_days'] ?? [] ) ), [ '0','1','2','3','4','5','6' ] ) );
+        if ( empty( $days ) ) $days = [ '0','1','2','3','4','5','6' ];
+        update_option( 'sl_lucie_schedule_days', $days );
+        update_option( 'sl_lucie_offline_message', sanitize_textarea_field( $_POST['offline_message'] ?? '' ) );
         $msg = 'Reglages enregistres.';
     }
 
@@ -113,6 +123,23 @@ function sl_lucie_admin_page() {
                     </p>
                     <p><label><strong>Nom de l'assistante</strong><br><input type="text" name="nom" class="regular-text" value="<?php echo esc_attr( get_option( 'sl_lucie_nom', 'Lucie' ) ); ?>"></label></p>
                     <p><label><strong>Message d'accueil</strong><br><textarea name="accueil" rows="3" class="large-text"><?php echo esc_textarea( get_option( 'sl_lucie_message_accueil', '' ) ); ?></textarea></label></p>
+
+                    <hr>
+                    <p><label><input type="checkbox" name="schedule_enabled" <?php checked( get_option( 'sl_lucie_schedule_enabled', '0' ), '1' ); ?>> <strong>Programmer les horaires de disponibilite</strong></label></p>
+                    <?php $sched_days = (array) get_option( 'sl_lucie_schedule_days', [ '0','1','2','3','4','5','6' ] ); ?>
+                    <p>
+                        De <input type="time" name="schedule_start" value="<?php echo esc_attr( get_option( 'sl_lucie_schedule_start', '08:00' ) ); ?>">
+                        a <input type="time" name="schedule_end" value="<?php echo esc_attr( get_option( 'sl_lucie_schedule_end', '20:00' ) ); ?>">
+                        <span style="color:#888;font-size:12px;">(fuseau du site ; fin avant debut = passe minuit)</span>
+                    </p>
+                    <p><strong>Jours</strong> :
+                        <?php foreach ( [ '1'=>'Lun','2'=>'Mar','3'=>'Mer','4'=>'Jeu','5'=>'Ven','6'=>'Sam','0'=>'Dim' ] as $dv => $dl ) : ?>
+                        <label style="margin-right:10px;"><input type="checkbox" name="schedule_days[]" value="<?php echo $dv; ?>" <?php checked( in_array( $dv, array_map( 'strval', $sched_days ), true ) ); ?>> <?php echo $dl; ?></label>
+                        <?php endforeach; ?>
+                    </p>
+                    <p><label><strong>Message hors horaires</strong><br><textarea name="offline_message" rows="2" class="large-text" placeholder="Je ne suis pas disponible pour le moment..."><?php echo esc_textarea( get_option( 'sl_lucie_offline_message', '' ) ); ?></textarea></label></p>
+                    <p style="color:#555;font-size:13px;">Etat actuel : <strong><?php echo sl_lucie_is_active_now() ? '🟢 Lucie est active maintenant' : '🔴 Lucie est hors service maintenant'; ?></strong></p>
+
                     <p><button class="button button-primary" name="sl_lucie_save_settings">Enregistrer</button></p>
                 </form>
             </div>

@@ -55,6 +55,11 @@ function sl_lucie_rate_ok() {
 }
 
 function sl_lucie_chat_handler( WP_REST_Request $req ) {
+    if ( function_exists( 'sl_lucie_is_active_now' ) && ! sl_lucie_is_active_now() ) {
+        $h = get_option( 'sl_lucie_offline_message', '' );
+        if ( trim( $h ) === '' ) $h = 'Je ne suis pas disponible pour le moment. Merci de revenir pendant nos horaires de service 🙂';
+        return new WP_REST_Response( [ 'reply' => $h ], 200 );
+    }
     if ( ! sl_lucie_provider_has_key() ) {
         return new WP_REST_Response( [ 'reply' => 'Le service n\'est pas encore configure. Merci de revenir bientot.' ], 200 );
     }

@@ -24,11 +24,32 @@ require_once SL_LUCIE_PATH . 'includes/stats.php';
 /* ============================================================
    WIDGET FRONT — charge sur TOUT le site public (asynchrone)
    ============================================================ */
+/**
+ * Lucie est-elle active MAINTENANT ? (interrupteur global + planning horaire)
+ * Utilise le fuseau horaire du site.
+ */
+function sl_lucie_is_active_now() {
+    if ( get_option( 'sl_lucie_enabled', '1' ) !== '1' ) return false;
+    if ( get_option( 'sl_lucie_schedule_enabled', '0' ) !== '1' ) return true;
+
+    // Jour de la semaine (0=dimanche .. 6=samedi)
+    $days  = (array) get_option( 'sl_lucie_schedule_days', [ '0', '1', '2', '3', '4', '5', '6' ] );
+    $today = (string) current_time( 'w' );
+    if ( ! in_array( $today, array_map( 'strval', $days ), true ) ) return false;
+
+    $start = (string) get_option( 'sl_lucie_schedule_start', '08:00' );
+    $end   = (string) get_option( 'sl_lucie_schedule_end',   '20:00' );
+    $now   = current_time( 'H:i' );
+    if ( $start === $end ) return true;                 // 24h/24
+    if ( $start < $end )   return ( $now >= $start && $now < $end );
+    return ( $now >= $start || $now < $end );           // fenetre qui passe minuit
+}
+
 add_action( 'wp_enqueue_scripts', 'sl_lucie_front_assets' );
 function sl_lucie_front_assets() {
     if ( is_admin() ) return;
-    // Ne charge que si Lucie est activee ET au moins une cle API est configuree
-    if ( get_option( 'sl_lucie_enabled', '1' ) !== '1' ) return;
+    // Ne charge la bulle que si Lucie est active (interrupteur + planning horaire)
+    if ( ! sl_lucie_is_active_now() ) return;
 
     $css_ver = @filemtime( SL_LUCIE_PATH . 'assets/css/lucie-widget.css' ) ?: SL_LUCIE_VERSION;
     $js_ver  = @filemtime( SL_LUCIE_PATH . 'assets/js/lucie-widget-v2.js' )  ?: SL_LUCIE_VERSION;
