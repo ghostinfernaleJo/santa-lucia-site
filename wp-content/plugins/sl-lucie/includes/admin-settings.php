@@ -10,6 +10,35 @@ function sl_lucie_can_manage() {
     return current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' );
 }
 
+/* ============================================================
+   INTERRUPTEUR RAPIDE ON/OFF (page + barre d'admin)
+   ============================================================ */
+add_action( 'admin_init', function () {
+    if ( ! isset( $_GET['sl_lucie_toggle'] ) ) return;
+    if ( ! sl_lucie_can_manage() ) return;
+    if ( ! wp_verify_nonce( $_GET['_slnonce'] ?? '', 'sl_lucie_toggle' ) ) return;
+    update_option( 'sl_lucie_enabled', get_option( 'sl_lucie_enabled', '1' ) === '1' ? '0' : '1' );
+    wp_safe_redirect( remove_query_arg( [ 'sl_lucie_toggle', '_slnonce' ], wp_get_referer() ?: admin_url( 'admin.php?page=sl-lucie' ) ) );
+    exit;
+} );
+
+/** Lien (avec nonce) qui bascule l'etat. */
+function sl_lucie_toggle_url() {
+    return wp_nonce_url( add_query_arg( 'sl_lucie_toggle', '1' ), 'sl_lucie_toggle', '_slnonce' );
+}
+
+/** Raccourci ON/OFF dans la barre d'admin (toutes pages). */
+add_action( 'admin_bar_menu', function ( $bar ) {
+    if ( ! sl_lucie_can_manage() ) return;
+    $on = get_option( 'sl_lucie_enabled', '1' ) === '1';
+    $bar->add_node( [
+        'id'    => 'sl-lucie-toggle',
+        'title' => 'Lucie : ' . ( $on ? '🟢 ON' : '🔴 OFF' ),
+        'href'  => esc_url( sl_lucie_toggle_url() ),
+        'meta'  => [ 'title' => $on ? 'Cliquer pour desactiver Lucie' : 'Cliquer pour activer Lucie' ],
+    ] );
+}, 100 );
+
 add_action( 'admin_menu', function () {
     if ( ! sl_lucie_can_manage() ) return;
     add_menu_page( 'Lucie (IA)', 'Lucie (IA)', 'edit_others_posts', 'sl-lucie', 'sl_lucie_admin_page', 'dashicons-format-chat', 27 );
@@ -105,6 +134,19 @@ function sl_lucie_admin_page() {
     ?>
     <div class="wrap">
         <h1><span class="dashicons dashicons-format-chat" style="font-size:28px;"></span> Lucie — Assistant IA</h1>
+
+        <?php $on = get_option( 'sl_lucie_enabled', '1' ) === '1'; ?>
+        <div style="display:flex;align-items:center;gap:16px;background:#fff;border:1px solid #e5e7eb;border-left:6px solid <?php echo $on ? '#2e7d32' : '#b32d2e'; ?>;border-radius:10px;padding:14px 18px;margin:14px 0;max-width:1100px;">
+            <div style="font-size:16px;">
+                <strong>Lucie est <?php echo $on ? 'ACTIVÉE 🟢' : 'DÉSACTIVÉE 🔴'; ?></strong>
+                <?php if ( $on && ! sl_lucie_is_active_now() ) : ?>
+                    <br><span style="color:#b35900;font-size:13px;">⏰ Hors des horaires programmés : la bulle est masquée pour le moment.</span>
+                <?php endif; ?>
+            </div>
+            <a href="<?php echo esc_url( sl_lucie_toggle_url() ); ?>" class="button button-hero <?php echo $on ? '' : 'button-primary'; ?>" style="margin-left:auto;<?php echo $on ? 'background:#b32d2e;border-color:#a02222;color:#fff;' : ''; ?>">
+                <?php echo $on ? 'Désactiver Lucie' : 'Activer Lucie'; ?>
+            </a>
+        </div>
         <?php if ( $msg ) : ?><div class="notice notice-success is-dismissible"><p><?php echo esc_html( $msg ); ?></p></div><?php endif; ?>
         <?php if ( $err ) : ?><div class="notice notice-error is-dismissible"><p><?php echo esc_html( $err ); ?></p></div><?php endif; ?>
 
