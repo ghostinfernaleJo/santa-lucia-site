@@ -6,6 +6,16 @@
   var open = false;
   var busy = false;
 
+  // Identifiant de session anonyme (pour regrouper une conversation) — localStorage
+  var sessionId = '';
+  try {
+    sessionId = localStorage.getItem('sl_lucie_sid') || '';
+    if (!sessionId) {
+      sessionId = 'sid-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('sl_lucie_sid', sessionId);
+    }
+  } catch (e) { sessionId = 'sid-' + Math.random().toString(36).slice(2, 10); }
+
   // ---- Construction du DOM ----
   var btn = document.createElement('button');
   btn.className = 'sl-lucie-btn';
@@ -77,7 +87,7 @@
     fetch(slLucie.rest, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': slLucie.nonce },
-      body: JSON.stringify({ message: q, history: history.slice(-8) })
+      body: JSON.stringify({ message: q, history: history.slice(-8), session_id: sessionId })
     })
       .then(function (r) { return r.json(); })
       .then(function (res) {

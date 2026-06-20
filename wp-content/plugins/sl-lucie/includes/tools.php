@@ -78,6 +78,9 @@ function sl_lucie_trim( $data, $max = 40 ) {
 /** Execute un outil demande par Claude. Retourne une chaine (JSON) pour le tool_result. */
 function sl_lucie_run_tool( $name, $input ) {
     $input = is_array( $input ) ? $input : [];
+    // Comptabilise l'outil appele (pour les statistiques)
+    if ( ! isset( $GLOBALS['sl_lucie_tools_called'] ) ) $GLOBALS['sl_lucie_tools_called'] = [];
+    $GLOBALS['sl_lucie_tools_called'][] = $name;
     switch ( $name ) {
         case 'lister_agences':
             $d = sl_lucie_rest_get( '/santa-lucia/v1/agences' );

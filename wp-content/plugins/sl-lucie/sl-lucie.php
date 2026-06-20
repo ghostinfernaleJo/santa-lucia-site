@@ -19,6 +19,7 @@ require_once SL_LUCIE_PATH . 'includes/knowledge.php';
 require_once SL_LUCIE_PATH . 'includes/tools.php';
 require_once SL_LUCIE_PATH . 'includes/rest-chat.php';
 require_once SL_LUCIE_PATH . 'includes/admin-settings.php';
+require_once SL_LUCIE_PATH . 'includes/stats.php';
 
 /* ============================================================
    WIDGET FRONT — charge sur TOUT le site public (asynchrone)
@@ -30,10 +31,10 @@ function sl_lucie_front_assets() {
     if ( get_option( 'sl_lucie_enabled', '1' ) !== '1' ) return;
 
     $css_ver = @filemtime( SL_LUCIE_PATH . 'assets/css/lucie-widget.css' ) ?: SL_LUCIE_VERSION;
-    $js_ver  = @filemtime( SL_LUCIE_PATH . 'assets/js/lucie-widget.js' )  ?: SL_LUCIE_VERSION;
+    $js_ver  = @filemtime( SL_LUCIE_PATH . 'assets/js/lucie-widget-v2.js' )  ?: SL_LUCIE_VERSION;
 
     wp_enqueue_style( 'sl-lucie', SL_LUCIE_URL . 'assets/css/lucie-widget.css', [], $css_ver );
-    wp_enqueue_script( 'sl-lucie', SL_LUCIE_URL . 'assets/js/lucie-widget.js', [], $js_ver, true );
+    wp_enqueue_script( 'sl-lucie', SL_LUCIE_URL . 'assets/js/lucie-widget-v2.js', [], $js_ver, true );
     wp_localize_script( 'sl-lucie', 'slLucie', [
         'rest'   => esc_url_raw( rest_url( 'santa-lucia/v1/lucie/chat' ) ),
         'nonce'  => wp_create_nonce( 'wp_rest' ),

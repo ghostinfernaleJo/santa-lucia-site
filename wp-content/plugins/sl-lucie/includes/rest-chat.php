@@ -79,9 +79,18 @@ function sl_lucie_chat_handler( WP_REST_Request $req ) {
     }
     $messages[] = [ 'role' => 'user', 'content' => $message ];
 
+    $session_id = sanitize_text_field( (string) $req->get_param( 'session_id' ) );
+    $provider   = function_exists( 'sl_lucie_provider' ) ? sl_lucie_provider() : '';
+    $GLOBALS['sl_lucie_tools_called'] = [];
+    $t0 = microtime( true );
+
     // 1) Garde de perimetre
     if ( ! sl_lucie_in_scope( $message ) ) {
         $nom = get_option( 'sl_lucie_nom', 'Lucie' );
+        sl_lucie_log_event( [
+            'session_id' => $session_id, 'message' => $message, 'in_scope' => 0,
+            'provider' => $provider, 'response_ms' => round( ( microtime( true ) - $t0 ) * 1000 ),
+        ] );
         return new WP_REST_Response( [ 'reply' =>
             "Je suis {$nom}, l'assistante de Santa Lucia 🙂 Je peux vous renseigner sur nos produits, agences, menus du jour, promotions, bons plans et notre recrutement. Comment puis-je vous aider sur l'un de ces sujets ?"
         ], 200 );
@@ -89,8 +98,20 @@ function sl_lucie_chat_handler( WP_REST_Request $req ) {
 
     // 2) Reponse via le fournisseur actif (Claude ou Gemini), avec outils
     $reply = sl_lucie_llm_answer( sl_lucie_system_prompt(), $messages, sl_lucie_tools_defs() );
+    $is_error = ( $reply === null );
 
-    if ( $reply === null ) {
+    sl_lucie_log_event( [
+        'session_id'  => $session_id,
+        'message'     => $message,
+        'in_scope'    => 1,
+        'is_error'    => $is_error ? 1 : 0,
+        'reply_len'   => $is_error ? 0 : mb_strlen( (string) $reply ),
+        'used_tools'  => implode( ',', array_unique( (array) ( $GLOBALS['sl_lucie_tools_called'] ?? [] ) ) ),
+        'provider'    => $provider,
+        'response_ms' => round( ( microtime( true ) - $t0 ) * 1000 ),
+    ] );
+
+    if ( $is_error ) {
         return new WP_REST_Response( [ 'reply' => 'Desole, je rencontre un souci technique. Reessayez dans un instant 🙏' ], 200 );
     }
     if ( trim( $reply ) === '' ) {
