@@ -121,7 +121,7 @@ function sl_agences_front_assets() {
     );
     wp_enqueue_script(
         'sl-immersion-slider',
-        SL_AGENCES_URL . 'assets/js/immersion-slider.js',
+        SL_AGENCES_URL . 'assets/js/immersion-slider-v2.js',
         ['gsap'],
         SL_AGENCES_VERSION,
         true
@@ -383,7 +383,7 @@ function sl_agences_preview_js() {
     );
     wp_enqueue_script(
         'sl-immersion-slider',
-        SL_AGENCES_URL . 'assets/js/immersion-slider.js',
+        SL_AGENCES_URL . 'assets/js/immersion-slider-v2.js',
         ['gsap'],
         SL_AGENCES_VERSION,
         true

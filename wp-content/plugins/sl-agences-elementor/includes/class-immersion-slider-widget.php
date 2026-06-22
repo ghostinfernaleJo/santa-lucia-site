@@ -1121,62 +1121,6 @@ class SL_Immersion_Slider_Widget extends Widget_Base
                         box-shadow 0.35s cubic-bezier(.4,0,.2,1) !important;
         }
         </style>
-        <script>
-        /* Patch inline — contourne le cache CDN Varnish sur le fichier JS statique */
-        (function() {
-            function patchSlider() {
-                if (typeof gsap === 'undefined') { setTimeout(patchSlider, 100); return; }
-
-                var containers = document.querySelectorAll('.sl-immersion-container');
-                containers.forEach(function(container) {
-                    if (container.dataset.btnPatched) return;
-                    container.dataset.btnPatched = 'true';
-
-                    var slides = container.querySelectorAll('.sl-immersion-slide');
-
-                    /* 1. État initial : cacher les boutons des slides inactifs */
-                    slides.forEach(function(slide, i) {
-                        var btns = Array.from(slide.querySelectorAll('.sl-immersion-btn'));
-                        var els = btns.filter(Boolean);
-                        gsap.set(els, i === 0 ? { y: 0, opacity: 1 } : { y: 50, opacity: 0 });
-                    });
-
-                    /* 2. Observer les changements de slide et animer TOUS les boutons */
-                    var observer = new MutationObserver(function(mutations) {
-                        mutations.forEach(function(mutation) {
-                            if (mutation.type !== 'attributes' || mutation.attributeName !== 'class') return;
-                            var slide = mutation.target;
-                            var btns = Array.from(slide.querySelectorAll('.sl-immersion-btn'));
-                            if (!btns.length) return;
-
-                            if (slide.classList.contains('active')) {
-                                /* Slide devient actif → animer les boutons en entrée */
-                                gsap.fromTo(btns,
-                                    { y: 50, opacity: 0 },
-                                    { y: 0, opacity: 1, duration: 0.6, delay: 0.95, stagger: 0.08, ease: 'power3.out' }
-                                );
-                            } else {
-                                /* Slide quitte → reset pour la prochaine fois */
-                                setTimeout(function() {
-                                    gsap.set(btns, { y: 50, opacity: 0 });
-                                }, 600);
-                            }
-                        });
-                    });
-
-                    slides.forEach(function(slide) {
-                        observer.observe(slide, { attributes: true, attributeFilter: ['class'] });
-                    });
-                });
-            }
-
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', function() { setTimeout(patchSlider, 50); });
-            } else {
-                setTimeout(patchSlider, 50);
-            }
-        })();
-        </script>
         <div class="sl-immersion-container" id="sl-immersion-<?php echo esc_attr($widget_id); ?>"
             data-autoplay="<?php echo esc_attr($autoplay); ?>" data-delay="<?php echo esc_attr($delay); ?>"
             data-anim-duration="<?php echo esc_attr($anim_duration); ?>">
