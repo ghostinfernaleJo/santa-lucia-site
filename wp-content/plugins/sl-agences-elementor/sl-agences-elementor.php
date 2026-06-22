@@ -66,6 +66,19 @@ function sl_agences_check_elementor() {
  *  2. Charger les assets CSS / JS sur le front
  * ============================================================ */
 add_action( 'wp_enqueue_scripts', 'sl_agences_front_assets', 100 );
+
+/* Exclure le JS du slider immersion du combine/minify LiteSpeed.
+ * Le hero ne dépend ainsi plus d'un bundle global combiné qui, s'il est
+ * périmé/mal régénéré, casse le slider. GSAP n'étant utilisé que dans le
+ * handler DOMContentLoaded du slider, il reste disponible à temps. */
+add_filter( 'script_loader_tag', 'sl_immersion_no_optimize', 10, 2 );
+function sl_immersion_no_optimize( $tag, $handle ) {
+    if ( 'sl-immersion-slider' === $handle && false === strpos( $tag, 'data-no-optimize' ) ) {
+        $tag = str_replace( ' src=', ' data-no-optimize="1" src=', $tag );
+    }
+    return $tag;
+}
+
 function sl_agences_front_assets() {
     // Styles globaux À Propos (partagés S2-S8)
     wp_enqueue_style(

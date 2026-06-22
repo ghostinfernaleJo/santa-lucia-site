@@ -1134,7 +1134,7 @@ class SL_Immersion_Slider_Widget extends Widget_Base
                     <div class="sl-immersion-slide <?php echo esc_attr($is_active); ?>" data-index="<?php echo $index; ?>">
 
                         <?php if (!empty($video_url)): 
-                            $preload = $index === 0 ? 'auto' : 'none';
+                            $preload = $index === 0 ? 'metadata' : 'none';
                             $autoplay_attr = $index === 0 ? 'autoplay' : '';
                         ?>
                             <video class="sl-bg-media" <?php echo $autoplay_attr; ?> muted loop playsinline preload="<?php echo $preload; ?>" poster="<?php echo esc_url($image_url); ?>">
@@ -1151,15 +1151,21 @@ class SL_Immersion_Slider_Widget extends Widget_Base
                                     <p class="sl-slide-subtitle"><?php echo esc_html($slide['slide_subtitle']); ?></p>
                                 <?php endif; ?>
 
-                                <?php if (!empty($slide['slide_title'])): ?>
-                                    <h2 class="sl-slide-title"><?php echo wp_kses_post($slide['slide_title']); ?></h2>
+                                <?php if (!empty($slide['slide_title'])):
+                                    // Un seul <h1> par page (le 1er titre rendu) ; les autres restent en <h2>.
+                                    static $sl_h1_used = false;
+                                    $sl_title_tag = ( $index === 0 && ! $sl_h1_used ) ? 'h1' : 'h2';
+                                    if ( 'h1' === $sl_title_tag ) { $sl_h1_used = true; }
+                                ?>
+                                    <<?php echo $sl_title_tag; ?> class="sl-slide-title"><?php echo wp_kses_post($slide['slide_title']); ?></<?php echo $sl_title_tag; ?>>
                                 <?php endif; ?>
 
                                 <?php
                                 $has_btn1 = !empty($slide['slide_btn_text']);
                                 $has_btn2 = ( $settings['btn2_afficher'] ?? '' ) === 'yes' && !empty( $settings['btn2_texte'] );
                                 if ($has_btn1 || $has_btn2):
-                                    $btn2_url    = $settings['btn2_lien']['url'] ?? '/a-propos/';
+                                    $btn2_url    = $settings['btn2_lien']['url'] ?? '';
+                                    if ( empty($btn2_url) || $btn2_url === '#' ) { $btn2_url = '/a-propos/'; }
                                     $btn2_target = !empty($settings['btn2_lien']['is_external']) ? '_blank' : '_self';
                                     $btn2_nofollow = !empty($settings['btn2_lien']['nofollow']) ? 'rel="nofollow"' : '';
                                     $btn2_fleche = ( $settings['btn2_fleche'] ?? 'yes' ) === 'yes';
