@@ -124,14 +124,19 @@ function sl_lucie_anthropic_classify( $message ) {
 function sl_lucie_anthropic_answer( $system_text, $messages, $tools ) {
     $system = [ [ 'type' => 'text', 'text' => $system_text, 'cache_control' => [ 'type' => 'ephemeral' ] ] ];
     $msgs = $messages;
-    for ( $turn = 0; $turn < 4; $turn++ ) {
+    for ( $turn = 0; $turn < 6; $turn++ ) {
         $res = sl_lucie_call_claude( [
             'model'         => 'claude-opus-4-8',
-            'max_tokens'    => 1200,
+            'max_tokens'    => 2000,
             'system'        => $system,
             'tools'         => $tools,
             'messages'      => $msgs,
-            'output_config' => [ 'effort' => 'low' ],
+            // Adaptive thinking : fiabilise la decision d'appeler un outil et
+            // l'ancrage factuel (sinon le modele repond de memoire -> hallucine).
+            'thinking'      => [ 'type' => 'adaptive' ],
+            // effort 'medium' (au lieu de 'low') : 'low' reduit le recours aux
+            // outils. medium = bon equilibre qualite/cout pour un chatbot ancre.
+            'output_config' => [ 'effort' => 'medium' ],
         ] );
         if ( ! $res['ok'] ) return null;
         $data = $res['data'];
