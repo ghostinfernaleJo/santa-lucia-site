@@ -123,7 +123,7 @@ function sl_lucie_gemini_run( $system_text, $messages, $tools ) {
             'contents'           => $contents,
             // thinkingBudget:0 -> desactive le "thinking", principal correctif du
             // bug MALFORMED_FUNCTION_CALL de Gemini 2.5 + reponses plus rapides.
-            'generationConfig'   => [ 'maxOutputTokens' => 1200, 'temperature' => 0.2, 'thinkingConfig' => [ 'thinkingBudget' => 0 ] ],
+            'generationConfig'   => [ 'maxOutputTokens' => 1200, 'temperature' => 0, 'thinkingConfig' => [ 'thinkingBudget' => 0 ] ],
         ];
         if ( $use_tools ) {
             $body['tools'] = [ [ 'function_declarations' => $decl ] ];
