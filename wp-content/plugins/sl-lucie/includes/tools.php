@@ -49,6 +49,28 @@ function sl_lucie_tools_defs() {
                 ],
             ],
         ],
+        [
+            'name' => 'rechercher_contenu',
+            'description' => 'Recherche en direct dans TOUT le contenu publie du site (pages, articles, produits) par mots-cles. A appeler des qu\'on demande une information qui n\'est PAS couverte par les autres outils : services, livraison, a-propos, horaires ou contact d\'une agence, une page precise, recrutement, ou tout sujet general sur Santa Lucia.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'requete' => [ 'type' => 'string', 'description' => 'Mots-cles a rechercher (ex: "livraison", "horaires Akwa", "recrutement").' ],
+                ],
+                'required' => [ 'requete' ],
+            ],
+        ],
+        [
+            'name' => 'infos_produits',
+            'description' => 'Recherche des produits de la boutique en direct (nom, prix, disponibilite/stock, categorie, lien). A appeler des qu\'on demande un produit, un prix, la disponibilite d\'un article ou les nouveautes.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'recherche' => [ 'type' => 'string', 'description' => 'Nom ou mot-cle du produit (optionnel).' ],
+                    'categorie' => [ 'type' => 'string', 'description' => 'Categorie de produit (optionnel).' ],
+                ],
+            ],
+        ],
     ];
 }
 
@@ -73,6 +95,70 @@ function sl_lucie_trim( $data, $max = 40 ) {
         $data = array_slice( $data, 0, $max );
     }
     return $data;
+}
+
+/** Recherche generale dans le contenu publie (pages, articles, produits). Donnees LIVE. */
+function sl_lucie_tool_search_content( $requete ) {
+    $requete = sanitize_text_field( (string) $requete );
+    if ( $requete === '' ) return [ 'erreur' => 'Requete vide.' ];
+    $types = [ 'page', 'post' ];
+    if ( post_type_exists( 'product' ) ) $types[] = 'product';
+    $q = new WP_Query( [
+        's'              => $requete,
+        'post_type'      => $types,
+        'post_status'    => 'publish',
+        'posts_per_page' => 8,
+        'no_found_rows'  => true,
+        'ignore_sticky_posts' => true,
+    ] );
+    $items = [];
+    foreach ( $q->posts as $p ) {
+        $extrait = has_excerpt( $p ) ? get_the_excerpt( $p ) : wp_trim_words( wp_strip_all_tags( strip_shortcodes( $p->post_content ) ), 45 );
+        $items[] = [
+            'titre'   => get_the_title( $p ),
+            'type'    => $p->post_type,
+            'extrait' => trim( wp_strip_all_tags( (string) $extrait ) ),
+            'url'     => get_permalink( $p ),
+        ];
+    }
+    wp_reset_postdata();
+    return [ 'resultats' => $items ];
+}
+
+/** Recherche de produits WooCommerce (nom, prix, stock, categorie). Donnees LIVE. */
+function sl_lucie_tool_products( $recherche, $categorie ) {
+    if ( ! function_exists( 'wc_get_product' ) || ! post_type_exists( 'product' ) ) {
+        return [ 'erreur' => 'La boutique n\'est pas disponible.' ];
+    }
+    $args = [
+        'post_type'      => 'product',
+        'post_status'    => 'publish',
+        'posts_per_page' => 12,
+        'no_found_rows'  => true,
+        'ignore_sticky_posts' => true,
+    ];
+    $recherche = sanitize_text_field( (string) $recherche );
+    $categorie = sanitize_text_field( (string) $categorie );
+    if ( $recherche !== '' ) $args['s'] = $recherche;
+    if ( $categorie !== '' ) {
+        $args['tax_query'] = [ [ 'taxonomy' => 'product_cat', 'field' => 'name', 'terms' => $categorie ] ];
+    }
+    $q = new WP_Query( $args );
+    $items = [];
+    foreach ( $q->posts as $p ) {
+        $prod = wc_get_product( $p->ID );
+        if ( ! $prod ) continue;
+        $items[] = [
+            'nom'        => $prod->get_name(),
+            'prix'       => trim( wp_strip_all_tags( wc_price( $prod->get_price() ) ) ),
+            'disponible' => $prod->is_in_stock() ? 'oui' : 'non',
+            'stock'      => $prod->managing_stock() ? $prod->get_stock_quantity() : null,
+            'categories' => wp_get_post_terms( $p->ID, 'product_cat', [ 'fields' => 'names' ] ),
+            'url'        => get_permalink( $p->ID ),
+        ];
+    }
+    wp_reset_postdata();
+    return [ 'produits' => $items ];
 }
 
 /** Execute un outil demande par Claude. Retourne une chaine (JSON) pour le tool_result. */
@@ -102,6 +188,12 @@ function sl_lucie_run_tool( $name, $input ) {
                 'agence'    => sanitize_text_field( $input['agence'] ?? '' ),
                 'categorie' => sanitize_text_field( $input['categorie'] ?? '' ),
             ] );
+            break;
+        case 'rechercher_contenu':
+            $d = sl_lucie_tool_search_content( $input['requete'] ?? '' );
+            break;
+        case 'infos_produits':
+            $d = sl_lucie_tool_products( $input['recherche'] ?? '', $input['categorie'] ?? '' );
             break;
         default:
             return wp_json_encode( [ 'erreur' => 'Outil inconnu.' ] );
