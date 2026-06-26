@@ -141,6 +141,15 @@ function sl_lucie_anthropic_answer( $system_text, $messages, $tools ) {
         if ( ! $res['ok'] ) return null;
         $data = $res['data'];
         if ( ( $data['stop_reason'] ?? '' ) === 'tool_use' ) {
+            // json_decode transforme {} en [] : un tool_use SANS argument (ex:
+            // lister_agences) se retrouve avec un 'input' de type array, que l'API
+            // Claude rejette ("Input should be an object"). On reforce un objet vide.
+            foreach ( $data['content'] as &$__blk ) {
+                if ( ( $__blk['type'] ?? '' ) === 'tool_use' && isset( $__blk['input'] ) && is_array( $__blk['input'] ) && empty( $__blk['input'] ) ) {
+                    $__blk['input'] = new stdClass();
+                }
+            }
+            unset( $__blk );
             $msgs[] = [ 'role' => 'assistant', 'content' => $data['content'] ];
             $tr = [];
             foreach ( (array) $data['content'] as $b ) {
