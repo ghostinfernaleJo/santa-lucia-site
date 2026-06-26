@@ -127,6 +127,13 @@ function sl_lucie_admin_page() {
         $msg = 'Base de connaissances videe.';
     }
 
+    /* ---- Base de connaissances : edition directe du contenu complet ---- */
+    if ( isset( $_POST['sl_lucie_save_kb_full'] ) ) {
+        check_admin_referer( 'sl_lucie_kb' );
+        sl_lucie_kb_set( sanitize_textarea_field( (string) wp_unslash( $_POST['kb_full'] ?? '' ) ) );
+        $msg = 'Base de connaissances mise a jour.';
+    }
+
     $keys     = sl_lucie_get_keys();
     $gkeys    = sl_lucie_google_get_keys();
     $kb       = sl_lucie_kb_get();
@@ -231,6 +238,14 @@ function sl_lucie_admin_page() {
                 <h2 style="margin-top:0;">Base de connaissances</h2>
                 <p style="color:#555;">Ajoutez ici les <strong>faits stables</strong> que Lucie doit connaitre (histoire, recrutement, produits phares/maison, horaires, FAQ). Les menus et promotions, eux, sont lus en direct — inutile de les mettre ici.</p>
                 <p>Contenu actuel : <strong><?php echo number_format( strlen( $kb ) ); ?></strong> caracteres <?php if ( strlen( $kb ) > 80000 ) echo '<span style="color:#b32d2e;">(volumineux : pensez a alleger)</span>'; ?>.</p>
+
+                <form method="post" style="margin:0 0 22px;">
+                    <?php wp_nonce_field( 'sl_lucie_kb' ); ?>
+                    <h3 style="margin:0 0 6px;">📝 Contenu actuel — modifiable directement</h3>
+                    <p style="color:#777;margin:0 0 6px;">Lisez, corrigez ou completez ici tout ce que Lucie sait. Ecrivez en clair (ex. « Recrutement : envoyez votre CV a ... », « Politique de retour : ... », « Quand on demande X, oriente vers Y »). Enregistrez pour appliquer immediatement.</p>
+                    <textarea name="kb_full" rows="14" class="large-text" style="font-family:monospace;font-size:13px;"><?php echo esc_textarea( $kb ); ?></textarea>
+                    <p><button class="button button-primary" name="sl_lucie_save_kb_full">💾 Enregistrer le contenu</button></p>
+                </form>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
                     <form method="post">
