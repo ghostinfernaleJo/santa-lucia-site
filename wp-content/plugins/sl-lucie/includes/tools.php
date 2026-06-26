@@ -269,7 +269,9 @@ function sl_lucie_run_tool( $name, $input ) {
                 foreach ( $d['items'] as $it ) {
                     $fin = (string) ( $it['date_fin'] ?? '' );
                     if ( $fin !== '' && $fin < $today ) continue; // expire -> masque
-                    $it['lien'] = $bp_page;
+                    $slug = (string) ( $it['agence'] ?? '' );
+                    // Deep-link vers les bons plans de l'agence concernee (filtre auto sur la page).
+                    $it['lien'] = $slug !== '' ? $bp_page . '?agence=' . rawurlencode( $slug ) : $bp_page;
                     $vivants[]  = $it;
                 }
                 $d['items'] = $vivants;

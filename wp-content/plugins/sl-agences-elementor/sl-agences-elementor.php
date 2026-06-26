@@ -152,7 +152,7 @@ function sl_agences_front_assets() {
     wp_add_inline_style( 'sl-bons-plans', 'html,body{overflow-x:clip!important;overflow-y:visible!important;max-width:100%}' );
     wp_enqueue_script(
         'sl-bons-plans',
-        SL_AGENCES_URL . 'assets/js/bons-plans-v3x.js',
+        SL_AGENCES_URL . 'assets/js/bons-plans-v3y.js',
         [],
         SL_AGENCES_VERSION,
         true

@@ -336,6 +336,19 @@
                 });
             });
 
+            // Deep-link : ?agence=slug1,slug2 pré-sélectionne les agences (ex: lien envoyé par Lucie).
+            try {
+                var qAg = new URLSearchParams(window.location.search).get('agence');
+                if (qAg) {
+                    var wanted = qAg.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+                    var any = false;
+                    msChoices.forEach(function (cb) {
+                        if (wanted.indexOf(cb.value) !== -1) { cb.checked = true; any = true; }
+                    });
+                    if (any) { if (msAllCb) msAllCb.checked = false; syncAgenceMs(); }
+                }
+            } catch (e) {}
+
             } // fin else (structure valide)
         }
 
