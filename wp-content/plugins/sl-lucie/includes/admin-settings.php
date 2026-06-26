@@ -55,8 +55,8 @@ function sl_lucie_admin_page() {
         update_option( 'sl_lucie_enabled', isset( $_POST['enabled'] ) ? '1' : '0' );
         update_option( 'sl_lucie_scope_guard', isset( $_POST['scope_guard'] ) ? '1' : '0' );
         update_option( 'sl_lucie_provider', ( ( $_POST['provider'] ?? '' ) === 'google' ) ? 'google' : 'anthropic' );
-        update_option( 'sl_lucie_nom', sanitize_text_field( $_POST['nom'] ?? 'Lucie' ) );
-        update_option( 'sl_lucie_message_accueil', sanitize_textarea_field( $_POST['accueil'] ?? '' ) );
+        update_option( 'sl_lucie_nom', sanitize_text_field( wp_unslash( $_POST['nom'] ?? 'Lucie' ) ) );
+        update_option( 'sl_lucie_message_accueil', sanitize_textarea_field( wp_unslash( $_POST['accueil'] ?? '' ) ) );
         // Planning horaire
         update_option( 'sl_lucie_schedule_enabled', isset( $_POST['schedule_enabled'] ) ? '1' : '0' );
         $st = preg_match( '/^\d{2}:\d{2}$/', $_POST['schedule_start'] ?? '' ) ? $_POST['schedule_start'] : '08:00';
@@ -66,7 +66,7 @@ function sl_lucie_admin_page() {
         $days = array_values( array_intersect( array_map( 'strval', (array) ( $_POST['schedule_days'] ?? [] ) ), [ '0','1','2','3','4','5','6' ] ) );
         if ( empty( $days ) ) $days = [ '0','1','2','3','4','5','6' ];
         update_option( 'sl_lucie_schedule_days', $days );
-        update_option( 'sl_lucie_offline_message', sanitize_textarea_field( $_POST['offline_message'] ?? '' ) );
+        update_option( 'sl_lucie_offline_message', sanitize_textarea_field( wp_unslash( $_POST['offline_message'] ?? '' ) ) );
         // Numero WhatsApp du call center (chiffres uniquement, format international)
         update_option( 'sl_lucie_whatsapp', preg_replace( '/\D/', '', (string) ( $_POST['whatsapp'] ?? '' ) ) );
         $msg = 'Reglages enregistres.';

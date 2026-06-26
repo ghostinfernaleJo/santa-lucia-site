@@ -52,11 +52,11 @@ function sl_lucie_front_assets() {
     // Ne charge la bulle que si Lucie est active (interrupteur + planning horaire)
     if ( ! sl_lucie_is_active_now() ) return;
 
-    $css_ver = @filemtime( SL_LUCIE_PATH . 'assets/css/lucie-widget.css' ) ?: SL_LUCIE_VERSION;
-    $js_ver  = @filemtime( SL_LUCIE_PATH . 'assets/js/lucie-widget-v2.js' )  ?: SL_LUCIE_VERSION;
+    $css_ver = @filemtime( SL_LUCIE_PATH . 'assets/css/lucie-widget-v2.css' ) ?: SL_LUCIE_VERSION;
+    $js_ver  = @filemtime( SL_LUCIE_PATH . 'assets/js/lucie-widget-v3.js' )  ?: SL_LUCIE_VERSION;
 
-    wp_enqueue_style( 'sl-lucie', SL_LUCIE_URL . 'assets/css/lucie-widget.css', [], $css_ver );
-    wp_enqueue_script( 'sl-lucie', SL_LUCIE_URL . 'assets/js/lucie-widget-v2.js', [], $js_ver, true );
+    wp_enqueue_style( 'sl-lucie', SL_LUCIE_URL . 'assets/css/lucie-widget-v2.css', [], $css_ver );
+    wp_enqueue_script( 'sl-lucie', SL_LUCIE_URL . 'assets/js/lucie-widget-v3.js', [], $js_ver, true );
     wp_localize_script( 'sl-lucie', 'slLucie', [
         'rest'   => esc_url_raw( rest_url( 'santa-lucia/v1/lucie/chat' ) ),
         'nonce'  => wp_create_nonce( 'wp_rest' ),
