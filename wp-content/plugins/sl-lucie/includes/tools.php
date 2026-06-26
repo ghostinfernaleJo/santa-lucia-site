@@ -71,6 +71,16 @@ function sl_lucie_tools_defs() {
                 ],
             ],
         ],
+        [
+            'name' => 'infos_agence',
+            'description' => 'Informations pratiques des agences : ville, adresse, telephone, statut et horaires. A appeler des qu\'on demande OU se trouve une agence, son adresse, son numero, ses horaires, ou les agences d\'une ville (ex: Douala, Yaounde). Filtre par nom d\'agence ou par ville.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'recherche' => [ 'type' => 'string', 'description' => 'Nom d\'agence ou ville (ex: "Akwa", "Douala"). Laisser vide pour toutes les agences.' ],
+                ],
+            ],
+        ],
     ];
 }
 
@@ -150,7 +160,7 @@ function sl_lucie_tool_products( $recherche, $categorie ) {
         if ( ! $prod ) continue;
         $items[] = [
             'nom'        => $prod->get_name(),
-            'prix'       => trim( wp_strip_all_tags( wc_price( $prod->get_price() ) ) ),
+            'prix'       => trim( html_entity_decode( wp_strip_all_tags( wc_price( $prod->get_price() ) ), ENT_QUOTES, 'UTF-8' ) ),
             'disponible' => $prod->is_in_stock() ? 'oui' : 'non',
             'stock'      => $prod->managing_stock() ? $prod->get_stock_quantity() : null,
             'categories' => wp_get_post_terms( $p->ID, 'product_cat', [ 'fields' => 'names' ] ),
@@ -159,6 +169,69 @@ function sl_lucie_tool_products( $recherche, $categorie ) {
     }
     wp_reset_postdata();
     return [ 'produits' => $items ];
+}
+
+/** Trouve recursivement le 1er widget Elementor d'un type donne dans un arbre _elementor_data. */
+function sl_lucie_find_elementor_widget( $node, $widget_type ) {
+    if ( ! is_array( $node ) ) return null;
+    if ( isset( $node['widgetType'] ) && $node['widgetType'] === $widget_type ) return $node;
+    foreach ( $node as $child ) {
+        if ( is_array( $child ) ) {
+            $found = sl_lucie_find_elementor_widget( $child, $widget_type );
+            if ( $found ) return $found;
+        }
+    }
+    return null;
+}
+
+/** Lit le repeater "agences" du widget sl_agences sur la page Nos Agences (donnees LIVE). */
+function sl_lucie_get_agences_repeater() {
+    $page = get_page_by_path( 'nos-agences' );
+    $raw  = $page ? get_post_meta( $page->ID, '_elementor_data', true ) : '';
+    if ( ! $raw ) {
+        // Fallback : trouver n'importe quelle page contenant le widget sl_agences.
+        $hit = get_posts( [
+            'post_type'   => 'any',
+            'post_status' => 'publish',
+            'numberposts' => 1,
+            'fields'      => 'ids',
+            'meta_query'  => [ [ 'key' => '_elementor_data', 'value' => '"widgetType":"sl_agences"', 'compare' => 'LIKE' ] ],
+        ] );
+        if ( ! empty( $hit ) ) $raw = get_post_meta( $hit[0], '_elementor_data', true );
+    }
+    if ( ! $raw ) return [];
+    $tree = json_decode( $raw, true );
+    if ( ! is_array( $tree ) ) return [];
+    $widget = sl_lucie_find_elementor_widget( $tree, 'sl_agences' );
+    $rows   = $widget['settings']['agences'] ?? [];
+    $items  = [];
+    foreach ( (array) $rows as $a ) {
+        $items[] = [
+            'nom'       => trim( (string) ( $a['agence_nom'] ?? '' ) ),
+            'ville'     => trim( (string) ( $a['agence_ville'] ?? '' ) ),
+            'adresse'   => trim( (string) ( $a['agence_adresse'] ?? '' ) ),
+            'telephone' => trim( (string) ( $a['agence_telephone'] ?? '' ) ),
+            'statut'    => (string) ( $a['agence_statut'] ?? '' ),
+            'ouverture' => trim( (string) ( $a['agence_heure_ouverture'] ?? '' ) ),
+            'fermeture' => trim( (string) ( $a['agence_heure_fermeture'] ?? '' ) ),
+        ];
+    }
+    return array_values( array_filter( $items, fn( $x ) => $x['nom'] !== '' ) );
+}
+
+/** Outil infos_agence : ville/adresse/telephone/horaires, filtre par nom ou ville. */
+function sl_lucie_tool_agence_infos( $recherche ) {
+    $all = sl_lucie_get_agences_repeater();
+    if ( empty( $all ) ) return [ 'erreur' => 'Informations agences indisponibles.' ];
+    $q = mb_strtolower( trim( sanitize_text_field( (string) $recherche ) ) );
+    if ( $q === '' ) return [ 'agences' => $all ];
+    $out = [];
+    foreach ( $all as $a ) {
+        $hay = mb_strtolower( $a['nom'] . ' ' . $a['ville'] . ' ' . $a['adresse'] );
+        if ( mb_strpos( $hay, $q ) !== false ) $out[] = $a;
+    }
+    if ( empty( $out ) ) return [ 'agences' => [], 'note' => 'Aucune agence ne correspond a "' . $recherche . '".' ];
+    return [ 'agences' => $out ];
 }
 
 /** Execute un outil demande par Claude. Retourne une chaine (JSON) pour le tool_result. */
@@ -207,6 +280,9 @@ function sl_lucie_run_tool( $name, $input ) {
             break;
         case 'infos_produits':
             $d = sl_lucie_tool_products( $input['recherche'] ?? '', $input['categorie'] ?? '' );
+            break;
+        case 'infos_agence':
+            $d = sl_lucie_tool_agence_infos( $input['recherche'] ?? '' );
             break;
         default:
             return wp_json_encode( [ 'erreur' => 'Outil inconnu.' ] );

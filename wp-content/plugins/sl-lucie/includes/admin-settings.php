@@ -67,6 +67,8 @@ function sl_lucie_admin_page() {
         if ( empty( $days ) ) $days = [ '0','1','2','3','4','5','6' ];
         update_option( 'sl_lucie_schedule_days', $days );
         update_option( 'sl_lucie_offline_message', sanitize_textarea_field( $_POST['offline_message'] ?? '' ) );
+        // Numero WhatsApp du call center (chiffres uniquement, format international)
+        update_option( 'sl_lucie_whatsapp', preg_replace( '/\D/', '', (string) ( $_POST['whatsapp'] ?? '' ) ) );
         $msg = 'Reglages enregistres.';
     }
 
@@ -165,6 +167,7 @@ function sl_lucie_admin_page() {
                     </p>
                     <p><label><strong>Nom de l'assistante</strong><br><input type="text" name="nom" class="regular-text" value="<?php echo esc_attr( get_option( 'sl_lucie_nom', 'Lucie' ) ); ?>"></label></p>
                     <p><label><strong>Message d'accueil</strong><br><textarea name="accueil" rows="3" class="large-text"><?php echo esc_textarea( get_option( 'sl_lucie_message_accueil', '' ) ); ?></textarea></label></p>
+                    <p><label><strong>WhatsApp du call center</strong><br><input type="text" name="whatsapp" class="regular-text" value="<?php echo esc_attr( get_option( 'sl_lucie_whatsapp', '' ) ); ?>" placeholder="237674152010"><br><span class="description">Chiffres uniquement, format international (indicatif pays compris). Utilise pour orienter vers un humain : https://wa.me/&lt;numero&gt;.</span></label></p>
 
                     <hr>
                     <p><label><input type="checkbox" name="schedule_enabled" <?php checked( get_option( 'sl_lucie_schedule_enabled', '0' ), '1' ); ?>> <strong>Programmer les horaires de disponibilite</strong></label></p>
