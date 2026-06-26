@@ -188,6 +188,19 @@ function sl_lucie_run_tool( $name, $input ) {
                 'agence'    => sanitize_text_field( $input['agence'] ?? '' ),
                 'categorie' => sanitize_text_field( $input['categorie'] ?? '' ),
             ] );
+            // Masque les offres expirees et ajoute le lien vers la page bons plans.
+            if ( is_array( $d ) && ! empty( $d['items'] ) && is_array( $d['items'] ) ) {
+                $today    = current_time( 'Y-m-d' );
+                $bp_page  = home_url( '/bon-plans/' );
+                $vivants  = [];
+                foreach ( $d['items'] as $it ) {
+                    $fin = (string) ( $it['date_fin'] ?? '' );
+                    if ( $fin !== '' && $fin < $today ) continue; // expire -> masque
+                    $it['lien'] = $bp_page;
+                    $vivants[]  = $it;
+                }
+                $d['items'] = $vivants;
+            }
             break;
         case 'rechercher_contenu':
             $d = sl_lucie_tool_search_content( $input['requete'] ?? '' );
