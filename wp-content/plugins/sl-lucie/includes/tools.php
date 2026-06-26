@@ -113,12 +113,21 @@ function sl_lucie_rest_get( $route, $params = [] ) {
     return $res->get_data();
 }
 
-/** Reduit la taille des donnees renvoyees a Claude (evite de saturer le contexte). */
-function sl_lucie_trim( $data, $max = 40 ) {
+/** Reduit la taille des donnees renvoyees a Claude (evite de saturer le contexte).
+ *  Retire surtout les objets 'image' (4 URLs/element) inutiles en chat texte et
+ *  qui faisaient deborder la limite de 30000 car. -> reponse tronquee (ex: le menu
+ *  fast-food n'affichait qu'1 plat sur 50). */
+function sl_lucie_trim( $data, $max = 60 ) {
+    $strip = function ( $item ) {
+        if ( is_array( $item ) ) {
+            unset( $item['image'], $item['images'], $item['galerie'], $item['thumbnail'] );
+        }
+        return $item;
+    };
     if ( is_array( $data ) && isset( $data['items'] ) && is_array( $data['items'] ) ) {
-        $data['items'] = array_slice( $data['items'], 0, $max );
+        $data['items'] = array_map( $strip, array_slice( $data['items'], 0, $max ) );
     } elseif ( is_array( $data ) && array_is_list( $data ) ) {
-        $data = array_slice( $data, 0, $max );
+        $data = array_map( $strip, array_slice( $data, 0, $max ) );
     }
     return $data;
 }
@@ -311,6 +320,7 @@ function sl_lucie_run_tool( $name, $input ) {
                 'agence' => sanitize_text_field( $input['agence'] ?? '' ),
                 'jour'   => sanitize_text_field( $input['jour'] ?? '' ),
             ] );
+            if ( is_array( $d ) ) $d['page_menu'] = home_url( '/menu-fast-food/' );
             break;
         case 'promotions':
             $d = sl_lucie_rest_get( '/santa-lucia/v1/promotions', [
