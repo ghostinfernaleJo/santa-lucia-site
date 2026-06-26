@@ -20,6 +20,7 @@ require_once SL_LUCIE_PATH . 'includes/tools.php';
 require_once SL_LUCIE_PATH . 'includes/rest-chat.php';
 require_once SL_LUCIE_PATH . 'includes/admin-settings.php';
 require_once SL_LUCIE_PATH . 'includes/stats.php';
+require_once SL_LUCIE_PATH . 'includes/leads.php';
 
 /* ============================================================
    WIDGET FRONT — charge sur TOUT le site public (asynchrone)

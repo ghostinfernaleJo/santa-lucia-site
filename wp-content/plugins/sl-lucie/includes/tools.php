@@ -97,6 +97,18 @@ function sl_lucie_tools_defs() {
                 ],
             ],
         ],
+        [
+            'name' => 'enregistrer_contact',
+            'description' => 'Enregistre les coordonnees du visiteur (nom, telephone, quartier/ville) recueillies en debut de conversation, pour le suivi. A appeler DES que tu as obtenu un ou plusieurs de ces elements. Tu peux la rappeler pour completer une info donnee plus tard dans l\'echange.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'nom'       => [ 'type' => 'string', 'description' => 'Prenom et/ou nom du visiteur.' ],
+                    'telephone' => [ 'type' => 'string', 'description' => 'Numero de telephone (WhatsApp de preference).' ],
+                    'quartier'  => [ 'type' => 'string', 'description' => 'Quartier et/ou ville d\'ou ecrit le visiteur.' ],
+                ],
+            ],
+        ],
     ];
 }
 
@@ -416,6 +428,12 @@ function sl_lucie_run_tool( $name, $input ) {
             break;
         case 'lire_page':
             $d = sl_lucie_tool_read_page( $input['recherche'] ?? '' );
+            break;
+        case 'enregistrer_contact':
+            $id = function_exists( 'sl_lucie_save_lead' )
+                ? sl_lucie_save_lead( $input['nom'] ?? '', $input['telephone'] ?? '', $input['quartier'] ?? '', $GLOBALS['sl_lucie_session_id'] ?? '' )
+                : false;
+            $d  = $id ? [ 'ok' => true, 'message' => 'Coordonnees enregistrees, merci.' ] : [ 'ok' => false, 'message' => 'Aucune donnee a enregistrer.' ];
             break;
         default:
             return wp_json_encode( [ 'erreur' => 'Outil inconnu.' ] );
