@@ -142,6 +142,11 @@ function sl_lucie_admin_page() {
     $provider = sl_lucie_provider();
     ?>
     <div class="wrap">
+        <style>
+            /* La classe WP .card impose max-width:520px et casse les cartes pleine largeur. */
+            .wrap .card { max-width: none; box-sizing: border-box; }
+            .wrap .card textarea, .wrap .card input[type=text] { max-width: 100%; box-sizing: border-box; }
+        </style>
         <h1><span class="dashicons dashicons-format-chat" style="font-size:28px;"></span> Lucie — Assistant IA</h1>
 
         <?php $on = get_option( 'sl_lucie_enabled', '1' ) === '1'; ?>
@@ -159,7 +164,7 @@ function sl_lucie_admin_page() {
         <?php if ( $msg ) : ?><div class="notice notice-success is-dismissible"><p><?php echo esc_html( $msg ); ?></p></div><?php endif; ?>
         <?php if ( $err ) : ?><div class="notice notice-error is-dismissible"><p><?php echo esc_html( $err ); ?></p></div><?php endif; ?>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1100px;align-items:start;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:24px;max-width:1100px;align-items:start;">
 
             <!-- Reglages -->
             <div class="card" style="padding:18px;">
@@ -247,7 +252,7 @@ function sl_lucie_admin_page() {
                     <p><button class="button button-primary" name="sl_lucie_save_kb_full">💾 Enregistrer le contenu</button></p>
                 </form>
 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;">
                     <form method="post">
                         <?php wp_nonce_field( 'sl_lucie_kb' ); ?>
                         <h3>Ajouter du texte</h3>
