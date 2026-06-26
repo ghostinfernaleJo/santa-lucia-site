@@ -72,6 +72,22 @@ function sl_lucie_tools_defs() {
             ],
         ],
         [
+            'name' => 'lister_pages',
+            'description' => 'Liste les pages d\'information du site (titre + lien). A appeler pour DECOUVRIR quelles pages existent (a-propos / qui sommes-nous, services, livraison, recrutement, FAQ...) avant d\'en lire une avec lire_page.',
+            'input_schema' => [ 'type' => 'object', 'properties' => new stdClass() ],
+        ],
+        [
+            'name' => 'lire_page',
+            'description' => 'Lit le CONTENU complet d\'une page du site par son nom. A appeler pour repondre a une question sur l\'entreprise : histoire, qui sommes-nous, valeurs, services, livraison, ou toute information presentee sur une page. Tu reponds alors a partir du texte reel renvoye.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'recherche' => [ 'type' => 'string', 'description' => 'Nom ou sujet de la page (ex: "qui sommes-nous", "a propos", "histoire", "services", "livraison").' ],
+                ],
+                'required' => [ 'recherche' ],
+            ],
+        ],
+        [
             'name' => 'infos_agence',
             'description' => 'Informations pratiques des agences : ville, adresse, telephone, statut et horaires. A appeler des qu\'on demande OU se trouve une agence, son adresse, son numero, ses horaires, ou les agences d\'une ville (ex: Douala, Yaounde). Filtre par nom d\'agence ou par ville.',
             'input_schema' => [
@@ -123,7 +139,8 @@ function sl_lucie_tool_search_content( $requete ) {
     ] );
     $items = [];
     foreach ( $q->posts as $p ) {
-        $extrait = has_excerpt( $p ) ? get_the_excerpt( $p ) : wp_trim_words( wp_strip_all_tags( strip_shortcodes( $p->post_content ) ), 45 );
+        $corps   = trim( wp_strip_all_tags( strip_shortcodes( (string) $p->post_content ) ) );
+        $extrait = $corps !== '' ? mb_substr( $corps, 0, 700 ) : ( has_excerpt( $p ) ? wp_strip_all_tags( get_the_excerpt( $p ) ) : '' );
         $items[] = [
             'titre'   => get_the_title( $p ),
             'type'    => $p->post_type,
@@ -234,6 +251,51 @@ function sl_lucie_tool_agence_infos( $recherche ) {
     return [ 'agences' => $out ];
 }
 
+/** Liste les pages publiees (titre, slug, lien) pour que le LLM sache ce qui existe. */
+function sl_lucie_tool_list_pages() {
+    $pages = get_posts( [
+        'post_type'   => 'page',
+        'post_status' => 'publish',
+        'numberposts' => 60,
+        'orderby'     => 'title',
+        'order'       => 'ASC',
+        'no_found_rows' => true,
+    ] );
+    $items = [];
+    foreach ( $pages as $p ) {
+        $items[] = [ 'titre' => get_the_title( $p ), 'slug' => $p->post_name, 'url' => get_permalink( $p ) ];
+    }
+    return [ 'pages' => $items ];
+}
+
+/** Lit le contenu texte complet d'une page (par slug, titre ou mots-cles). Donnees LIVE. */
+function sl_lucie_tool_read_page( $recherche ) {
+    $recherche = sanitize_text_field( (string) $recherche );
+    if ( $recherche === '' ) return [ 'erreur' => 'Precise le nom de la page.' ];
+    // 1) slug exact
+    $p = get_page_by_path( sanitize_title( $recherche ) );
+    // 2) titre / contenu (recherche WordPress)
+    if ( ! $p ) {
+        $q = new WP_Query( [
+            's'              => $recherche,
+            'post_type'      => [ 'page', 'post' ],
+            'post_status'    => 'publish',
+            'posts_per_page' => 1,
+            'no_found_rows'  => true,
+            'ignore_sticky_posts' => true,
+        ] );
+        if ( ! empty( $q->posts ) ) $p = $q->posts[0];
+        wp_reset_postdata();
+    }
+    if ( ! $p ) return [ 'trouve' => false, 'note' => 'Aucune page ne correspond a "' . $recherche . '".' ];
+    $txt = trim( wp_strip_all_tags( strip_shortcodes( (string) $p->post_content ) ) );
+    $txt = preg_replace( '/\n{3,}/', "\n\n", $txt );
+    if ( $txt === '' ) {
+        return [ 'titre' => get_the_title( $p ), 'url' => get_permalink( $p ), 'contenu' => '', 'note' => 'Cette page n\'a pas de texte exploitable (mise en page visuelle).' ];
+    }
+    return [ 'titre' => get_the_title( $p ), 'url' => get_permalink( $p ), 'contenu' => mb_substr( $txt, 0, 3000 ) ];
+}
+
 /** Execute un outil demande par Claude. Retourne une chaine (JSON) pour le tool_result. */
 function sl_lucie_run_tool( $name, $input ) {
     $input = is_array( $input ) ? $input : [];
@@ -285,6 +347,12 @@ function sl_lucie_run_tool( $name, $input ) {
             break;
         case 'infos_agence':
             $d = sl_lucie_tool_agence_infos( $input['recherche'] ?? '' );
+            break;
+        case 'lister_pages':
+            $d = sl_lucie_tool_list_pages();
+            break;
+        case 'lire_page':
+            $d = sl_lucie_tool_read_page( $input['recherche'] ?? '' );
             break;
         default:
             return wp_json_encode( [ 'erreur' => 'Outil inconnu.' ] );

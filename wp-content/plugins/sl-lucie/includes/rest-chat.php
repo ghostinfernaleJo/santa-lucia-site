@@ -40,6 +40,7 @@ function sl_lucie_system_prompt() {
     } else {
         $p .= "7. Si la question necessite une intervention humaine (reclamation, commande precise, litige...), invite l'utilisateur a contacter une agence Santa Lucia.\n";
     }
+    $p .= "8. Pour toute question sur l'entreprise (qui sommes-nous, histoire, valeurs, services, livraison, recrutement, informations generales presentees sur le site) : appelle d'abord lister_pages pour reperer la bonne page, puis lire_page pour repondre A PARTIR de son contenu reel. Ne resume jamais de memoire un contenu que tu n'as pas lu via l'outil.\n";
 
     if ( trim( $kb ) !== '' ) {
         $p .= "\n===== BASE DE CONNAISSANCES SANTA LUCIA =====\n" . $kb . "\n===== FIN DE LA BASE DE CONNAISSANCES =====\n";
