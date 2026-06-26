@@ -132,6 +132,63 @@ function sl_lucie_trim( $data, $max = 60 ) {
     return $data;
 }
 
+/** Menu Fast Food d'une agence — MEME logique que la page /menu-fast-food/.
+ *  (Le endpoint REST /fastfood/menu utilisait un 'disponible_aujourdhui' divergent
+ *  qui ne marquait qu'1 plat -> Lucie n'en voyait qu'un. On replique la requete de
+ *  sl_ff_render_menu_html : agence + filtre de disponibilite, groupe par categorie.) */
+function sl_lucie_tool_menu( $agence, $jour = '' ) {
+    $agence = sanitize_title( (string) $agence );
+    if ( $agence === '' ) return [ 'erreur' => 'Precise l\'agence (ex: bonamoussadi, akwa-nord, mvan...).' ];
+
+    // Repli si le plugin Fast Food n'est pas charge.
+    if ( ! function_exists( 'sl_ff_agency_meta_query' ) ) {
+        $d = sl_lucie_rest_get( '/santa-lucia/v1/fastfood/menu', [ 'agence' => $agence, 'jour' => sanitize_text_field( (string) $jour ) ] );
+        if ( is_array( $d ) ) $d['page_menu'] = home_url( '/menu-fast-food/' );
+        return $d;
+    }
+
+    $jour = sanitize_title( (string) $jour );
+    if ( $jour === '' && function_exists( 'sl_ff_today_jour' ) ) $jour = sl_ff_today_jour();
+
+    $repas = get_posts( [
+        'post_type'      => 'sl_repas',
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'orderby'        => 'title',
+        'order'          => 'ASC',
+        'meta_query'     => [ sl_ff_agency_meta_query( $agence ) ],
+    ] );
+    if ( function_exists( 'sl_ff_filter_repas_available_for_agence' ) ) {
+        $repas = sl_ff_filter_repas_available_for_agence( $repas, $agence, $jour );
+    }
+
+    $par_cat = [];
+    foreach ( (array) $repas as $r ) {
+        $cats = wp_get_post_terms( $r->ID, 'sl_repas_cat' );
+        $cat  = ( ! empty( $cats ) && ! is_wp_error( $cats ) && function_exists( 'sl_ff_cat_display' ) )
+                ? sl_ff_cat_display( $cats[0]->name ) : 'Menu du jour';
+        $plat = [ 'plat' => get_the_title( $r ) ];
+        if ( function_exists( 'sl_ff_get_promo_info' ) ) {
+            $promo = sl_ff_get_promo_info( $r->ID );
+            if ( ! empty( $promo['est_promo'] ) ) $plat['promo'] = true;
+        }
+        $par_cat[ $cat ][] = $plat;
+    }
+    ksort( $par_cat );
+    $menu = [];
+    foreach ( $par_cat as $cat => $plats ) {
+        $menu[] = [ 'categorie' => $cat, 'plats' => $plats ];
+    }
+
+    return [
+        'agence'    => $agence,
+        'jour'      => $jour,
+        'nb_plats'  => array_sum( array_map( fn( $c ) => count( $c['plats'] ), $menu ) ),
+        'menu'      => $menu,
+        'page_menu' => home_url( '/menu-fast-food/' ),
+    ];
+}
+
 /** Recherche generale dans le contenu publie (pages, articles, produits). Donnees LIVE. */
 function sl_lucie_tool_search_content( $requete ) {
     $requete = sanitize_text_field( (string) $requete );
@@ -316,11 +373,7 @@ function sl_lucie_run_tool( $name, $input ) {
             $d = sl_lucie_rest_get( '/santa-lucia/v1/agences' );
             break;
         case 'menu_du_jour':
-            $d = sl_lucie_rest_get( '/santa-lucia/v1/fastfood/menu', [
-                'agence' => sanitize_text_field( $input['agence'] ?? '' ),
-                'jour'   => sanitize_text_field( $input['jour'] ?? '' ),
-            ] );
-            if ( is_array( $d ) ) $d['page_menu'] = home_url( '/menu-fast-food/' );
+            $d = sl_lucie_tool_menu( $input['agence'] ?? '', $input['jour'] ?? '' );
             break;
         case 'promotions':
             $d = sl_lucie_rest_get( '/santa-lucia/v1/promotions', [
