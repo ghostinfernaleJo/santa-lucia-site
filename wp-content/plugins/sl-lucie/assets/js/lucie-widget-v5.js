@@ -24,14 +24,26 @@
 
   var chatIcon = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
   var avatarHtml = slLucie.avatar ? '<img src="' + esc(slLucie.avatar) + '" alt="">' : chatIcon;
+  var tipText = slLucie.tip ? esc(slLucie.tip) : "Besoin d'aide ?";
 
-  // ---- Bulle flottante ----
+  // ---- Conteneur flottant : etiquette + bulle ----
+  var fab = document.createElement('div');
+  fab.className = 'sl-lucie-fab';
+
+  var tip = document.createElement('button');
+  tip.className = 'sl-lucie-tip';
+  tip.type = 'button';
+  tip.innerHTML = '<span>' + tipText + '</span>';
+
   var btn = document.createElement('button');
   btn.className = 'sl-lucie-btn';
   btn.setAttribute('aria-label', 'Discuter avec ' + slLucie.nom);
   btn.innerHTML =
     '<svg class="sl-lucie-ico-chat" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>' +
     '<svg class="sl-lucie-ico-close" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
+
+  fab.appendChild(tip);
+  fab.appendChild(btn);
 
   // ---- Panneau ----
   var panel = document.createElement('div');
@@ -55,12 +67,23 @@
       '</button>' +
     '</form>';
 
-  document.body.appendChild(btn);
+  document.body.appendChild(fab);
   document.body.appendChild(panel);
 
   var msgs = panel.querySelector('#sl-lucie-msgs');
   var form = panel.querySelector('#sl-lucie-form');
   var input = panel.querySelector('#sl-lucie-input');
+
+  // ---- Positionne le conteneur AU-DESSUS de la barre de navigation mobile ----
+  function positionFab() {
+    var nav = document.querySelector('.klb-mobile-bottom');
+    var navH = (nav && getComputedStyle(nav).display !== 'none') ? Math.round(nav.getBoundingClientRect().height) : 0;
+    fab.style.bottom = navH > 0 ? (navH + 14) + 'px' : '';
+  }
+  positionFab();
+  window.addEventListener('resize', positionFab);
+  window.addEventListener('load', positionFab);
+  setTimeout(positionFab, 800);
 
   // Mise en forme inline : liens cliquables, gras, prix barre.
   function inline(s) {
@@ -72,7 +95,7 @@
     return s;
   }
 
-  // Rendu Markdown leger (sur du texte deja echappe) : titres, listes, liens, gras.
+  // Rendu Markdown leger (sur du texte deja echappe).
   function renderMarkdown(text) {
     var lines = esc(text).split('\n');
     var html = '', inList = false;
@@ -113,6 +136,7 @@
     open = (typeof force === 'boolean') ? force : !open;
     panel.classList.toggle('is-open', open);
     btn.classList.toggle('is-open', open);
+    fab.classList.toggle('is-open', open);   // masque l'etiquette quand le chat est ouvert
     document.documentElement.classList.toggle('sl-lucie-locked', open);
     if (open) {
       if (!msgs.children.length && slLucie.accueil) addMsg('bot', slLucie.accueil);
@@ -121,6 +145,7 @@
   }
 
   btn.addEventListener('click', function () { toggle(); });
+  tip.addEventListener('click', function () { toggle(true); });
   panel.querySelector('.sl-lucie-close').addEventListener('click', function () { toggle(false); });
 
   form.addEventListener('submit', function (e) {
