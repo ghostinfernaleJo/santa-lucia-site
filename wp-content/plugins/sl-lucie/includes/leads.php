@@ -75,6 +75,23 @@ function sl_lucie_save_lead( $nom, $tel, $quartier, $session = '' ) {
     return $id;
 }
 
+/** Retourne les coordonnees deja enregistrees pour une session, ou null. */
+function sl_lucie_lead_for_session( $session ) {
+    $session = sanitize_text_field( (string) $session );
+    if ( $session === '' ) return null;
+    $hit = get_posts( [
+        'post_type' => 'sl_lucie_lead', 'post_status' => 'any', 'numberposts' => 1, 'fields' => 'ids',
+        'meta_key' => '_sll_session', 'meta_value' => $session,
+    ] );
+    if ( empty( $hit ) ) return null;
+    $id = $hit[0];
+    return [
+        'nom'      => (string) get_post_meta( $id, '_sll_nom', true ),
+        'tel'      => (string) get_post_meta( $id, '_sll_tel', true ),
+        'quartier' => (string) get_post_meta( $id, '_sll_quartier', true ),
+    ];
+}
+
 /* ── Colonnes de la liste admin ── */
 add_filter( 'manage_sl_lucie_lead_posts_columns', function ( $cols ) {
     return [

@@ -1,6 +1,6 @@
 :root{
-  --sl-lucie-mag:#E91E63;       /* magenta charte Santa Lucia */
-  --sl-lucie-mag-dk:#C2185B;    /* magenta fonce */
+  --sl-lucie-mag:#e85499;       /* rose Santa Lucia */
+  --sl-lucie-mag-dk:#d63d83;    /* rose fonce */
   --sl-lucie-blue:#1D54A0;      /* bleu logo (accent) */
   --sl-lucie-ink:#1f2430;
   --sl-lucie-bg:#f6f7f9;
@@ -11,11 +11,11 @@
   position:fixed; right:20px; bottom:20px; z-index:2147483000;
   width:60px; height:60px; border-radius:50%; border:none; cursor:pointer; padding:0;
   background:linear-gradient(135deg,var(--sl-lucie-mag),var(--sl-lucie-mag-dk));
-  color:#fff; box-shadow:0 8px 24px rgba(233,30,99,.42);
+  color:#fff; box-shadow:0 8px 24px rgba(232,84,153,.45);
   display:flex; align-items:center; justify-content:center;
   transition:transform .18s ease, box-shadow .18s ease;
 }
-.sl-lucie-btn:hover{ transform:translateY(-2px) scale(1.05); box-shadow:0 12px 30px rgba(233,30,99,.5); }
+.sl-lucie-btn:hover{ transform:translateY(-2px) scale(1.05); box-shadow:0 12px 30px rgba(232,84,153,.55); }
 .sl-lucie-btn .sl-lucie-ico-close{ display:none; }
 .sl-lucie-btn.is-open .sl-lucie-ico-chat{ display:none; }
 .sl-lucie-btn.is-open .sl-lucie-ico-close{ display:block; }
@@ -40,19 +40,21 @@
   color:#fff; padding:14px 16px; display:flex; align-items:center; gap:12px; flex:0 0 auto;
 }
 .sl-lucie-ava{
-  width:40px; height:40px; border-radius:50%; flex:0 0 auto;
+  width:42px; height:42px; border-radius:50%; flex:0 0 auto; overflow:hidden;
   background:rgba(255,255,255,.18); display:flex; align-items:center; justify-content:center; color:#fff;
 }
-.sl-lucie-head-txt{ display:flex; flex-direction:column; line-height:1.2; }
+.sl-lucie-ava img{ width:100%; height:100%; object-fit:cover; border-radius:50%; display:block; }
+.sl-lucie-head-txt{ display:flex; flex-direction:column; line-height:1.2; min-width:0; }
 .sl-lucie-head-txt strong{ font-size:16px; font-weight:700; }
 .sl-lucie-status{ font-size:12px; opacity:.92; display:flex; align-items:center; gap:6px; margin-top:2px; }
 .sl-lucie-dot{ width:8px; height:8px; border-radius:50%; background:#4ade80; box-shadow:0 0 0 3px rgba(74,222,128,.35); }
 .sl-lucie-close{
-  margin-left:auto; background:rgba(255,255,255,.14); border:none; color:#fff; cursor:pointer;
-  width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-  transition:background .15s ease;
+  margin-left:auto; background:rgba(255,255,255,.22); border:none; color:#fff; cursor:pointer;
+  width:38px; height:38px; flex:0 0 auto; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  transition:background .15s ease, transform .12s ease;
 }
-.sl-lucie-close:hover{ background:rgba(255,255,255,.28); }
+.sl-lucie-close:hover{ background:rgba(255,255,255,.38); }
+.sl-lucie-close:active{ transform:scale(.92); }
 
 /* ── Fil de messages ── */
 .sl-lucie-msgs{
@@ -77,8 +79,8 @@
 }
 
 /* ── Markdown rendu dans les messages du bot ── */
-.sl-lucie-bot a{ color:var(--sl-lucie-mag); font-weight:600; text-decoration:underline; word-break:break-word; }
-.sl-lucie-bot a:hover{ color:var(--sl-lucie-mag-dk); }
+.sl-lucie-bot a{ color:var(--sl-lucie-mag-dk); font-weight:600; text-decoration:underline; word-break:break-word; }
+.sl-lucie-bot a:hover{ color:var(--sl-lucie-mag); }
 .sl-lucie-bot strong{ font-weight:700; color:#11151c; }
 .sl-lucie-bot del{ color:#9aa0a6; }
 .sl-lucie-bot .sl-lucie-h{ font-weight:700; color:var(--sl-lucie-mag-dk); margin:9px 0 3px; font-size:14.5px; }
@@ -110,7 +112,7 @@
 .sl-lucie-form button:hover{ filter:brightness(1.06); transform:scale(1.05); }
 .sl-lucie-form button:active{ transform:scale(.96); }
 
-/* ── Mobile : plein ecran propre ── */
+/* ── Mobile : plein ecran propre, croix bien visible ── */
 @media (max-width:600px){
   .sl-lucie-btn{ right:16px; bottom:16px; width:56px; height:56px; }
   .sl-lucie-panel{
@@ -119,7 +121,8 @@
     border-radius:0;
   }
   html.sl-lucie-locked, html.sl-lucie-locked body{ overflow:hidden; }
-  .sl-lucie-head{ padding:14px 16px; padding-top:max(14px, env(safe-area-inset-top)); }
+  .sl-lucie-head{ padding:16px; padding-top:max(16px, env(safe-area-inset-top)); }
+  .sl-lucie-close{ width:44px; height:44px; background:rgba(255,255,255,.30); }
   .sl-lucie-form{ padding-bottom:max(12px, env(safe-area-inset-bottom)); }
   .sl-lucie-msg{ max-width:88%; font-size:15px; }
 }

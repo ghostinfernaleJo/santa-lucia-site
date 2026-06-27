@@ -6,7 +6,7 @@
   var open = false;
   var busy = false;
 
-  // Identifiant de session anonyme (pour regrouper une conversation) — localStorage
+  // Identifiant de session anonyme (persiste >= 1 mois via localStorage)
   var sessionId = '';
   try {
     sessionId = localStorage.getItem('sl_lucie_sid') || '';
@@ -16,7 +16,16 @@
     }
   } catch (e) { sessionId = 'sid-' + Math.random().toString(36).slice(2, 10); }
 
-  // ---- Construction du DOM ----
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  var chatIcon = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
+  var avatarHtml = slLucie.avatar ? '<img src="' + esc(slLucie.avatar) + '" alt="">' : chatIcon;
+
+  // ---- Bulle flottante ----
   var btn = document.createElement('button');
   btn.className = 'sl-lucie-btn';
   btn.setAttribute('aria-label', 'Discuter avec ' + slLucie.nom);
@@ -24,19 +33,18 @@
     '<svg class="sl-lucie-ico-chat" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>' +
     '<svg class="sl-lucie-ico-close" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
 
+  // ---- Panneau ----
   var panel = document.createElement('div');
   panel.className = 'sl-lucie-panel';
   panel.innerHTML =
     '<div class="sl-lucie-head">' +
-      '<span class="sl-lucie-ava">' +
-        '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>' +
-      '</span>' +
+      '<span class="sl-lucie-ava">' + avatarHtml + '</span>' +
       '<div class="sl-lucie-head-txt">' +
         '<strong>' + esc(slLucie.nom) + '</strong>' +
         '<span class="sl-lucie-status"><span class="sl-lucie-dot"></span>En ligne</span>' +
       '</div>' +
-      '<button class="sl-lucie-close" aria-label="Fermer">' +
-        '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>' +
+      '<button class="sl-lucie-close" aria-label="Fermer la conversation" title="Fermer">' +
+        '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>' +
       '</button>' +
     '</div>' +
     '<div class="sl-lucie-msgs" id="sl-lucie-msgs"></div>' +
@@ -54,13 +62,7 @@
   var form = panel.querySelector('#sl-lucie-form');
   var input = panel.querySelector('#sl-lucie-input');
 
-  function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
-    });
-  }
-
-  // Mise en forme inline : liens cliquables, gras, prix barré.
+  // Mise en forme inline : liens cliquables, gras, prix barre.
   function inline(s) {
     s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, function (m, t, u) {
       return '<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + t + '</a>';

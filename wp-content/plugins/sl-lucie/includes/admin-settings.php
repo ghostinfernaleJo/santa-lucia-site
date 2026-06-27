@@ -44,6 +44,11 @@ add_action( 'admin_menu', function () {
     add_menu_page( 'Lucie (IA)', 'Lucie (IA)', 'edit_others_posts', 'sl-lucie', 'sl_lucie_admin_page', 'dashicons-format-chat', 27 );
 } );
 
+// Bibliotheque media pour le selecteur d'avatar (page Lucie uniquement).
+add_action( 'admin_enqueue_scripts', function () {
+    if ( ( $_GET['page'] ?? '' ) === 'sl-lucie' ) wp_enqueue_media();
+} );
+
 function sl_lucie_admin_page() {
     if ( ! sl_lucie_can_manage() ) wp_die( 'Acces refuse.' );
     $msg = '';
@@ -69,6 +74,7 @@ function sl_lucie_admin_page() {
         update_option( 'sl_lucie_offline_message', sanitize_textarea_field( wp_unslash( $_POST['offline_message'] ?? '' ) ) );
         // Numero WhatsApp du call center (chiffres uniquement, format international)
         update_option( 'sl_lucie_whatsapp', preg_replace( '/\D/', '', (string) ( $_POST['whatsapp'] ?? '' ) ) );
+        update_option( 'sl_lucie_avatar', esc_url_raw( wp_unslash( $_POST['avatar'] ?? '' ) ) );
         $msg = 'Reglages enregistres.';
     }
 
@@ -178,6 +184,38 @@ function sl_lucie_admin_page() {
                        <label><input type="radio" name="provider" value="google" <?php checked( $provider, 'google' ); ?>> Google (Gemini)</label>
                     </p>
                     <p><label><strong>Nom de l'assistante</strong><br><input type="text" name="nom" class="regular-text" value="<?php echo esc_attr( get_option( 'sl_lucie_nom', 'Lucie' ) ); ?>"></label></p>
+                    <?php $sl_av = get_option( 'sl_lucie_avatar', '' ); ?>
+                    <p style="margin-bottom:4px;"><strong>Photo / avatar de Lucie</strong></p>
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+                        <img id="sl-lucie-avatar-preview" src="<?php echo esc_url( $sl_av ); ?>" alt="" style="width:54px;height:54px;border-radius:50%;object-fit:cover;border:1px solid #ddd;background:#f3f4f6;<?php echo $sl_av ? '' : 'display:none;'; ?>">
+                        <input type="hidden" id="sl-lucie-avatar-input" name="avatar" value="<?php echo esc_attr( $sl_av ); ?>">
+                        <button type="button" class="button" id="sl-lucie-avatar-pick">Choisir une image</button>
+                        <button type="button" class="button-link" id="sl-lucie-avatar-clear" style="color:#b32d2e;<?php echo $sl_av ? '' : 'display:none;'; ?>">Retirer</button>
+                    </div>
+                    <script>
+                    jQuery(function($){
+                        var frame;
+                        $('#sl-lucie-avatar-pick').on('click', function(e){
+                            e.preventDefault();
+                            if(frame){ frame.open(); return; }
+                            frame = wp.media({ title:'Avatar de Lucie', button:{text:'Utiliser cette image'}, multiple:false, library:{type:'image'} });
+                            frame.on('select', function(){
+                                var a = frame.state().get('selection').first().toJSON();
+                                var url = (a.sizes && a.sizes.medium) ? a.sizes.medium.url : a.url;
+                                $('#sl-lucie-avatar-input').val(url);
+                                $('#sl-lucie-avatar-preview').attr('src', url).show();
+                                $('#sl-lucie-avatar-clear').show();
+                            });
+                            frame.open();
+                        });
+                        $('#sl-lucie-avatar-clear').on('click', function(e){
+                            e.preventDefault();
+                            $('#sl-lucie-avatar-input').val('');
+                            $('#sl-lucie-avatar-preview').hide();
+                            $(this).hide();
+                        });
+                    });
+                    </script>
                     <p><label><strong>Message d'accueil</strong><br><textarea name="accueil" rows="3" class="large-text"><?php echo esc_textarea( get_option( 'sl_lucie_message_accueil', '' ) ); ?></textarea></label></p>
                     <p><label><strong>WhatsApp du call center</strong><br><input type="text" name="whatsapp" class="regular-text" value="<?php echo esc_attr( get_option( 'sl_lucie_whatsapp', '' ) ); ?>" placeholder="237674152010"><br><span class="description">Chiffres uniquement, format international (indicatif pays compris). Utilise pour orienter vers un humain : https://wa.me/&lt;numero&gt;.</span></label></p>
 

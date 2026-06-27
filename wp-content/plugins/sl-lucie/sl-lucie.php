@@ -21,6 +21,7 @@ require_once SL_LUCIE_PATH . 'includes/rest-chat.php';
 require_once SL_LUCIE_PATH . 'includes/admin-settings.php';
 require_once SL_LUCIE_PATH . 'includes/stats.php';
 require_once SL_LUCIE_PATH . 'includes/leads.php';
+require_once SL_LUCIE_PATH . 'includes/conversations.php';
 
 /* ============================================================
    WIDGET FRONT — charge sur TOUT le site public (asynchrone)
@@ -52,15 +53,16 @@ function sl_lucie_front_assets() {
     // Ne charge la bulle que si Lucie est active (interrupteur + planning horaire)
     if ( ! sl_lucie_is_active_now() ) return;
 
-    $css_ver = @filemtime( SL_LUCIE_PATH . 'assets/css/lucie-widget-v2.css' ) ?: SL_LUCIE_VERSION;
-    $js_ver  = @filemtime( SL_LUCIE_PATH . 'assets/js/lucie-widget-v3.js' )  ?: SL_LUCIE_VERSION;
+    $css_ver = @filemtime( SL_LUCIE_PATH . 'assets/css/lucie-widget-v3.css' ) ?: SL_LUCIE_VERSION;
+    $js_ver  = @filemtime( SL_LUCIE_PATH . 'assets/js/lucie-widget-v4.js' )  ?: SL_LUCIE_VERSION;
 
-    wp_enqueue_style( 'sl-lucie', SL_LUCIE_URL . 'assets/css/lucie-widget-v2.css', [], $css_ver );
-    wp_enqueue_script( 'sl-lucie', SL_LUCIE_URL . 'assets/js/lucie-widget-v3.js', [], $js_ver, true );
+    wp_enqueue_style( 'sl-lucie', SL_LUCIE_URL . 'assets/css/lucie-widget-v3.css', [], $css_ver );
+    wp_enqueue_script( 'sl-lucie', SL_LUCIE_URL . 'assets/js/lucie-widget-v4.js', [], $js_ver, true );
     wp_localize_script( 'sl-lucie', 'slLucie', [
         'rest'   => esc_url_raw( rest_url( 'santa-lucia/v1/lucie/chat' ) ),
         'nonce'  => wp_create_nonce( 'wp_rest' ),
         'nom'    => get_option( 'sl_lucie_nom', 'Lucie' ),
+        'avatar' => esc_url( get_option( 'sl_lucie_avatar', '' ) ),
         'accueil'=> get_option( 'sl_lucie_message_accueil', 'Bonjour 👋 Je suis Lucie, l\'assistante de Santa Lucia. Posez-moi vos questions sur nos menus, promotions, agences ou notre recrutement.' ),
     ] );
 }

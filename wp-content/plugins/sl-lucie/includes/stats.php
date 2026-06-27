@@ -6,7 +6,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-const SL_LUCIE_DB_VER = '1';
+const SL_LUCIE_DB_VER = '2';
 
 function sl_lucie_log_table() {
     global $wpdb;
@@ -27,6 +27,7 @@ function sl_lucie_maybe_create_table() {
         ip_hash char(32) NOT NULL DEFAULT '',
         session_id varchar(40) NOT NULL DEFAULT '',
         message text NOT NULL,
+        reply mediumtext NOT NULL,
         reply_len int unsigned NOT NULL DEFAULT 0,
         in_scope tinyint(1) NOT NULL DEFAULT 1,
         used_tools varchar(255) NOT NULL DEFAULT '',
@@ -34,7 +35,8 @@ function sl_lucie_maybe_create_table() {
         is_error tinyint(1) NOT NULL DEFAULT 0,
         response_ms int unsigned NOT NULL DEFAULT 0,
         PRIMARY KEY  (id),
-        KEY created (created)
+        KEY created (created),
+        KEY session_id (session_id)
     ) {$charset};" );
     update_option( 'sl_lucie_db_ver', SL_LUCIE_DB_VER, false );
 }
@@ -48,6 +50,7 @@ function sl_lucie_log_event( $args ) {
         'ip_hash'     => $ip ? md5( $ip . ( defined( 'AUTH_SALT' ) ? AUTH_SALT : '' ) ) : '',
         'session_id'  => substr( sanitize_text_field( $args['session_id'] ?? '' ), 0, 40 ),
         'message'     => mb_substr( (string) ( $args['message'] ?? '' ), 0, 300 ),
+        'reply'       => mb_substr( (string) ( $args['reply'] ?? '' ), 0, 6000 ),
         'reply_len'   => (int) ( $args['reply_len'] ?? 0 ),
         'in_scope'    => ! empty( $args['in_scope'] ) ? 1 : 0,
         'used_tools'  => substr( (string) ( $args['used_tools'] ?? '' ), 0, 255 ),
@@ -112,7 +115,7 @@ function sl_lucie_stats_page() {
     // Top questions
     $top = $exists ? $wpdb->get_results( $wpdb->prepare(
         "SELECT LOWER(TRIM(message)) q, COUNT(*) n FROM {$table}
-         WHERE created >= %s AND message <> '' GROUP BY q ORDER BY n DESC LIMIT 15", $since ), ARRAY_A ) : [];
+         WHERE created >= %s AND message <> '' GROUP BY q ORDER BY n DESC LIMIT 30", $since ), ARRAY_A ) : [];
 
     // Utilisation des outils (agregation PHP sur la periode)
     $tool_rows = $exists ? $wpdb->get_col( $wpdb->prepare(

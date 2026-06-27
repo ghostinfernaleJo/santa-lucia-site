@@ -114,7 +114,17 @@ function sl_lucie_chat_handler( WP_REST_Request $req ) {
     }
 
     // 2) Reponse via le fournisseur actif (Claude ou Gemini), avec outils
-    $reply = sl_lucie_llm_answer( sl_lucie_system_prompt(), $messages, sl_lucie_tools_defs() );
+    $system_prompt = sl_lucie_system_prompt();
+    // Si les coordonnees de ce visiteur sont deja enregistrees, on dit a Lucie de NE PAS les redemander.
+    $lead = function_exists( 'sl_lucie_lead_for_session' ) ? sl_lucie_lead_for_session( $session_id ) : null;
+    if ( $lead && ( $lead['nom'] !== '' || $lead['tel'] !== '' || $lead['quartier'] !== '' ) ) {
+        $info = [];
+        if ( $lead['nom'] !== '' )      $info[] = 'prenom/nom : ' . $lead['nom'];
+        if ( $lead['tel'] !== '' )      $info[] = 'telephone : ' . $lead['tel'];
+        if ( $lead['quartier'] !== '' ) $info[] = 'quartier : ' . $lead['quartier'];
+        $system_prompt .= "\n[CONTEXTE INTERNE] Les coordonnees de ce visiteur sont DEJA enregistrees (" . implode( ', ', $info ) . "). NE LES REDEMANDE PAS et n'appelle pas enregistrer_contact pour des infos identiques. Si tu connais son prenom, salue-le par son prenom, puis reponds directement a sa demande.\n";
+    }
+    $reply = sl_lucie_llm_answer( $system_prompt, $messages, sl_lucie_tools_defs() );
     $is_error = ( $reply === null );
 
     sl_lucie_log_event( [
@@ -122,6 +132,7 @@ function sl_lucie_chat_handler( WP_REST_Request $req ) {
         'message'     => $message,
         'in_scope'    => 1,
         'is_error'    => $is_error ? 1 : 0,
+        'reply'       => $is_error ? '' : (string) $reply,
         'reply_len'   => $is_error ? 0 : mb_strlen( (string) $reply ),
         'used_tools'  => implode( ',', array_unique( (array) ( $GLOBALS['sl_lucie_tools_called'] ?? [] ) ) ),
         'provider'    => $provider,
