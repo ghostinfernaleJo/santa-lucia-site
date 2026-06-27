@@ -85,13 +85,26 @@
   window.addEventListener('load', positionFab);
   setTimeout(positionFab, 800);
 
-  // Mise en forme inline : liens cliquables, gras, prix barre.
+  // Mise en forme inline : liens cliquables (Markdown ET URL nues), gras, prix barre.
   function inline(s) {
+    var links = [];
+    var SEP = String.fromCharCode(1);
+    function stash(html) { links.push(html); return SEP + (links.length - 1) + SEP; }
+    // 1) liens Markdown [texte](url)
     s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, function (m, t, u) {
-      return '<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + t + '</a>';
+      return stash('<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + t + '</a>');
     });
+    // 2) URLs nues (ex: lien WhatsApp https://wa.me/...) -> cliquables
+    s = s.replace(/(https?:\/\/[^\s<]+)/g, function (u) {
+      var trail = '';
+      u = u.replace(/[.,;:!?)\]]+$/, function (p) { trail = p; return ''; });
+      return stash('<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + u + '</a>') + trail;
+    });
+    // 3) gras / barre
     s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+    // 4) restaure les liens
+    s = s.replace(new RegExp(SEP + '(\\d+)' + SEP, 'g'), function (m, i) { return links[+i]; });
     return s;
   }
 
@@ -136,7 +149,7 @@
     open = (typeof force === 'boolean') ? force : !open;
     panel.classList.toggle('is-open', open);
     btn.classList.toggle('is-open', open);
-    fab.classList.toggle('is-open', open);   // masque l'etiquette quand le chat est ouvert
+    fab.classList.toggle('is-open', open);
     document.documentElement.classList.toggle('sl-lucie-locked', open);
     if (open) {
       if (!msgs.children.length && slLucie.accueil) addMsg('bot', slLucie.accueil);
