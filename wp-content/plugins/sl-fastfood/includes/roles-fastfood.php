@@ -21,13 +21,16 @@ function sl_ff_create_roles() {
             'edit_published_sl_repas_items' => true,
             'edit_others_sl_repas_items'    => false,
             'delete_others_sl_repas_items'  => false,
+            'sl_ff_manage_promos'           => true,  // gerer les promos de SON agence
             'manage_options'                => false,
         ] );
     } else {
-        // S'assurer que upload_files est present
+        // S'assurer que les caps requises sont presentes (role deja cree)
         $r = get_role( 'sl_responsable_fastfood' );
-        if ( $r && ! $r->has_cap( 'upload_files' ) ) {
-            $r->add_cap( 'upload_files' );
+        if ( $r ) {
+            foreach ( [ 'upload_files', 'sl_ff_manage_promos' ] as $cap ) {
+                if ( ! $r->has_cap( $cap ) ) $r->add_cap( $cap );
+            }
         }
     }
 

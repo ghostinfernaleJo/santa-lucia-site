@@ -78,6 +78,11 @@ function sl_ff_build_menu() {
             'edit_sl_repas_items', 'sl-fastfood', 'sl_ff_admin_page' );
         add_submenu_page( 'sl-fastfood', 'Mes repas', 'Mes repas',
             'edit_sl_repas_items', 'edit.php?post_type=sl_repas' );
+        // Promotions : limitees aux repas de l'agence du responsable
+        if ( current_user_can( 'sl_ff_manage_promos' ) ) {
+            add_submenu_page( 'sl-fastfood', 'Promotions', 'Promotions',
+                'sl_ff_manage_promos', 'sl-ff-promos', 'sl_ff_promos_page' );
+        }
         // « Ajouter un repas » seulement si l'ajout est autorise (reglage admin)
         if ( current_user_can( 'create_sl_repas_items' ) ) {
             add_submenu_page( 'sl-fastfood', 'Ajouter un repas', 'Ajouter un repas',
