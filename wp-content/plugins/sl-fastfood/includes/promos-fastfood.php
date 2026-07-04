@@ -61,8 +61,12 @@ function sl_ff_promos_page() {
                     <span class="sl-ff-today-badge">Aujourd&#39;hui&nbsp;: <?php echo esc_html( date_i18n( 'j F Y', strtotime( $today ) ) ); ?></span>
                 </p>
             </div>
-            <?php if ( $is_admin ) : ?>
             <div class="sl-ff-filter-bar">
+                <label>
+                    <strong>Rechercher un repas</strong>
+                    <input type="search" id="sl-ff-promo-search" placeholder="Nom du repas..." style="min-width:240px;">
+                </label>
+                <?php if ( $is_admin ) : ?>
                 <label>
                     <strong>Filtrer par agence</strong>
                     <select id="sl-ff-agence-filter">
@@ -75,9 +79,13 @@ function sl_ff_promos_page() {
                         <?php endforeach; endif; ?>
                     </select>
                 </label>
+                <?php endif; ?>
             </div>
-            <?php endif; ?>
         </div>
+
+        <p class="sl-ff-result-line" id="sl-ff-promo-count" style="display:none;">
+            <strong>0</strong> repas affich&eacute;(s)
+        </p>
 
         <?php if ( empty( $repas ) ) : ?>
         <div class="sl-ff-empty">
@@ -119,7 +127,8 @@ function sl_ff_promos_page() {
                 ?>
                 <tr class="sl-ff-meal-row<?php echo $is_active ? ' sl-ff-promo-active' : ''; ?>"
                     data-id="<?php echo (int) $ri->ID; ?>"
-                    data-agence="<?php echo esc_attr( $agence_r ); ?>">
+                    data-agence="<?php echo esc_attr( $agence_r ); ?>"
+                    data-search="<?php echo esc_attr( sl_ff_norm_txt( $ri->post_title . ' ' . ( $agence_r ? sl_ff_agency_name( $agence_r ) : '' ) . ' ' . $group_name ) ); ?>">
 
                     <!-- Plat -->
                     <td class="sl-ff-col-plat">

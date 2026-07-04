@@ -116,6 +116,68 @@ jQuery(function ($) {
     });
 
     /* ================================================================
+       PROMOTIONS — recherche + filtre agence (cote client, instantane).
+       Toutes les lignes sont deja rendues ; on masque/affiche selon le
+       texte saisi (data-search normalise cote PHP) et l'agence choisie.
+    ================================================================ */
+    (function () {
+        var promoTable = document.getElementById('sl-ff-promos-table');
+        if (!promoTable) return;
+
+        var $search = $('#sl-ff-promo-search');
+        var $agence = $('#sl-ff-agence-filter'); // present seulement pour l'admin
+        var $count  = $('#sl-ff-promo-count');
+
+        function normTxt(s) {
+            s = (s || '').toString().toLowerCase();
+            if (s.normalize) s = s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+            return s.replace(/\s+/g, ' ').trim();
+        }
+
+        function applyPromoFilter() {
+            var q  = normTxt($search.val());
+            var ag = ($agence.length ? $agence.val() : '') || '';
+            var shown = 0;
+
+            $('#sl-ff-promos-table tbody tr.sl-ff-meal-row').each(function () {
+                var okText = !q  || (this.getAttribute('data-search') || '').indexOf(q) !== -1;
+                var okAg   = !ag || (this.getAttribute('data-agence') || '') === ag;
+                var visible = okText && okAg;
+                this.style.display = visible ? '' : 'none';
+                if (visible) shown++;
+            });
+
+            // Masquer les en-tetes de groupe (categorie/agence) devenues vides
+            $('#sl-ff-promos-table tbody tr.sl-ff-cat-row').each(function () {
+                var hasVisible = false, n = this.nextElementSibling;
+                while (n && n.className.indexOf('sl-ff-cat-row') === -1) {
+                    if (n.className.indexOf('sl-ff-meal-row') !== -1 && n.style.display !== 'none') {
+                        hasVisible = true; break;
+                    }
+                    n = n.nextElementSibling;
+                }
+                this.style.display = hasVisible ? '' : 'none';
+            });
+
+            if ($count.length) {
+                if (q || ag) {
+                    $count.find('strong').text(shown);
+                    $count.show();
+                } else {
+                    $count.hide();
+                }
+            }
+        }
+
+        var promoTimer = null;
+        $search.on('input', function () {
+            clearTimeout(promoTimer);
+            promoTimer = setTimeout(applyPromoFilter, 150);
+        });
+        $agence.on('change', applyPromoFilter);
+    })();
+
+    /* ================================================================
        IMAGE REPAS — selection simple depuis la mediatheque WP
     ================================================================ */
     var imageFrame = null;
