@@ -643,7 +643,12 @@ function sl_ff_filter_by_agence( $query ) {
     // Admin WP et Administrateur Fast Food voient tous les repas
     if ( current_user_can( 'manage_options' ) || current_user_can( 'sl_ff_all_agencies' ) ) return;
     $agence = get_user_meta( get_current_user_id(), '_sl_agence_ff', true );
-    if ( ! $agence ) return;
+    if ( ! $agence ) {
+        // Fail-closed : un responsable sans agence assignee ne voit AUCUN repas
+        // (au lieu de tous). Il doit se voir attribuer une agence par un admin.
+        $query->set( 'post__in', [ 0 ] );
+        return;
+    }
     $query->set( 'meta_key',   '_sl_ff_agence' );
     $query->set( 'meta_value', $agence );
 }

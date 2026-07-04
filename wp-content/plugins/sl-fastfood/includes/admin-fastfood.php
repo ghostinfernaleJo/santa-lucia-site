@@ -378,6 +378,30 @@ function sl_ff_admin_page() {
     $is_admin    = current_user_can( 'manage_options' ) || current_user_can( 'sl_ff_all_agencies' );
     $all_agences = function_exists( 'sl_ff_all_agence_slugs' ) ? sl_ff_all_agence_slugs() : [];
 
+    /* ---- Garde fail-closed : responsable sans agence assignee ----
+       Sans agence, on n'affiche AUCUN repas (au lieu de toute la base) et on
+       invite a contacter l'administrateur pour l'attribution. */
+    if ( ! $is_admin && trim( (string) $agence_user ) === '' ) {
+        ?>
+        <div class="wrap sl-ff-planning-wrap">
+            <div class="sl-ff-planning-header">
+                <div class="sl-ff-planning-header-left">
+                    <h1 class="sl-ff-planning-titre">
+                        <span class="dashicons dashicons-food"></span>
+                        Planning Hebdomadaire
+                    </h1>
+                </div>
+            </div>
+            <div class="notice notice-warning" style="margin-top:16px;">
+                <p><strong>Aucune agence ne vous est encore attribuee.</strong></p>
+                <p>Vous ne pouvez pas encore gerer de repas. Merci de contacter un
+                   administrateur pour qu'il rattache votre compte a une agence.</p>
+            </div>
+        </div>
+        <?php
+        return;
+    }
+
     $jours_list = [
         'lundi' => 'Lun', 'mardi' => 'Mar', 'mercredi' => 'Mer', 'jeudi' => 'Jeu',
         'vendredi' => 'Ven', 'samedi' => 'Sam', 'dimanche' => 'Dim',
