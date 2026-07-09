@@ -7,12 +7,15 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  */
 add_action( 'show_user_profile', 'sl_ff_user_profile_field' );
 add_action( 'edit_user_profile', 'sl_ff_user_profile_field' );
+add_action( 'user_new_form',     'sl_ff_user_profile_field' );
 function sl_ff_user_profile_field( $user ) {
     if ( ! sl_ff_can_manage_settings() ) {
         return;
     }
 
-    $current_agence = get_user_meta( $user->ID, '_sl_agence_ff', true );
+    // Sur le formulaire "Ajouter un utilisateur", $user est une chaine de contexte
+    $user_id        = is_object( $user ) ? (int) $user->ID : 0;
+    $current_agence = $user_id ? get_user_meta( $user_id, '_sl_agence_ff', true ) : '';
     $agences        = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false ] );
     ?>
     <h2>Fast Food</h2>
@@ -45,6 +48,7 @@ function sl_ff_user_profile_field( $user ) {
  */
 add_action( 'personal_options_update',  'sl_ff_save_user_profile_field' );
 add_action( 'edit_user_profile_update', 'sl_ff_save_user_profile_field' );
+add_action( 'user_register',            'sl_ff_save_user_profile_field' );
 function sl_ff_save_user_profile_field( $user_id ) {
     if ( ! sl_ff_can_manage_settings() || ! current_user_can( 'edit_user', $user_id ) ) {
         return;

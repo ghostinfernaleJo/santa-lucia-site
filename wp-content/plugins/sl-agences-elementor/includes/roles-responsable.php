@@ -248,7 +248,8 @@ function sl_bp_user_agence_field( $user ) {
     // Si c'est un nouvel utilisateur (formulaire de création), $user est une chaîne de contexte, on crée un objet vide
     $user_id = is_object( $user ) ? $user->ID : 0;
     
-    $is_admin = current_user_can( 'manage_options' );
+    // Admin WP ou editeur WP (admin Bons Plans/Fast Food) : peut assigner l'agence
+    $is_admin = current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' );
     $current_agence = $user_id ? get_user_meta( $user_id, 'sl_agence_assignee', true ) : '';
     $agences = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false ] );
     
@@ -283,10 +284,16 @@ add_action( 'edit_user_profile_update', 'sl_bp_save_user_agence_field' );
 add_action( 'user_register', 'sl_bp_save_user_agence_field' );
 
 function sl_bp_save_user_agence_field( $user_id ) {
-    if ( ! current_user_can( 'manage_options' ) ) {
+    // Admin WP ou editeur WP, ET droit d'editer ce compte precis
+    // (le filtre map_meta_cap du plugin fastfood empeche un editeur
+    // de toucher un compte administrateur)
+    if ( ! current_user_can( 'manage_options' ) && ! current_user_can( 'edit_others_posts' ) ) {
         return false;
     }
-    
+    if ( ! current_user_can( 'edit_user', $user_id ) ) {
+        return false;
+    }
+
     if ( isset( $_POST['sl_agence_assignee'] ) ) {
         update_user_meta( $user_id, 'sl_agence_assignee', sanitize_text_field( $_POST['sl_agence_assignee'] ) );
     }
