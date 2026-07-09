@@ -90,6 +90,13 @@ function sl_bp_handle_save() {
     update_post_meta( $post_id, '_sl_bp_badge_type',    $badge );
     update_post_meta( $post_id, '_sl_bp_date_fin',      $date_fin );
 
+    // Limite de stock (mêmes métas que la metabox admin)
+    $stock_actif   = ! empty( $_POST['stock_actif'] ) ? '1' : '';
+    $stock_qty_raw = isset( $_POST['stock_qty'] ) ? trim( wp_unslash( $_POST['stock_qty'] ) ) : '';
+    $stock_qty     = ( $stock_qty_raw === '' ) ? '' : max( 0, (int) $stock_qty_raw );
+    update_post_meta( $post_id, '_sl_bp_stock_actif', $stock_actif );
+    update_post_meta( $post_id, '_sl_bp_stock_qty',   $stock_qty );
+
     // Image à la une
     if ( $image_id > 0 ) {
         set_post_thumbnail( $post_id, $image_id );
@@ -398,6 +405,8 @@ function sl_bp_page_form() {
                 'image_id'    => get_post_thumbnail_id( $post_id ),
                 'image_url'   => get_the_post_thumbnail_url( $post_id, 'medium' ),
                 'cat_id'      => ! empty( $cats ) ? $cats[0]->term_id : 0,
+                'stock_actif' => get_post_meta( $post_id, '_sl_bp_stock_actif', true ),
+                'stock_qty'   => get_post_meta( $post_id, '_sl_bp_stock_qty', true ),
             ];
         } else {
             wp_safe_redirect( admin_url( 'admin.php?page=sl-mes-bons-plans' ) );
@@ -490,6 +499,29 @@ function sl_bp_page_form() {
                             <?php endforeach; ?>
                         </div>
                     </div>
+
+                    <?php $stock_on = ( ( $post_data['stock_actif'] ?? '' ) === '1' ); ?>
+                    <div class="sl-bp-field" style="background:#fff8f1;border:1px solid #f3d9bd;border-radius:6px;padding:12px 14px;">
+                        <label style="display:flex;align-items:center;gap:8px;font-weight:bold;margin-bottom:0;">
+                            <input type="checkbox" id="sl-stock-actif" name="stock_actif" value="1" style="width:auto;" <?php checked( $stock_on ); ?>>
+                            Limite de stock disponible
+                        </label>
+                        <p class="description" style="margin:6px 0 0;color:#7a5a36;font-size:12px;">
+                            Affiche la mention &laquo; <em>Dans la limite des stocks disponibles</em> &raquo; sur la carte.
+                        </p>
+                        <div id="sl-stock-qty-wrap" style="margin-top:12px;max-width:260px;<?php echo $stock_on ? '' : 'display:none;'; ?>">
+                            <label for="sl-stock-qty" style="font-weight:bold;display:block;margin-bottom:5px;">Quantit&eacute; disponible (optionnel)</label>
+                            <input type="number" id="sl-stock-qty" name="stock_qty" value="<?php echo esc_attr( $post_data['stock_qty'] ?? '' ); ?>" step="1" min="0" placeholder="Vide = illimit&eacute;" style="width:100%;padding:5px;">
+                            <p class="description" style="margin:4px 0 0;font-size:12px;color:#7a5a36;">&Agrave; 0, l&apos;offre est masqu&eacute;e du site.</p>
+                        </div>
+                    </div>
+                    <script>
+                    (function(){
+                        var cb = document.getElementById('sl-stock-actif');
+                        var w  = document.getElementById('sl-stock-qty-wrap');
+                        if (cb && w) cb.addEventListener('change', function(){ w.style.display = cb.checked ? '' : 'none'; });
+                    })();
+                    </script>
 
                 </div>
 
