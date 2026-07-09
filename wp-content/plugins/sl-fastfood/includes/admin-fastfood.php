@@ -361,10 +361,10 @@ function sl_ff_admin_assets( $hook ) {
     if ( ! $is_ff_page ) return;
 
     $admin_css_ver = @filemtime( SL_FF_PATH . 'assets/css/fastfood-admin.css' ) ?: SL_FF_VERSION;
-    $admin_js_ver  = @filemtime( SL_FF_PATH . 'assets/js/fastfood-admin-v5.js' ) ?: SL_FF_VERSION;
+    $admin_js_ver  = @filemtime( SL_FF_PATH . 'assets/js/fastfood-admin-v6.js' ) ?: SL_FF_VERSION;
 
     wp_enqueue_style(  'sl-ff-admin', SL_FF_URL . 'assets/css/fastfood-admin.css', [], $admin_css_ver );
-    wp_enqueue_script( 'sl-ff-admin', SL_FF_URL . 'assets/js/fastfood-admin-v5.js', [ 'jquery' ], $admin_js_ver, true );
+    wp_enqueue_script( 'sl-ff-admin', SL_FF_URL . 'assets/js/fastfood-admin-v6.js', [ 'jquery' ], $admin_js_ver, true );
     wp_localize_script( 'sl-ff-admin', 'slFF', [
         'ajaxurl'   => admin_url( 'admin-ajax.php' ),
         'nonce'     => wp_create_nonce( 'sl_ff_toggle' ),

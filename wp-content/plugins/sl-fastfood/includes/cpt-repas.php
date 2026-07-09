@@ -145,6 +145,97 @@ function sl_ff_set_agence_jours( $post_id, $agence, $jours ) {
     }
 }
 
+/* ============================================================
+   PRIX & PROMOS PAR AGENCE
+   Meme modele que les jours : une meta serialisee
+   `_sl_ff_promo_by_agence` = [ slug => [prix, promo_pct, prix_promo,
+   debut, fin] ]. Repli sur les anciennes metas globales pour les
+   donnees existantes et les agences pas encore configurees.
+   ============================================================ */
+
+/** Lit le prix/promo d'un repas pour une agence (repli global). */
+function sl_ff_get_agence_prix( $post_id, $agence = '' ) {
+    $agence = sanitize_title( $agence );
+    $by     = get_post_meta( $post_id, '_sl_ff_promo_by_agence', true );
+
+    if ( $agence !== '' && is_array( $by ) && isset( $by[ $agence ] ) && is_array( $by[ $agence ] ) ) {
+        $d = $by[ $agence ];
+        return [
+            'prix'       => (int) ( $d['prix']       ?? 0 ),
+            'promo_pct'  => (int) ( $d['promo_pct']  ?? 0 ),
+            'prix_promo' => (int) ( $d['prix_promo'] ?? 0 ),
+            'debut'      => (string) ( $d['debut']   ?? '' ),
+            'fin'        => (string) ( $d['fin']     ?? '' ),
+        ];
+    }
+
+    // Repli : metas globales (donnees historiques / agence non configuree)
+    return [
+        'prix'       => (int) get_post_meta( $post_id, '_sl_ff_prix',        true ),
+        'promo_pct'  => (int) get_post_meta( $post_id, '_sl_ff_promo_prix',  true ),
+        'prix_promo' => (int) get_post_meta( $post_id, '_sl_ff_prix_promo',  true ),
+        'debut'      => (string) get_post_meta( $post_id, '_sl_ff_promo_debut', true ),
+        'fin'        => (string) get_post_meta( $post_id, '_sl_ff_promo_fin',   true ),
+    ];
+}
+
+/** Ecrit le prix/promo d'un repas pour une agence. */
+function sl_ff_set_agence_prix( $post_id, $agence, $data ) {
+    $agence = sanitize_title( $agence );
+    $clean  = [
+        'prix'       => max( 0, (int) ( $data['prix']       ?? 0 ) ),
+        'promo_pct'  => max( 0, (int) ( $data['promo_pct']  ?? 0 ) ),
+        'prix_promo' => max( 0, (int) ( $data['prix_promo'] ?? 0 ) ),
+        'debut'      => sanitize_text_field( (string) ( $data['debut'] ?? '' ) ),
+        'fin'        => sanitize_text_field( (string) ( $data['fin']   ?? '' ) ),
+    ];
+
+    if ( $agence === '' ) {
+        sl_ff_write_global_prix( $post_id, $clean );
+        return;
+    }
+
+    $by = get_post_meta( $post_id, '_sl_ff_promo_by_agence', true );
+    $by = is_array( $by ) ? $by : [];
+    $by[ $agence ] = $clean;
+    update_post_meta( $post_id, '_sl_ff_promo_by_agence', $by );
+
+    // Repas mono-agence : refleter aussi dans les metas globales (compat lecture
+    // directe : API mobile historique, colonne prix admin, anciens lecteurs).
+    $agences = array_values( array_unique( array_filter( (array) get_post_meta( $post_id, '_sl_ff_agence' ) ) ) );
+    if ( count( $agences ) <= 1 ) {
+        sl_ff_write_global_prix( $post_id, $clean );
+    }
+}
+
+/** Ecrit un jeu prix/promo dans les anciennes metas globales. */
+function sl_ff_write_global_prix( $post_id, $c ) {
+    if ( $c['prix'] > 0 ) {
+        update_post_meta( $post_id, '_sl_ff_prix', $c['prix'] );
+    } else {
+        delete_post_meta( $post_id, '_sl_ff_prix' );
+    }
+    if ( $c['promo_pct'] > 0 || $c['prix_promo'] > 0 ) {
+        if ( $c['promo_pct'] > 0 ) {
+            update_post_meta( $post_id, '_sl_ff_promo_prix', $c['promo_pct'] );
+        } else {
+            delete_post_meta( $post_id, '_sl_ff_promo_prix' );
+        }
+        if ( $c['prix_promo'] > 0 ) {
+            update_post_meta( $post_id, '_sl_ff_prix_promo', $c['prix_promo'] );
+        } else {
+            delete_post_meta( $post_id, '_sl_ff_prix_promo' );
+        }
+        update_post_meta( $post_id, '_sl_ff_promo_debut', $c['debut'] );
+        update_post_meta( $post_id, '_sl_ff_promo_fin',   $c['fin'] );
+    } else {
+        delete_post_meta( $post_id, '_sl_ff_promo_prix' );
+        delete_post_meta( $post_id, '_sl_ff_prix_promo' );
+        delete_post_meta( $post_id, '_sl_ff_promo_debut' );
+        delete_post_meta( $post_id, '_sl_ff_promo_fin' );
+    }
+}
+
 function sl_ff_post_agence_slugs( $post_id ) {
     $raw = (array) get_post_meta( $post_id, '_sl_ff_agence' );
     $slugs = [];
@@ -535,13 +626,14 @@ function sl_ff_sync_repas_to_all_agencies( $source_id, $jours, $promo_prix, $pro
  * Le % affiché est calculé depuis les prix si la remise % n'est pas saisie.
  * @return array { est_promo, pct_reduction, prix, prix_promo }
  */
-function sl_ff_get_promo_info( $post_id ) {
-    $today       = current_time( 'Y-m-d' );
-    $promo_pct   = (int) get_post_meta( $post_id, '_sl_ff_promo_prix',  true );
-    $prix        = (int) get_post_meta( $post_id, '_sl_ff_prix',        true );
-    $prix_promo  = (int) get_post_meta( $post_id, '_sl_ff_prix_promo',  true );
-    $promo_debut = get_post_meta( $post_id, '_sl_ff_promo_debut', true );
-    $promo_fin   = get_post_meta( $post_id, '_sl_ff_promo_fin',   true );
+function sl_ff_get_promo_info( $post_id, $agence = '' ) {
+    $today = current_time( 'Y-m-d' );
+    $p     = sl_ff_get_agence_prix( $post_id, $agence );
+    $promo_pct   = $p['promo_pct'];
+    $prix        = $p['prix'];
+    $prix_promo  = $p['prix_promo'];
+    $promo_debut = $p['debut'];
+    $promo_fin   = $p['fin'];
 
     $est_promo = false;
     if ( $promo_pct > 0 || $prix_promo > 0 ) {

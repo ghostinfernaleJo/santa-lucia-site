@@ -64,6 +64,7 @@ jQuery(function ($) {
                 action:      'sl_ff_save_promo',
                 nonce:       slFF.nonce,
                 post_id:     id,
+                agence:      $row.attr('data-agence') || '',
                 promo_pct:   $row.find('.sl-ff-promo-pct').val()        || 0,
                 prix:        $row.find('.sl-ff-promo-prix').val()       || 0,
                 prix_promo:  $row.find('.sl-ff-promo-prix-promo').val() || 0,

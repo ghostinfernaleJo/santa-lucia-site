@@ -204,11 +204,13 @@ function slm_rest_ff_menu( $req ) {
     }
 
     $q     = new WP_Query( $args );
-    $items = array_map( 'slm_format_repas', $q->posts );
+    $items = array_map( function ( $post ) use ( $agence ) {
+        return slm_format_repas( $post, $agence );
+    }, $q->posts );
     return slm_paginated( $items, $q, $page, $per );
 }
 
-function slm_format_repas( $post ) {
+function slm_format_repas( $post, $agence = '' ) {
     $id    = $post->ID;
     $jours = get_post_meta( $id, '_sl_ff_jours', true );
     if ( ! is_array( $jours ) ) $jours = [];
@@ -219,11 +221,21 @@ function slm_format_repas( $post ) {
         'nom_affiche' => function_exists( 'sl_ff_cat_display' ) ? sl_ff_cat_display( $cats[0]->name ) : $cats[0]->name,
     ] : null;
 
-    $promo_prix = get_post_meta( $id, '_sl_ff_promo_prix', true );
-    $promo = ( $promo_prix !== '' && (float) $promo_prix > 0 ) ? [
+    // Promo PROPRE A L'AGENCE (repli global si non configuree / helper absent)
+    if ( function_exists( 'sl_ff_get_agence_prix' ) ) {
+        $pd          = sl_ff_get_agence_prix( $id, $agence );
+        $promo_prix  = $pd['promo_pct'];
+        $promo_debut = $pd['debut'];
+        $promo_fin   = $pd['fin'];
+    } else {
+        $promo_prix  = get_post_meta( $id, '_sl_ff_promo_prix', true );
+        $promo_debut = get_post_meta( $id, '_sl_ff_promo_debut', true );
+        $promo_fin   = get_post_meta( $id, '_sl_ff_promo_fin', true );
+    }
+    $promo = ( (float) $promo_prix > 0 ) ? [
         'prix'  => (float) $promo_prix,
-        'debut' => get_post_meta( $id, '_sl_ff_promo_debut', true ) ?: null,
-        'fin'   => get_post_meta( $id, '_sl_ff_promo_fin', true ) ?: null,
+        'debut' => $promo_debut ?: null,
+        'fin'   => $promo_fin ?: null,
     ] : null;
 
     $today = function_exists( 'sl_ff_today_jour' ) ? sl_ff_today_jour() : '';
@@ -231,7 +243,7 @@ function slm_format_repas( $post ) {
     return [
         'id'                    => $id,
         'titre'                 => get_the_title( $id ),
-        'agence'                => get_post_meta( $id, '_sl_ff_agence', true ) ?: null,
+        'agence'                => $agence ?: ( get_post_meta( $id, '_sl_ff_agence', true ) ?: null ),
         'categorie'             => $cat,
         'jours'                 => array_values( $jours ),
         'disponible_aujourdhui' => $today ? in_array( $today, $jours, true ) : null,

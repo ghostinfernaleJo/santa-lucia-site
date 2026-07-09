@@ -92,7 +92,7 @@ function sl_ff_shortcode( $atts ) {
                     <?php foreach ( $items as $item ) :
                         $thumb = function_exists( 'sl_ff_item_image_url' ) ? sl_ff_item_image_url( $item->ID, 'large' ) : get_the_post_thumbnail_url( $item->ID, 'large' );
                         $desc  = wp_trim_words( $item->post_content, 15 );
-                        $promo = sl_ff_get_promo_info( $item->ID );
+                        $promo = sl_ff_get_promo_info( $item->ID, $agence );
                     ?>
                     <div class="sl-ff-item<?php echo $promo['est_promo'] ? ' sl-ff-item--promo' : ''; ?>">
                         <?php if ( $thumb ) : ?>
@@ -297,7 +297,7 @@ function sl_ff_render_menu_html( $agence, $date = '' ) {
         foreach ( $items as $item ) {
             $thumb = function_exists( 'sl_ff_item_image_url' ) ? sl_ff_item_image_url( $item->ID, 'large' ) : get_the_post_thumbnail_url( $item->ID, 'large' );
             $desc  = wp_trim_words( $item->post_content, 15 );
-            $promo = sl_ff_get_promo_info( $item->ID );
+            $promo = sl_ff_get_promo_info( $item->ID, $agence );
 
             $promo_class = $promo['est_promo'] ? ' sl-ff-item--promo' : '';
             $html .= '<div class="sl-ff-item' . $promo_class . '">';
