@@ -3,12 +3,12 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
  * Ajoute le champ "Agence Fast Food" sur la page de profil utilisateur.
- * Visible uniquement par les administrateurs.
+ * Visible par les administrateurs et les admins Fast Food (editeur WP inclus).
  */
 add_action( 'show_user_profile', 'sl_ff_user_profile_field' );
 add_action( 'edit_user_profile', 'sl_ff_user_profile_field' );
 function sl_ff_user_profile_field( $user ) {
-    if ( ! current_user_can( 'manage_options' ) ) {
+    if ( ! sl_ff_can_manage_settings() ) {
         return;
     }
 
@@ -46,7 +46,7 @@ function sl_ff_user_profile_field( $user ) {
 add_action( 'personal_options_update',  'sl_ff_save_user_profile_field' );
 add_action( 'edit_user_profile_update', 'sl_ff_save_user_profile_field' );
 function sl_ff_save_user_profile_field( $user_id ) {
-    if ( ! current_user_can( 'manage_options' ) ) {
+    if ( ! sl_ff_can_manage_settings() || ! current_user_can( 'edit_user', $user_id ) ) {
         return;
     }
     if ( ! isset( $_POST['sl_agence_ff'] ) ) {

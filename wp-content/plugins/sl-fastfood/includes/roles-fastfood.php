@@ -215,3 +215,53 @@ function sl_ff_wc_allow_admin_access( $prevent ) {
     if ( current_user_can( 'edit_sl_repas_items' ) ) return false;
     return $prevent;
 }
+
+/* ============================================================
+   CREATION DE COMPTES PAR L'EDITEUR WP
+   L'editeur (= admin Fast Food complet) peut creer et gerer des
+   comptes, mais UNIQUEMENT avec des roles non administratifs
+   (responsables, gestionnaires, abonnes, clients). Il ne peut ni
+   creer un administrateur, ni toucher aux comptes administrateurs.
+   ============================================================ */
+add_action( 'init', 'sl_ff_grant_editor_user_caps', 2 );
+function sl_ff_grant_editor_user_caps() {
+    $r = get_role( 'editor' );
+    if ( ! $r ) return;
+    foreach ( [ 'create_users', 'list_users', 'edit_users', 'promote_users' ] as $cap ) {
+        if ( ! $r->has_cap( $cap ) ) $r->add_cap( $cap );
+    }
+}
+
+/** Roles attribuables par un non-admin (anti-escalade de privileges). */
+add_filter( 'editable_roles', 'sl_ff_limit_editable_roles' );
+function sl_ff_limit_editable_roles( $roles ) {
+    if ( current_user_can( 'manage_options' ) ) return $roles;
+    $allowed = [
+        'sl_responsable_fastfood', 'sl_ff_admin',
+        'sl_responsable_agence', 'sl_gestionnaire_bons_plans',
+        'subscriber', 'customer',
+    ];
+    foreach ( $roles as $slug => $info ) {
+        if ( ! in_array( $slug, $allowed, true ) ) unset( $roles[ $slug ] );
+    }
+    return $roles;
+}
+
+/** Un non-admin ne peut ni modifier, ni promouvoir, ni supprimer un administrateur. */
+add_filter( 'map_meta_cap', 'sl_ff_protect_admin_accounts', 10, 4 );
+function sl_ff_protect_admin_accounts( $caps, $cap, $user_id, $args ) {
+    if ( ! in_array( $cap, [ 'edit_user', 'promote_user', 'delete_user', 'remove_user' ], true ) ) {
+        return $caps;
+    }
+    $target_id = isset( $args[0] ) ? (int) $args[0] : 0;
+    if ( ! $target_id || $target_id === (int) $user_id ) {
+        return $caps; // son propre profil : comportement WP normal
+    }
+    $actor  = get_userdata( (int) $user_id );
+    $target = get_userdata( $target_id );
+    if ( $target && $target->has_cap( 'manage_options' )
+        && ( ! $actor || ! $actor->has_cap( 'manage_options' ) ) ) {
+        $caps[] = 'do_not_allow';
+    }
+    return $caps;
+}

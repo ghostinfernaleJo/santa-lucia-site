@@ -2,12 +2,12 @@
 /**
  * Plugin Name: Santa Lucia Fast Food
  * Description: Menu du jour par agence avec planning hebdomadaire, import CSV/Excel, promotions et partage.
- * Version:     1.8.7
+ * Version:     1.8.8
  * Author:      Santa Lucia
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'SL_FF_VERSION', '1.8.7' );
+define( 'SL_FF_VERSION', '1.8.8' );
 define( 'SL_FF_PATH',    plugin_dir_path( __FILE__ ) );
 define( 'SL_FF_URL',     plugin_dir_url(  __FILE__ ) );
 
