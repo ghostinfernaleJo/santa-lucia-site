@@ -720,7 +720,18 @@ class SL_Fiche_Agence_Widget extends Widget_Base {
             'top-vente' => 'Top Vente',
             'exclusif'  => 'Exclusif',
         ];
+        $bp_embed_id = 'slf-bp-embed-' . $this->get_id();
         ?>
+        <div class="slf-bp-embed" id="<?php echo esc_attr( $bp_embed_id ); ?>">
+        <div class="slf-ff-toolbar" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:14px;">
+            <div class="slf-ff-search" style="position:relative;flex:1 1 220px;max-width:340px;">
+                <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:#999;" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="search" class="slf-bp-search-input" placeholder="Rechercher un bon plan..."
+                       autocomplete="off" aria-label="Rechercher un bon plan"
+                       style="width:100%;padding:9px 12px 9px 36px;border:1px solid #e3e3e3;border-radius:24px;font-size:14px;outline:none;">
+            </div>
+            <span class="slf-bp-search-count" style="display:none;font-size:13px;color:#777;"></span>
+        </div>
         <div class="slf-deals-grid">
             <?php while ( $query->have_posts() ) : $query->the_post();
                 $post_id  = get_the_ID();
@@ -761,6 +772,49 @@ class SL_Fiche_Agence_Widget extends Widget_Base {
                 </a>
             <?php endwhile; ?>
         </div>
+        <div class="slf-bp-no-result" style="display:none;text-align:center;padding:28px 10px;color:#888;">
+            Aucun bon plan ne correspond &agrave; cette recherche.
+        </div>
+        </div>
+        <script>
+        (function(){
+            var root = document.getElementById('<?php echo esc_js( $bp_embed_id ); ?>');
+            if (!root) return;
+            var input   = root.querySelector('.slf-bp-search-input');
+            var counter = root.querySelector('.slf-bp-search-count');
+            var noRes   = root.querySelector('.slf-bp-no-result');
+            var grid    = root.querySelector('.slf-deals-grid');
+            if (!input || !grid) return;
+            var norm = function(s){
+                s = (s || '').toLowerCase();
+                if (s.normalize) s = s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+                return s.replace(/\s+/g, ' ').trim();
+            };
+            var cards = Array.prototype.slice.call(grid.querySelectorAll('.slf-deal-card'));
+            cards.forEach(function(c){ c._slfSearch = norm(c.textContent); });
+            var timer = null;
+            var run = function(){
+                var q = norm(input.value);
+                var shown = 0;
+                cards.forEach(function(c){
+                    var ok = !q || c._slfSearch.indexOf(q) !== -1;
+                    c.style.display = ok ? '' : 'none';
+                    if (ok) shown++;
+                });
+                noRes.style.display = (q && shown === 0) ? '' : 'none';
+                if (q) {
+                    counter.textContent = shown + ' bon(s) plan(s) trouvé(s)';
+                    counter.style.display = '';
+                } else {
+                    counter.style.display = 'none';
+                }
+            };
+            input.addEventListener('input', function(){
+                clearTimeout(timer);
+                timer = setTimeout(run, 120);
+            });
+        })();
+        </script>
         <?php
         wp_reset_postdata();
     }
