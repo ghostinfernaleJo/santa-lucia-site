@@ -732,6 +732,19 @@ class SL_Fiche_Agence_Widget extends Widget_Base {
             </div>
             <span class="slf-bp-search-count" style="display:none;font-size:13px;color:#777;"></span>
         </div>
+        <div class="slf-bp-badge-filters" role="group" aria-label="Filtrer par type d'offre"
+             style="display:flex;flex-wrap:wrap;gap:8px;margin:-4px 0 14px;">
+            <button type="button" class="slf-bp-badge-btn active" data-badge="all">Tous</button>
+            <button type="button" class="slf-bp-badge-btn" data-badge="flash">🔥 Flash</button>
+            <button type="button" class="slf-bp-badge-btn" data-badge="nouveau">🟢 Nouveau</button>
+            <button type="button" class="slf-bp-badge-btn" data-badge="top-vente">👑 Top Vente</button>
+            <button type="button" class="slf-bp-badge-btn" data-badge="exclusif">💎 Exclusif</button>
+        </div>
+        <style>
+        .slf-bp-badge-btn{border:1px solid #e3e3e3;background:#fff;border-radius:20px;padding:6px 14px;font-size:13px;cursor:pointer;transition:all .15s;color:#555;}
+        .slf-bp-badge-btn:hover{border-color:#e91e8c;color:#e91e8c;}
+        .slf-bp-badge-btn.active{background:#e91e8c;border-color:#e91e8c;color:#fff;font-weight:600;}
+        </style>
         <div class="slf-deals-grid">
             <?php while ( $query->have_posts() ) : $query->the_post();
                 $post_id  = get_the_ID();
@@ -743,7 +756,7 @@ class SL_Fiche_Agence_Widget extends Widget_Base {
                 $img_url  = get_the_post_thumbnail_url( $post_id, 'medium' );
                 $badge_label = $badge_labels[ $badge ] ?? ucfirst( str_replace( '-', ' ', $badge ) );
                 ?>
-                <a class="slf-deal-card" href="<?php the_permalink(); ?>">
+                <a class="slf-deal-card" href="<?php the_permalink(); ?>" data-badge="<?php echo esc_attr( $badge ?: '' ); ?>">
                     <span class="slf-deal-img">
                         <?php if ( $img_url ) : ?>
                             <img src="<?php echo esc_url( $img_url ); ?>" alt="<?php echo esc_attr( get_the_title() ); ?>" loading="lazy">
@@ -792,23 +805,45 @@ class SL_Fiche_Agence_Widget extends Widget_Base {
             };
             var cards = Array.prototype.slice.call(grid.querySelectorAll('.slf-deal-card'));
             cards.forEach(function(c){ c._slfSearch = norm(c.textContent); });
+
+            /* Filtres par type d'offre (Flash / Nouveau / Top Vente / Exclusif) */
+            var badgeBtns = Array.prototype.slice.call(root.querySelectorAll('.slf-bp-badge-btn'));
+            var curBadge = 'all';
+            // masquer les filtres sans aucune offre correspondante
+            badgeBtns.forEach(function(b){
+                var v = b.dataset.badge;
+                if (v === 'all') return;
+                var has = cards.some(function(c){ return (c.dataset.badge || '') === v; });
+                if (!has) b.style.display = 'none';
+            });
+
             var timer = null;
             var run = function(){
                 var q = norm(input.value);
                 var shown = 0;
                 cards.forEach(function(c){
-                    var ok = !q || c._slfSearch.indexOf(q) !== -1;
+                    var okText  = !q || c._slfSearch.indexOf(q) !== -1;
+                    var okBadge = curBadge === 'all' || (c.dataset.badge || '') === curBadge;
+                    var ok = okText && okBadge;
                     c.style.display = ok ? '' : 'none';
                     if (ok) shown++;
                 });
-                noRes.style.display = (q && shown === 0) ? '' : 'none';
-                if (q) {
+                var filtering = q || curBadge !== 'all';
+                noRes.style.display = (filtering && shown === 0) ? '' : 'none';
+                if (filtering) {
                     counter.textContent = shown + ' bon(s) plan(s) trouvé(s)';
                     counter.style.display = '';
                 } else {
                     counter.style.display = 'none';
                 }
             };
+            badgeBtns.forEach(function(b){
+                b.addEventListener('click', function(){
+                    curBadge = b.dataset.badge;
+                    badgeBtns.forEach(function(x){ x.classList.toggle('active', x === b); });
+                    run();
+                });
+            });
             input.addEventListener('input', function(){
                 clearTimeout(timer);
                 timer = setTimeout(run, 120);

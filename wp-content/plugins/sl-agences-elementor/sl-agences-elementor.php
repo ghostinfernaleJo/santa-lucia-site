@@ -12,7 +12,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'SL_AGENCES_VERSION', '3.3.8' );
+define( 'SL_AGENCES_VERSION', '3.3.9' );
 define( 'SL_AGENCES_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SL_AGENCES_URL', plugin_dir_url( __FILE__ ) );
 
