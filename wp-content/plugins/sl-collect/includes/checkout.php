@@ -16,6 +16,19 @@ function slc_checkout_fields( $fields ) {
         $fields['billing']['billing_phone']['label']    = 'Téléphone (obligatoire — utilisé au retrait)';
     }
 
+    // Retrait en agence : les champs d'adresse de livraison sont inutiles
+    unset(
+        $fields['billing']['billing_address_1'],  // Numéro et nom de rue
+        $fields['billing']['billing_address_2'],  // Appartement, suite...
+        $fields['billing']['billing_city'],       // Ville
+        $fields['billing']['billing_state'],      // Région / Département
+        $fields['billing']['billing_postcode'],   // Code postal
+        $fields['billing']['billing_company'],    // Société (superflu)
+        $fields['billing']['billing_country']     // Pays (retrait au Cameroun)
+    );
+    // Notes de commande (« Informations complémentaires »)
+    unset( $fields['order']['order_comments'] );
+
     $options = [ '' => 'Choisissez votre agence de retrait…' ];
     foreach ( slc_agences() as $t ) {
         $options[ $t->slug ] = $t->name;
@@ -30,6 +43,9 @@ function slc_checkout_fields( $fields ) {
     ];
     return $fields;
 }
+
+// Masque aussi la section « Informations complémentaires » (vide sans notes)
+add_filter( 'woocommerce_enable_order_notes_field', '__return_false' );
 
 add_action( 'woocommerce_checkout_process', function () {
     $slug = isset( $_POST['sl_collect_agence'] ) ? sanitize_title( wp_unslash( $_POST['sl_collect_agence'] ) ) : '';
