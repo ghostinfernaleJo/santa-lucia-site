@@ -222,6 +222,19 @@ class SL_Fiche_Agence_Widget extends Widget_Base {
         );
 
         $this->add_control(
+            'galerie_active',
+            [
+                'label'        => __( 'Afficher la galerie', 'sl-agences' ),
+                'type'         => Controls_Manager::SWITCHER,
+                'label_on'     => __( 'Oui', 'sl-agences' ),
+                'label_off'    => __( 'Non', 'sl-agences' ),
+                'return_value' => 'yes',
+                'default'      => 'yes',
+                'description'  => __( 'Désactivé, l\'onglet Galerie disparaît de la fiche (les catégories et médias sont conservés).', 'sl-agences' ),
+            ]
+        );
+
+        $this->add_control(
             'titre_galerie',
             [
                 'label'   => __( 'Titre de la galerie', 'sl-agences' ),
@@ -814,7 +827,8 @@ class SL_Fiche_Agence_Widget extends Widget_Base {
 
         $categories = $s['categories_galerie'] ?? [];
         $fast_food_actif = ( $s['fast_food_actif'] ?? 'yes' ) === 'yes';
-        $has_galerie = ! empty( $categories );
+        $galerie_active  = ( $s['galerie_active'] ?? 'yes' ) === 'yes';
+        $has_galerie = $galerie_active && ! empty( $categories );
         ?>
 
         <div class="slf-wrapper" id="slf-<?php echo esc_attr($wid); ?>"
