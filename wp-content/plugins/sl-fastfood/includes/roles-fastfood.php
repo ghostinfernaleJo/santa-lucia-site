@@ -232,6 +232,17 @@ function sl_ff_grant_editor_user_caps() {
     }
 }
 
+/**
+ * Identifiants avec accents : WordPress refuse é/è/à/ç... dans le LOGIN
+ * (« caractères non autorisés »). On translittère automatiquement à la
+ * création (« mélen » -> « melen ») au lieu de rejeter la saisie.
+ */
+add_filter( 'pre_user_login', 'sl_ff_transliterate_user_login', 5 );
+function sl_ff_transliterate_user_login( $login ) {
+    $clean = sanitize_user( remove_accents( (string) $login ), true );
+    return $clean !== '' ? $clean : $login;
+}
+
 /** Roles attribuables par un non-admin (anti-escalade de privileges). */
 add_filter( 'editable_roles', 'sl_ff_limit_editable_roles' );
 function sl_ff_limit_editable_roles( $roles ) {
