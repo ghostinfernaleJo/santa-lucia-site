@@ -4,6 +4,11 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 /* ============================================================
    CHECKOUT : telephone obligatoire + choix de l'agence de retrait
    ============================================================ */
+
+// Le theme (Grogin) desactive la creation de compte au checkout via
+// __return_false ; le workflow Drop & Collect l'exige (compte obligatoire,
+// pas de commande invite) -> on la reactive en priorite haute.
+add_filter( 'woocommerce_checkout_registration_enabled', '__return_true', 99 );
 add_filter( 'woocommerce_checkout_fields', 'slc_checkout_fields', 20 );
 function slc_checkout_fields( $fields ) {
     if ( isset( $fields['billing']['billing_phone'] ) ) {
