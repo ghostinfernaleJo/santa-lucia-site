@@ -783,7 +783,44 @@ class SL_Fiche_Agence_Widget extends Widget_Base {
         // gere par les responsables dans wp-admin). Le repeater manuel du widget
         // ne sert plus que de repli si le plugin est absent ou l'agence inconnue.
         if ( $agence_term && function_exists( 'sl_ff_render_menu_html' ) ) {
-            echo sl_ff_render_menu_html( $agence_term->slug );
+            $embed_id = 'slf-ff-embed-' . $this->get_id();
+            ?>
+            <div class="slf-ff-embed" id="<?php echo esc_attr( $embed_id ); ?>">
+                <div class="sl-ff-view-toggle" role="group" aria-label="Vue du menu" style="margin-bottom:14px;">
+                    <button type="button" class="sl-ff-btn-view" data-view="cards" aria-pressed="false" title="Vue cartes">Cartes</button>
+                    <button type="button" class="sl-ff-btn-view active" data-view="list" aria-pressed="true" title="Vue liste">Liste</button>
+                </div>
+                <div class="sl-ff-content sl-ff-view-list"><?php echo sl_ff_render_menu_html( $agence_term->slug ); ?></div>
+            </div>
+            <script>
+            (function(){
+                var root = document.getElementById('<?php echo esc_js( $embed_id ); ?>');
+                if (!root) return;
+                var content = root.querySelector('.sl-ff-content');
+                var btns = root.querySelectorAll('.sl-ff-btn-view');
+                var KEY = 'sl_ff_fiche_view'; // preference propre aux fiches agence (defaut : liste)
+                function apply(v){
+                    content.classList.remove('sl-ff-view-cards','sl-ff-view-list');
+                    content.classList.add('sl-ff-view-' + v);
+                    btns.forEach(function(b){
+                        var on = b.dataset.view === v;
+                        b.classList.toggle('active', on);
+                        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                    });
+                }
+                var v = 'list';
+                try { v = localStorage.getItem(KEY) || 'list'; } catch(e){}
+                if (v !== 'cards' && v !== 'list') v = 'list';
+                apply(v);
+                btns.forEach(function(b){
+                    b.addEventListener('click', function(){
+                        apply(b.dataset.view);
+                        try { localStorage.setItem(KEY, b.dataset.view); } catch(e){}
+                    });
+                });
+            })();
+            </script>
+            <?php
             return;
         }
 
