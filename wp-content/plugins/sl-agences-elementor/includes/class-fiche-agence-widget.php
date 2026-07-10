@@ -657,6 +657,13 @@ class SL_Fiche_Agence_Widget extends Widget_Base {
             }
         }
 
+        // Alias : la page « Lycée Bilingue » correspond a l'agence Essos
+        // (pas de terme « lycée bilingue » dans la taxonomie).
+        if ( strpos( $haystack, 'lyceebilingue' ) !== false ) {
+            $term = get_term_by( 'slug', 'essos', 'sl_agence_promo' );
+            if ( $term && ! is_wp_error( $term ) ) return $term;
+        }
+
         return null;
     }
 
@@ -771,7 +778,15 @@ class SL_Fiche_Agence_Widget extends Widget_Base {
         return $days[ (int) wp_date( 'N' ) ] ?? 'monday';
     }
 
-    private function render_fast_food_section( $settings ) {
+    private function render_fast_food_section( $settings, $agence_term = null ) {
+        // Source privilegiee : le plugin Fast Food (menu JOURNALIER par agence,
+        // gere par les responsables dans wp-admin). Le repeater manuel du widget
+        // ne sert plus que de repli si le plugin est absent ou l'agence inconnue.
+        if ( $agence_term && function_exists( 'sl_ff_render_menu_html' ) ) {
+            echo sl_ff_render_menu_html( $agence_term->slug );
+            return;
+        }
+
         $menus = $settings['menus_fast_food'] ?? [];
         $today_key = $this->get_today_menu_key();
         $today_items = [];
@@ -980,7 +995,7 @@ class SL_Fiche_Agence_Widget extends Widget_Base {
             <div class="slf-main-panel" data-panel="fast-food">
                 <section class="slf-fast-food-section">
                     <h2 class="slf-section-titre"><?php echo esc_html( $s['titre_fast_food'] ?? 'Menu Fast Food du jour' ); ?></h2>
-                    <?php $this->render_fast_food_section( $s ); ?>
+                    <?php $this->render_fast_food_section( $s, $this->resolve_agence_term( $s['nom_agence'] ?? '' ) ); ?>
                 </section>
             </div>
             <?php endif; ?>
