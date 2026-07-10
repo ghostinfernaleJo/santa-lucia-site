@@ -786,11 +786,23 @@ class SL_Fiche_Agence_Widget extends Widget_Base {
             $embed_id = 'slf-ff-embed-' . $this->get_id();
             ?>
             <div class="slf-ff-embed" id="<?php echo esc_attr( $embed_id ); ?>">
-                <div class="sl-ff-view-toggle" role="group" aria-label="Vue du menu" style="margin-bottom:14px;">
-                    <button type="button" class="sl-ff-btn-view" data-view="cards" aria-pressed="false" title="Vue cartes">Cartes</button>
-                    <button type="button" class="sl-ff-btn-view active" data-view="list" aria-pressed="true" title="Vue liste">Liste</button>
+                <div class="slf-ff-toolbar" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:14px;">
+                    <div class="slf-ff-search" style="position:relative;flex:1 1 220px;max-width:340px;">
+                        <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:#999;" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="search" class="slf-ff-search-input" placeholder="Rechercher un repas..."
+                               autocomplete="off" aria-label="Rechercher un repas"
+                               style="width:100%;padding:9px 12px 9px 36px;border:1px solid #e3e3e3;border-radius:24px;font-size:14px;outline:none;">
+                    </div>
+                    <span class="slf-ff-search-count" style="display:none;font-size:13px;color:#777;"></span>
+                    <div class="sl-ff-view-toggle" role="group" aria-label="Vue du menu" style="margin-left:auto;">
+                        <button type="button" class="sl-ff-btn-view" data-view="cards" aria-pressed="false" title="Vue cartes">Cartes</button>
+                        <button type="button" class="sl-ff-btn-view active" data-view="list" aria-pressed="true" title="Vue liste">Liste</button>
+                    </div>
                 </div>
                 <div class="sl-ff-content sl-ff-view-list"><?php echo sl_ff_render_menu_html( $agence_term->slug ); ?></div>
+                <div class="slf-ff-no-result" style="display:none;text-align:center;padding:28px 10px;color:#888;">
+                    Aucun repas ne correspond &agrave; cette recherche.
+                </div>
             </div>
             <script>
             (function(){
@@ -818,6 +830,50 @@ class SL_Fiche_Agence_Widget extends Widget_Base {
                         try { localStorage.setItem(KEY, b.dataset.view); } catch(e){}
                     });
                 });
+
+                /* ---- Recherche d'un repas (filtre instantane, sans accents) ---- */
+                var input   = root.querySelector('.slf-ff-search-input');
+                var counter = root.querySelector('.slf-ff-search-count');
+                var noRes   = root.querySelector('.slf-ff-no-result');
+                if (input) {
+                    var norm = function(s){
+                        s = (s || '').toLowerCase();
+                        if (s.normalize) s = s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+                        return s.replace(/\s+/g, ' ').trim();
+                    };
+                    var items = Array.prototype.slice.call(content.querySelectorAll('.sl-ff-item'));
+                    items.forEach(function(it){
+                        it._slfSearch = norm(it.textContent);
+                    });
+                    var timer = null;
+                    var run = function(){
+                        var q = norm(input.value);
+                        var shown = 0;
+                        items.forEach(function(it){
+                            var ok = !q || it._slfSearch.indexOf(q) !== -1;
+                            it.style.display = ok ? '' : 'none';
+                            if (ok) shown++;
+                        });
+                        // masquer les categories sans repas visible
+                        content.querySelectorAll('.sl-ff-cat-section').forEach(function(sec){
+                            var has = Array.prototype.some.call(sec.querySelectorAll('.sl-ff-item'), function(it){
+                                return it.style.display !== 'none';
+                            });
+                            sec.style.display = has ? '' : 'none';
+                        });
+                        noRes.style.display = (q && shown === 0) ? '' : 'none';
+                        if (q) {
+                            counter.textContent = shown + ' repas trouvé(s)';
+                            counter.style.display = '';
+                        } else {
+                            counter.style.display = 'none';
+                        }
+                    };
+                    input.addEventListener('input', function(){
+                        clearTimeout(timer);
+                        timer = setTimeout(run, 120);
+                    });
+                }
             })();
             </script>
             <?php
