@@ -20,12 +20,18 @@ function slc_admin_menu() {
 /** Statuts geres par l'ecran. */
 function slc_screen_statuses() {
     return [
+        'actives'    => 'Toutes les commandes actives',
         'pending'    => 'En attente (à confirmer/payer)',
         'processing' => 'Payées — à préparer',
         'sl-prete'   => 'Prêtes — à remettre',
         'completed'  => 'Retirées',
         'cancelled'  => 'Annulées',
     ];
+}
+
+/** Statuts couverts par la vue « actives ». */
+function slc_active_statuses() {
+    return [ 'pending', 'processing', 'sl-prete' ];
 }
 
 function slc_admin_page() {
@@ -41,8 +47,8 @@ function slc_admin_page() {
     $agence_sel = $is_admin
         ? ( isset( $_GET['agence'] ) ? sanitize_title( wp_unslash( $_GET['agence'] ) ) : '' )
         : $ma_agence;
-    $statut_sel = isset( $_GET['statut'] ) ? sanitize_key( wp_unslash( $_GET['statut'] ) ) : 'processing';
-    if ( ! isset( slc_screen_statuses()[ $statut_sel ] ) ) $statut_sel = 'processing';
+    $statut_sel = isset( $_GET['statut'] ) ? sanitize_key( wp_unslash( $_GET['statut'] ) ) : 'actives';
+    if ( ! isset( slc_screen_statuses()[ $statut_sel ] ) ) $statut_sel = 'actives';
     $recherche = isset( $_GET['q'] ) ? sanitize_text_field( wp_unslash( $_GET['q'] ) ) : '';
 
     // Recherche directe par code de retrait / numero de commande / telephone
@@ -57,7 +63,7 @@ function slc_admin_page() {
             $orders = [ $found ];
         } else {
             // recherche par telephone dans les statuts actifs
-            foreach ( slc_order_ids( $agence_sel, [ 'pending', 'processing', 'sl-prete' ], 300 ) as $oid ) {
+            foreach ( slc_order_ids( $agence_sel, slc_active_statuses(), 300 ) as $oid ) {
                 $o = wc_get_order( $oid );
                 if ( $o && false !== strpos( preg_replace( '/\D/', '', $o->get_billing_phone() ), preg_replace( '/\D/', '', $recherche ) ) ) {
                     $orders[] = $o;
@@ -71,7 +77,8 @@ function slc_admin_page() {
             } ) );
         }
     } else {
-        foreach ( slc_order_ids( $agence_sel, [ $statut_sel ], 100 ) as $oid ) {
+        $statuts_requete = ( 'actives' === $statut_sel ) ? slc_active_statuses() : [ $statut_sel ];
+        foreach ( slc_order_ids( $agence_sel, $statuts_requete, 100 ) as $oid ) {
             $o = wc_get_order( $oid );
             if ( $o ) $orders[] = $o;
         }
