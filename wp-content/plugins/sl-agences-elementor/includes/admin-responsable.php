@@ -112,6 +112,14 @@ function sl_bp_handle_save() {
     // Agence (auto depuis user meta)
     sl_bp_assign_current_user_agence_to_offer( $post_id );
 
+    // Le produit WooCommerce vendable doit refleter les metas qu'on vient d'ecrire.
+    // L'autosync branchee sur save_post_sl_bon_plan s'est declenchee au
+    // wp_update_post/wp_insert_post ci-dessus, AVANT ces update_post_meta : elle a
+    // donc lu les anciens prix (ou aucun, a la creation). On resynchronise ici.
+    if ( function_exists( 'sl_cwoo_sync_bon_plan_to_product' ) ) {
+        sl_cwoo_sync_bon_plan_to_product( $post_id );
+    }
+
     wp_safe_redirect( admin_url( 'admin.php?page=sl-mes-bons-plans&saved=1' ) );
     exit;
 }
@@ -250,6 +258,7 @@ function sl_bp_page_list() {
                             <th>Catégorie</th>
                             <th>Prix promo</th>
                             <th>Réduction</th>
+                            <th>Stock en ligne</th>
                             <th>Expire le</th>
                             <th>Statut</th>
                             <th>Actions</th>
@@ -266,6 +275,8 @@ function sl_bp_page_list() {
                         $cats      = wp_get_object_terms( $post->ID, 'sl_categorie_promo' );
                         $cat_name  = ! empty( $cats ) ? $cats[0]->name : '—';
                         $expired   = $date_fin && $date_fin < $today;
+                        $stock_on  = get_post_meta( $post->ID, '_sl_bp_stock_actif', true ) === '1';
+                        $stock_qty = get_post_meta( $post->ID, '_sl_bp_stock_qty', true );
                         $delete_url = wp_nonce_url(
                             admin_url( 'admin.php?action=sl_bp_delete&post_id=' . $post->ID ),
                             'sl_bp_delete_' . $post->ID
@@ -284,6 +295,26 @@ function sl_bp_page_list() {
                             <td><?php echo esc_html( $cat_name ); ?></td>
                             <td><?php echo $prix_ap ? number_format( $prix_ap, 0, ',', ' ' ) . ' FCFA' : '—'; ?></td>
                             <td><?php echo $reduc ? '<span class="sl-bp-badge-reduc">-' . $reduc . '%</span>' : '—'; ?></td>
+                            <td class="sl-bp-stock-cell" data-id="<?php echo (int) $post->ID; ?>">
+                                <label class="sl-bp-stock-toggle">
+                                    <input type="checkbox" class="sl-bp-stock-actif" <?php checked( $stock_on ); ?>>
+                                    <span>Limiter</span>
+                                </label>
+                                <input type="number" class="sl-bp-stock-qty" min="0" step="1"
+                                       value="<?php echo esc_attr( $stock_qty ); ?>"
+                                       placeholder="—" <?php disabled( ! $stock_on ); ?>>
+                                <span class="sl-bp-stock-state"><?php
+                                    if ( ! $stock_on ) {
+                                        echo '<em>illimité</em>';
+                                    } elseif ( $stock_qty === '' ) {
+                                        echo '<em>à saisir</em>';
+                                    } elseif ( (int) $stock_qty <= 0 ) {
+                                        echo '<strong class="sl-bp-stock-out">épuisé</strong>';
+                                    } else {
+                                        echo '<span class="sl-bp-stock-ok">en vente</span>';
+                                    }
+                                ?></span>
+                            </td>
                             <td><?php echo $date_fin ? date( 'd/m/Y', strtotime( $date_fin ) ) : '—'; ?></td>
                             <td>
                                 <?php if ( $expired ) : ?>
@@ -301,9 +332,121 @@ function sl_bp_page_list() {
                     </tbody>
                 </table>
             </div>
+
+            <style>
+            .sl-bp-stock-cell{white-space:nowrap;}
+            .sl-bp-stock-toggle{display:flex;align-items:center;gap:4px;font-size:12px;margin-bottom:4px;cursor:pointer;}
+            .sl-bp-stock-toggle input{margin:0;}
+            .sl-bp-stock-qty{width:72px;padding:3px 6px;}
+            .sl-bp-stock-qty:disabled{background:#f0f0f1;color:#8c8f94;}
+            .sl-bp-stock-state{display:block;margin-top:3px;font-size:11px;color:#646970;}
+            .sl-bp-stock-out{color:#b32d2e;}
+            .sl-bp-stock-ok{color:#1e7b34;}
+            .sl-bp-stock-cell.saving{opacity:.55;}
+            .sl-bp-stock-cell.saved .sl-bp-stock-state{color:#1e7b34;font-weight:600;}
+            .sl-bp-stock-cell.failed .sl-bp-stock-state{color:#b32d2e;font-weight:600;}
+            </style>
+            <script>
+            (function(){
+                var AJAX  = <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>;
+                var NONCE = <?php echo wp_json_encode( wp_create_nonce( 'sl_bp_stock' ) ); ?>;
+                var timers = {};
+
+                function save( cell ){
+                    var id    = cell.getAttribute('data-id');
+                    var actif = cell.querySelector('.sl-bp-stock-actif').checked;
+                    var qtyEl = cell.querySelector('.sl-bp-stock-qty');
+                    var state = cell.querySelector('.sl-bp-stock-state');
+                    cell.classList.remove('saved','failed');
+                    cell.classList.add('saving');
+                    var body = 'action=sl_bp_save_stock&_wpnonce=' + encodeURIComponent(NONCE)
+                             + '&post_id=' + encodeURIComponent(id)
+                             + '&stock_actif=' + (actif ? '1' : '')
+                             + '&stock_qty=' + encodeURIComponent(qtyEl.value);
+                    fetch(AJAX, { method:'POST', credentials:'same-origin',
+                        headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body })
+                        .then(function(r){ return r.json(); })
+                        .then(function(res){
+                            cell.classList.remove('saving');
+                            if ( ! res || ! res.success ) {
+                                cell.classList.add('failed');
+                                state.textContent = (res && res.data) ? res.data : 'Échec';
+                                return;
+                            }
+                            cell.classList.add('saved');
+                            state.innerHTML = res.data.state;
+                            setTimeout(function(){ cell.classList.remove('saved'); }, 1500);
+                        })
+                        .catch(function(){ cell.classList.remove('saving'); cell.classList.add('failed');
+                                           state.textContent = 'Réseau indisponible'; });
+                }
+
+                document.addEventListener('change', function(e){
+                    var cell = e.target.closest ? e.target.closest('.sl-bp-stock-cell') : null;
+                    if ( ! cell ) return;
+                    if ( e.target.classList.contains('sl-bp-stock-actif') ) {
+                        cell.querySelector('.sl-bp-stock-qty').disabled = ! e.target.checked;
+                    }
+                    save( cell );
+                });
+                // La saisie au clavier s'enregistre seule, sans attendre de quitter le champ.
+                document.addEventListener('input', function(e){
+                    if ( ! e.target.classList.contains('sl-bp-stock-qty') ) return;
+                    var cell = e.target.closest('.sl-bp-stock-cell');
+                    var id   = cell.getAttribute('data-id');
+                    clearTimeout( timers[id] );
+                    timers[id] = setTimeout(function(){ save( cell ); }, 600);
+                });
+            })();
+            </script>
         <?php endif; ?>
     </div>
     <?php
+}
+
+/**
+ * Enregistrement du stock depuis la liste « Mes Bons Plans » (edition en ligne).
+ * Ecrit les memes metas que le formulaire complet, puis resynchronise le produit
+ * WooCommerce vendable (sans quoi la limite saisie ne bornerait jamais la vente).
+ */
+add_action( 'wp_ajax_sl_bp_save_stock', 'sl_bp_ajax_save_stock' );
+function sl_bp_ajax_save_stock() {
+    check_ajax_referer( 'sl_bp_stock' );
+
+    $post_id = isset( $_POST['post_id'] ) ? (int) $_POST['post_id'] : 0;
+    if ( ! $post_id || get_post_type( $post_id ) !== 'sl_bon_plan' ) {
+        wp_send_json_error( 'Offre introuvable' );
+    }
+    // Meme controle que le formulaire complet : l'offre doit etre a lui (ou son agence).
+    if ( ! sl_bp_user_can_manage_offer( $post_id ) ) {
+        wp_send_json_error( 'Accès refusé' );
+    }
+
+    $stock_actif = ! empty( $_POST['stock_actif'] ) ? '1' : '';
+    $qty_raw     = isset( $_POST['stock_qty'] ) ? trim( wp_unslash( $_POST['stock_qty'] ) ) : '';
+    $stock_qty   = ( $qty_raw === '' ) ? '' : max( 0, (int) $qty_raw );
+
+    update_post_meta( $post_id, '_sl_bp_stock_actif', $stock_actif );
+    update_post_meta( $post_id, '_sl_bp_stock_qty',   $stock_qty );
+
+    if ( function_exists( 'sl_cwoo_sync_bon_plan_to_product' ) ) {
+        sl_cwoo_sync_bon_plan_to_product( $post_id );
+    }
+    if ( function_exists( 'sl_bp_purge_front_cache' ) ) {
+        sl_bp_purge_front_cache( $post_id );
+    }
+
+    if ( $stock_actif !== '1' ) {
+        $state = '<em>illimité</em>';
+    } elseif ( $stock_qty === '' ) {
+        $state = '<em>à saisir</em>';
+    } elseif ( (int) $stock_qty <= 0 ) {
+        $state = '<strong class="sl-bp-stock-out">épuisé</strong>';
+    } else {
+        $state = '<span class="sl-bp-stock-ok">en vente</span>';
+    }
+
+    wp_send_json_success( [ 'state' => $state ] );
 }
 
 /* ============================================================
@@ -504,10 +647,13 @@ function sl_bp_page_form() {
                     <div class="sl-bp-field" style="background:#fff8f1;border:1px solid #f3d9bd;border-radius:6px;padding:12px 14px;">
                         <label style="display:flex;align-items:center;gap:8px;font-weight:bold;margin-bottom:0;">
                             <input type="checkbox" id="sl-stock-actif" name="stock_actif" value="1" style="width:auto;" <?php checked( $stock_on ); ?>>
-                            Limite de stock disponible
+                            Limiter les quantit&eacute;s vendues en ligne
                         </label>
                         <p class="description" style="margin:6px 0 0;color:#7a5a36;font-size:12px;">
-                            Affiche la mention &laquo; <em>Dans la limite des stocks disponibles</em> &raquo; sur la carte.
+                            R&eacute;serve un nombre pr&eacute;cis d&apos;articles &agrave; la vente en ligne : chaque commande pay&eacute;e
+                            d&eacute;compte une unit&eacute;, et l&apos;offre passe en rupture toute seule &agrave; z&eacute;ro.
+                            Affiche aussi la mention &laquo; <em>Dans la limite des stocks disponibles</em> &raquo; sur la carte.<br>
+                            <strong>D&eacute;coch&eacute; = vente sans limite</strong> (aucun d&eacute;compte, jamais de rupture).
                         </p>
                         <div id="sl-stock-qty-wrap" style="margin-top:12px;max-width:260px;<?php echo $stock_on ? '' : 'display:none;'; ?>">
                             <label for="sl-stock-qty" style="font-weight:bold;display:block;margin-bottom:5px;">Quantit&eacute; disponible (optionnel)</label>

@@ -419,6 +419,15 @@ function sl_ff_ajax_save_promo() {
             sl_bp_purge_front_cache( $post_id );
         }
 
+        // Le bon plan est vendable : son produit WooCommerce lie porte le prix
+        // reellement paye. Ici on n'ecrit que des metas (pas de wp_update_post),
+        // donc save_post_sl_bon_plan ne se declenche pas et l'autosync ne tourne
+        // jamais. Sans cet appel, la carte afficherait le nouveau prix et le
+        // panier facturerait l'ancien.
+        if ( function_exists( 'sl_cwoo_sync_bon_plan_to_product' ) ) {
+            sl_cwoo_sync_bon_plan_to_product( $post_id );
+        }
+
         $bp_today = current_time( 'Y-m-d' );
         wp_send_json_success( [
             'est_promo'  => ( $bp_ap > 0 && ( $bp_fin === '' || $bp_fin >= $bp_today ) ),
