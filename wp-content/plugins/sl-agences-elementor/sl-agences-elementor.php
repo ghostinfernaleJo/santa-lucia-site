@@ -36,6 +36,7 @@ require_once SL_AGENCES_PATH . 'includes/rest-api-mobile.php';
 require_once SL_AGENCES_PATH . 'includes/feedback-module.php';
 require_once SL_AGENCES_PATH . 'includes/disable-comments.php';
 require_once SL_AGENCES_PATH . 'includes/pdf-bons-plans.php';
+require_once SL_AGENCES_PATH . 'includes/bon-plan-cart.php';
 
 // Force single template for Bons Plans
 add_filter( 'template_include', 'sl_bp_single_template' );
@@ -439,6 +440,10 @@ function sl_agences_register_widgets( $widgets_manager ) {
     // Widget 4 : Bons Plans (multi-agences, dynamique)
     require_once SL_AGENCES_PATH . 'includes/class-bons-plans-widget.php';
     $widgets_manager->register( new SL_Bons_Plans_Widget() );
+
+    // Widget 4b : Bons Plans — Carrousel (swipe + fleches + autoplay)
+    require_once SL_AGENCES_PATH . 'includes/class-bons-plans-carousel-widget.php';
+    $widgets_manager->register( new SL_Bons_Plans_Carousel_Widget() );
 
     // Widget 5 : Gestion des images des produits maison
     require_once SL_AGENCES_PATH . 'includes/class-produits-images-widget.php';

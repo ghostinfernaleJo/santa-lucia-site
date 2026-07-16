@@ -36,6 +36,33 @@ function sl_ff_promos_page() {
         ] );
     }
 
+    // Produits « Bons Plans » (module sl_bon_plan) rendus compatibles + visibles
+    // dans la liste des promotions. L'edition ecrit leurs vrais champs _sl_bp_*
+    // (voir save AJAX). Le prix d'un bon plan est GLOBAL (pas par agence).
+    //   - Admin : TOUS les bons plans, sans exception (independamment de l'agence).
+    //   - Responsable : uniquement ceux rattaches a son agence (securite).
+    $bons = [];
+    if ( post_type_exists( 'sl_bon_plan' ) ) {
+        $bp_args = [
+            'post_type'      => 'sl_bon_plan',
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'orderby'        => 'title',
+            'order'          => 'ASC',
+        ];
+        if ( ! $is_admin ) {
+            // Responsable : borne a son agence (ou rien s'il n'en a pas).
+            if ( $scope_agence === '' ) {
+                $bp_args = null;
+            } else {
+                $bp_args['tax_query'] = [ [ 'taxonomy' => 'sl_agence_promo', 'field' => 'slug', 'terms' => $scope_agence ] ];
+            }
+        }
+        if ( $bp_args ) {
+            $bons = get_posts( $bp_args );
+        }
+    }
+
     // Groupement par categorie (une seule agence en scope)
     $grouped = [];
     foreach ( $repas as $r ) {
@@ -103,7 +130,7 @@ function sl_ff_promos_page() {
 
         <?php elseif ( empty( $repas ) ) : ?>
         <div class="sl-ff-empty">
-            <p>Aucun repas pour cette agence.</p>
+            <p>Aucun repas pour cette agence.<?php echo ! empty( $bons ) ? ' Les Bons Plans sont list&eacute;s ci-dessous.' : ''; ?></p>
         </div>
 
         <?php else : ?>
@@ -214,6 +241,106 @@ function sl_ff_promos_page() {
             </tbody>
         </table>
         <?php endif; ?>
+
+        <?php if ( ! empty( $bons ) ) : ?>
+        <h2 class="sl-ff-bp-heading" style="margin:26px 0 8px;">
+            &#127991; Bons Plans
+            <span style="font-size:13px;font-weight:400;color:#888;">&mdash; tous les produits Bons Plans, sans exception (prix global, s'applique &agrave; toutes les agences)</span>
+        </h2>
+        <table class="sl-ff-planning-table sl-ff-promos-table" id="sl-ff-promos-bp-table">
+            <thead>
+                <tr>
+                    <th class="sl-ff-col-plat">Produit</th>
+                    <th>Prix&nbsp;habituel&nbsp;(FCFA)</th>
+                    <th>Prix&nbsp;promo&nbsp;(FCFA)</th>
+                    <th>Remise&nbsp;(%)</th>
+                    <th></th>
+                    <th>Fin</th>
+                    <th>Statut</th>
+                    <th class="sl-ff-col-status"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ( $bons as $bp ) :
+                    $thumb_url = get_the_post_thumbnail_url( $bp->ID, 'thumbnail' );
+                    $bp_av     = (int) get_post_meta( $bp->ID, '_sl_bp_prix_avant', true );
+                    $bp_ap     = (int) get_post_meta( $bp->ID, '_sl_bp_prix_apres', true );
+                    $bp_red    = (int) get_post_meta( $bp->ID, '_sl_bp_reduction_pct', true );
+                    $bp_fin    = (string) get_post_meta( $bp->ID, '_sl_bp_date_fin', true );
+                    $bp_active = ( $bp_ap > 0 && ( $bp_fin === '' || $bp_fin >= $today ) );
+                ?>
+                <tr class="sl-ff-meal-row sl-ff-bp-row<?php echo $bp_active ? ' sl-ff-promo-active' : ''; ?>"
+                    data-id="<?php echo (int) $bp->ID; ?>"
+                    data-agence="<?php echo esc_attr( $scope_agence ); ?>"
+                    data-type="bon_plan"
+                    data-search="<?php echo esc_attr( sl_ff_norm_txt( $bp->post_title . ' bon plan' ) ); ?>">
+
+                    <td class="sl-ff-col-plat">
+                        <div class="sl-ff-plat-info">
+                            <?php if ( $thumb_url ) : ?>
+                            <div class="sl-ff-plat-thumb" style="background-image:url('<?php echo esc_url( $thumb_url ); ?>')"></div>
+                            <?php else : ?>
+                            <div class="sl-ff-plat-thumb sl-ff-plat-no-img">&#127991;</div>
+                            <?php endif; ?>
+                            <div>
+                                <div class="sl-ff-plat-nom"><?php echo esc_html( $bp->post_title ); ?></div>
+                                <span class="sl-ff-bp-tag">Bon Plan</span>
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- Prix habituel -->
+                    <td>
+                        <input type="number" class="sl-ff-promo-prix"
+                               value="<?php echo esc_attr( $bp_av ?: '' ); ?>"
+                               min="0" step="50" placeholder="&mdash;"
+                               style="width:90px;text-align:center;padding:4px 6px;">
+                    </td>
+
+                    <!-- Prix promo -->
+                    <td>
+                        <input type="number" class="sl-ff-promo-prix-promo"
+                               value="<?php echo esc_attr( $bp_ap ?: '' ); ?>"
+                               min="0" step="50" placeholder="&mdash;"
+                               style="width:90px;text-align:center;padding:4px 6px;">
+                    </td>
+
+                    <!-- Remise % (auto) -->
+                    <td>
+                        <?php if ( $bp_red > 0 ) : ?>
+                        <span style="font-size:13px;color:#555;font-weight:600;">-<?php echo (int) $bp_red; ?>%</span>
+                        <?php else : ?>
+                        <span style="font-size:12px;color:#bbb;">auto</span>
+                        <?php endif; ?>
+                    </td>
+
+                    <!-- Debut (les bons plans n'en ont pas) -->
+                    <td><span style="font-size:12px;color:#ccc;">&#8212;</span></td>
+
+                    <!-- Fin (valable jusqu'au) -->
+                    <td>
+                        <input type="date" class="sl-ff-promo-fin"
+                               value="<?php echo esc_attr( $bp_fin ); ?>"
+                               style="padding:4px 6px;font-size:12px;">
+                    </td>
+
+                    <!-- Statut -->
+                    <td>
+                        <?php if ( $bp_active ) : ?>
+                        <span class="sl-ff-promo-badge-actif">&#10003; Actif<?php echo $bp_red > 0 ? ' -' . (int) $bp_red . '%' : ''; ?></span>
+                        <?php elseif ( $bp_ap > 0 ) : ?>
+                        <span style="font-size:12px;color:#e67e22;">&#9679; Expir&eacute;</span>
+                        <?php else : ?>
+                        <span style="font-size:12px;color:#ccc;">&#8212; Aucune</span>
+                        <?php endif; ?>
+                    </td>
+
+                    <td class="sl-ff-col-status"><span class="sl-ff-save-icon"></span></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php endif; ?>
     </div>
 
     <style>
@@ -230,6 +357,12 @@ function sl_ff_promos_page() {
         border-radius:20px; padding:2px 9px; font-size:12px; font-weight:700;
     }
     .sl-ff-promo-active > td:first-child { border-left:4px solid #e91e8c !important; }
+    .sl-ff-cat-row-bp td { background:#fff8f1 !important; color:#b25a00 !important; }
+    .sl-ff-bp-tag {
+        display:inline-block; margin-top:3px; background:#ffe6cc; color:#b25a00;
+        border-radius:12px; padding:1px 8px; font-size:11px; font-weight:700;
+    }
+    .sl-ff-bp-row .sl-ff-plat-no-img { background:#fff2e3; }
     </style>
     <?php
 }
@@ -254,6 +387,47 @@ function sl_ff_ajax_save_promo() {
     $req_agence  = sanitize_title( wp_unslash( $_POST['agence'] ?? '' ) );
 
     if ( ! $post_id ) wp_send_json_error( 'ID invalide' );
+
+    /* --- Branche « Bons Plans » : le produit est un sl_bon_plan (module Bons Plans).
+       On ecrit ses vrais champs _sl_bp_* pour que ca se reflete cote /bon-plans/.
+       Prix habituel <- « Prix actuel », Prix promo <- « Prix promo », date_fin <- « Fin ».
+       La remise % est auto-calculee (comme la metabox du module). --- */
+    if ( get_post_type( $post_id ) === 'sl_bon_plan' ) {
+        $bp_is_admin = current_user_can( 'manage_options' ) || current_user_can( 'sl_ff_all_agencies' );
+        // Admin : peut editer TOUT bon plan (le prix d'un bon plan est global).
+        // Responsable : borne a son agence ; le bon plan doit y etre rattache.
+        if ( ! $bp_is_admin ) {
+            $bp_agence = sanitize_title( (string) get_user_meta( get_current_user_id(), '_sl_agence_ff', true ) );
+            if ( $bp_agence === '' || ! has_term( $bp_agence, 'sl_agence_promo', $post_id ) ) {
+                wp_send_json_error( 'Acces refuse' );
+            }
+        }
+
+        $bp_av  = max( 0, (int) $prix );        // prix habituel
+        $bp_ap  = max( 0, (int) $prix_promo );  // prix promotionnel
+        $bp_fin = $promo_fin;                   // valable jusqu'au (peut etre vide)
+        $bp_red = ( $bp_av > 0 && $bp_ap > 0 ) ? (int) round( ( ( $bp_av - $bp_ap ) / $bp_av ) * 100 ) : 0;
+
+        update_post_meta( $post_id, '_sl_bp_prix_avant',    $bp_av );
+        update_post_meta( $post_id, '_sl_bp_prix_apres',    $bp_ap );
+        update_post_meta( $post_id, '_sl_bp_reduction_pct', $bp_red );
+        update_post_meta( $post_id, '_sl_bp_date_fin',      $bp_fin );
+
+        // Les hooks updated_post_meta du module purgent deja Varnish/LiteSpeed ;
+        // on force la purge de /bon-plans/ par securite.
+        if ( function_exists( 'sl_bp_purge_front_cache' ) ) {
+            sl_bp_purge_front_cache( $post_id );
+        }
+
+        $bp_today = current_time( 'Y-m-d' );
+        wp_send_json_success( [
+            'est_promo'  => ( $bp_ap > 0 && ( $bp_fin === '' || $bp_fin >= $bp_today ) ),
+            'pct'        => $bp_red,
+            'prix'       => $bp_av,
+            'prix_promo' => $bp_ap,
+            'type'       => 'bon_plan',
+        ] );
+    }
 
     $is_admin     = current_user_can( 'manage_options' ) || current_user_can( 'sl_ff_all_agencies' );
     $agences_post = (array) get_post_meta( $post_id, '_sl_ff_agence' );

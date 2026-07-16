@@ -282,11 +282,28 @@ function sl_ff_filter_repas_available_for_agence( $repas, $agence, $jour ) {
  */
 function sl_ff_cat_display( $cat ) {
     static $map = [
-        'boisson'          => 'Plats Traditionnels',
-        'boissons'         => 'Plats Traditionnels',
-        'plat principal'   => 'Plats Classiques',
-        'plats principaux' => 'Plats Classiques',
-        'plats principal'  => 'Plats Classiques',
+        // Traditionnels (anciens « Boisson » + terme d'import « plat traditionnel »)
+        'boisson'             => 'Plats Traditionnels',
+        'boissons'            => 'Plats Traditionnels',
+        'plat traditionnel'   => 'Plats Traditionnels',
+        'plats traditionnels' => 'Plats Traditionnels',
+        // Classiques (ancien « Plat principal » + terme d'import « plat classique »)
+        'plat principal'      => 'Plats Classiques',
+        'plats principaux'    => 'Plats Classiques',
+        'plats principal'     => 'Plats Classiques',
+        'plat classique'      => 'Plats Classiques',
+        'plats classiques'    => 'Plats Classiques',
+        // Complements (le nom affiche passe par esc_html -> accents UTF-8 bruts, pas d'entites)
+        'complement'          => 'Compléments',
+        'complements'         => 'Compléments',
+        'complément'          => 'Compléments',
+        'compléments'         => 'Compléments',
+        // Desserts / Entrees
+        'dessert'             => 'Desserts',
+        'desserts'            => 'Desserts',
+        'entree'              => 'Entrées',
+        'entrée'              => 'Entrées',
+        'entrées'             => 'Entrées',
     ];
     return $map[ mb_strtolower( trim( $cat ), 'UTF-8' ) ] ?? $cat;
 }
