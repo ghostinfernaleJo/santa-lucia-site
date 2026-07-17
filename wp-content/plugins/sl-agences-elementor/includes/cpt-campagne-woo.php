@@ -740,6 +740,142 @@ function sl_cwoo_autosync_bon_plan_to_product( $post_id ) {
     if ( function_exists( 'wc_delete_product_transients' ) ) wc_delete_product_transients();
 }
 
+/**
+ * Bons plans publiés, prix renseigné, mais SANS produit WooCommerce lié.
+ * Autrement dit : visibles sur /bon-plans/ mais impossibles à acheter.
+ * Cause historique : la création par un responsable déclenchait l'autosync
+ * AVANT l'écriture des prix, donc sans produit — corrigé, mais les offres
+ * créées avant le correctif restent orphelines.
+ *
+ * @return int[] IDs des bons plans à rattraper.
+ */
+function sl_cwoo_bon_plans_sans_produit() {
+    $bps = get_posts( [
+        'post_type'      => 'sl_bon_plan',
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'fields'         => 'ids',
+        'no_found_rows'  => true,
+    ] );
+    if ( ! $bps ) {
+        return [];
+    }
+
+    // Une seule requête pour tous les liens existants, plutôt qu'un get_posts
+    // par bon plan (276 offres = 276 requêtes sinon).
+    global $wpdb;
+    $lies = $wpdb->get_col(
+        "SELECT DISTINCT pm.meta_value
+           FROM {$wpdb->postmeta} pm
+           INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+          WHERE pm.meta_key = '_sl_bp_source_id'
+            AND p.post_type = 'product'
+            AND p.post_status = 'publish'"
+    );
+    $lies = array_map( 'intval', (array) $lies );
+
+    $manquants = [];
+    foreach ( $bps as $id ) {
+        if ( in_array( (int) $id, $lies, true ) ) {
+            continue;
+        }
+        // Sans prix, l'absence de produit est normale : rien à rattraper.
+        $ap = (float) get_post_meta( $id, '_sl_bp_prix_apres', true );
+        $av = (float) get_post_meta( $id, '_sl_bp_prix_avant', true );
+        if ( $ap > 0 || $av > 0 ) {
+            $manquants[] = (int) $id;
+        }
+    }
+    return $manquants;
+}
+
+add_action( 'admin_menu', 'sl_cwoo_add_resync_page', 46 );
+function sl_cwoo_add_resync_page() {
+    add_submenu_page(
+        'edit.php?post_type=sl_bon_plan',
+        'Produits vendables',
+        'Produits vendables',
+        'manage_options',
+        'sl-bp-resync',
+        'sl_cwoo_render_resync_page'
+    );
+}
+
+/**
+ * Écran de contrôle « un bon plan publié = un produit achetable ».
+ * La synchro n'est jamais automatique ici : elle crée/modifie des produits
+ * WooCommerce en masse, donc elle reste un geste volontaire.
+ */
+function sl_cwoo_render_resync_page() {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_die( 'Accès refusé.' );
+    }
+
+    $fait = null;
+    if ( isset( $_POST['sl_cwoo_resync'] ) && check_admin_referer( 'sl_cwoo_resync' ) ) {
+        $fait = sl_cwoo_sync_all_bon_plans();
+        if ( function_exists( 'wc_delete_product_transients' ) ) {
+            wc_delete_product_transients();
+        }
+        do_action( 'litespeed_purge_all' );
+    }
+
+    $manquants = sl_cwoo_bon_plans_sans_produit();
+    ?>
+    <div class="wrap">
+        <h1>Produits vendables</h1>
+        <p class="description" style="max-width:760px;">
+            Chaque bon plan publié avec un prix doit avoir un produit WooCommerce lié : c'est lui
+            qui porte le prix réellement payé et le stock décompté. Sans produit, l'offre s'affiche
+            sur le site mais <strong>ne peut pas être achetée</strong>.
+        </p>
+
+        <?php if ( is_array( $fait ) ) : ?>
+            <div class="notice notice-success"><p>
+                <strong>Synchronisation terminée.</strong>
+                <?php echo (int) $fait['traites']; ?> bons plans parcourus,
+                <?php echo (int) $fait['produits']; ?> produits créés ou mis à jour.
+            </p></div>
+        <?php endif; ?>
+
+        <?php if ( empty( $manquants ) ) : ?>
+            <div class="notice notice-success inline"><p>
+                <strong>Tout est en ordre.</strong> Chaque bon plan publié avec un prix est achetable.
+            </p></div>
+        <?php else : ?>
+            <div class="notice notice-warning inline"><p>
+                <strong><?php echo count( $manquants ); ?> bon(s) plan(s) publié(s) avec un prix
+                n'ont pas de produit lié</strong> — ils sont visibles sur le site mais impossibles à acheter.
+            </p></div>
+            <ul style="margin:12px 0 18px 18px;list-style:disc;">
+                <?php foreach ( array_slice( $manquants, 0, 30 ) as $id ) : ?>
+                    <li>
+                        <a href="<?php echo esc_url( get_edit_post_link( $id ) ); ?>"><?php echo esc_html( get_the_title( $id ) ); ?></a>
+                        <span style="opacity:.6;">(#<?php echo (int) $id; ?>)</span>
+                    </li>
+                <?php endforeach; ?>
+                <?php if ( count( $manquants ) > 30 ) : ?>
+                    <li><em>… et <?php echo count( $manquants ) - 30; ?> autre(s).</em></li>
+                <?php endif; ?>
+            </ul>
+        <?php endif; ?>
+
+        <form method="post">
+            <?php wp_nonce_field( 'sl_cwoo_resync' ); ?>
+            <p>
+                <button type="submit" name="sl_cwoo_resync" value="1" class="button button-primary">
+                    Synchroniser tous les bons plans
+                </button>
+                <span style="opacity:.7;font-size:12px;margin-left:8px;">
+                    Sans risque : l'opération est idempotente (relancer ne crée pas de doublon).
+                    Elle réaligne aussi les prix et les stocks de tous les produits liés.
+                </span>
+            </p>
+        </form>
+    </div>
+    <?php
+}
+
 // Synchro en masse de tous les bons plans publiés (idempotent, chunkable).
 function sl_cwoo_sync_all_bon_plans( $limit = 0, $offset = 0 ) {
     $ids = get_posts( [
