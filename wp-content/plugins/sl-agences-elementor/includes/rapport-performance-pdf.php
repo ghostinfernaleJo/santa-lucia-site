@@ -244,8 +244,8 @@ function slrp_generate() {
     $pdf->SetFont( 'Helvetica', 'B', 8.5 );
     $pdf->SetFillColor( ...$C['bleu'] );
     $pdf->SetTextColor( 255, 255, 255 );
-    $cols = [ [ 12, 'Rang', 'C' ], [ 52, 'Agence', 'L' ], [ 20, 'Score', 'C' ], [ 22, 'Créés', 'C' ],
-              [ 26, 'Actives', 'C' ], [ 30, 'Dern. pub.', 'C' ], [ 26, 'Mention', 'C' ] ];
+    $cols = [ [ 11, 'Rang', 'C' ], [ 46, 'Agence', 'L' ], [ 17, 'Score', 'C' ], [ 17, 'Créés', 'C' ],
+              [ 17, '/sem.', 'C' ], [ 20, 'J. actifs', 'C' ], [ 20, 'Actives', 'C' ], [ 24, 'Dern. pub.', 'C' ], [ 18, 'Mention', 'C' ] ];
     foreach ( $cols as $c ) {
         $pdf->Cell( $c[0], 8, sl_bp_pdf_txt( $c[1] ), 0, 0, $c[2], true );
     }
@@ -258,21 +258,23 @@ function slrp_generate() {
         $pdf->SetFillColor( ...( $alt ? $C['gris_bg'] : [ 255, 255, 255 ] ) );
         $pdf->SetTextColor( 40, 40, 40 );
 
-        $pdf->Cell( 12, 7, sl_bp_pdf_txt( '#' . $r['rang'] ), 0, 0, 'C', true );
+        $pdf->Cell( 11, 7, sl_bp_pdf_txt( '#' . $r['rang'] ), 0, 0, 'C', true );
         $pdf->SetFont( 'Helvetica', 'B', 8.5 );
-        $pdf->Cell( 52, 7, sl_bp_pdf_txt( slsv_agence_nom( $slug ) ), 0, 0, 'L', true );
+        $pdf->Cell( 46, 7, sl_bp_pdf_txt( slsv_agence_nom( $slug ) ), 0, 0, 'L', true );
         $pdf->SetFont( 'Helvetica', 'B', 9 );
         $pdf->SetTextColor( ...$C[ $mcol ] );
-        $pdf->Cell( 20, 7, sl_bp_pdf_txt( (string) $r['score'] ), 0, 0, 'C', true );
+        $pdf->Cell( 17, 7, sl_bp_pdf_txt( (string) $r['score'] ), 0, 0, 'C', true );
         $pdf->SetFont( 'Helvetica', '', 8.5 );
         $pdf->SetTextColor( 40, 40, 40 );
-        $pdf->Cell( 22, 7, sl_bp_pdf_txt( (string) $r['crees'] ), 0, 0, 'C', true );
-        $pdf->Cell( 26, 7, sl_bp_pdf_txt( (string) $r['actives'] ), 0, 0, 'C', true );
-        $dp = null === $r['jours'] ? 'jamais' : ( 0 === $r['jours'] ? 'aujourd\'hui' : 'il y a ' . $r['jours'] . ' j' );
-        $pdf->Cell( 30, 7, sl_bp_pdf_txt( $dp ), 0, 0, 'C', true );
+        $pdf->Cell( 17, 7, sl_bp_pdf_txt( (string) $r['crees'] ), 0, 0, 'C', true );
+        $pdf->Cell( 17, 7, sl_bp_pdf_txt( str_replace( '.', ',', (string) ( $r['par_semaine'] ?? 0 ) ) ), 0, 0, 'C', true );
+        $pdf->Cell( 20, 7, sl_bp_pdf_txt( (string) ( $r['jours_actifs'] ?? 0 ) ), 0, 0, 'C', true );
+        $pdf->Cell( 20, 7, sl_bp_pdf_txt( (string) $r['actives'] ), 0, 0, 'C', true );
+        $dp = null === $r['jours'] ? 'jamais' : ( 0 === $r['jours'] ? 'auj.' : 'il y a ' . $r['jours'] . ' j' );
+        $pdf->Cell( 24, 7, sl_bp_pdf_txt( $dp ), 0, 0, 'C', true );
         $pdf->SetTextColor( ...$C[ $mcol ] );
         $pdf->SetFont( 'Helvetica', 'B', 8 );
-        $pdf->Cell( 26, 7, sl_bp_pdf_txt( $mention ), 0, 0, 'C', true );
+        $pdf->Cell( 18, 7, sl_bp_pdf_txt( $mention ), 0, 0, 'C', true );
         $pdf->Ln();
         $alt = ! $alt;
     }

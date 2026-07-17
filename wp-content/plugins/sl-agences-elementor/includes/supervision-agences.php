@@ -80,6 +80,7 @@ function slsv_collect( $days ) {
         'stock_gere'   => 0,   // actives avec limite de stock cochee
         'expirees'     => 0,   // publiees mais date_fin passee (fiches mortes a nettoyer)
         'epuisees'     => 0,   // stock 0
+        'jours_set'    => [],  // dates distinctes de publication (=> combien de fois par jour/semaine)
     ];
     $agences = [];
     $auteurs = [];
@@ -109,6 +110,7 @@ function slsv_collect( $days ) {
 
             $jour = date( 'Y-m-d', $created );
             $par_jour[ $jour ] = ( $par_jour[ $jour ] ?? 0 ) + 1;
+            $agences[ $slug ]['jours_set'][ $jour ] = true;
         }
 
         $fin = (string) get_post_meta( $p->ID, '_sl_bp_date_fin', true );
@@ -139,11 +141,23 @@ function slsv_collect( $days ) {
         }
     }
 
+    // Cadence par agence : combien de fois elle charge par jour et par semaine,
+    // et sur combien de jours distincts (la regularite, plus parlante que la
+    // moyenne : 14 fiches en 1 seul jour n'est pas « 2 par jour »).
+    $semaines = max( 1, $days / 7 );
+    foreach ( $agences as $slug => &$a ) {
+        $a['jours_actifs'] = count( $a['jours_set'] );
+        $a['par_jour']     = round( $a['crees'] / $days, 2 );
+        $a['par_semaine']  = round( $a['crees'] / $semaines, 1 );
+        unset( $a['jours_set'] ); // set de dates plus utile au-dela d'ici
+    }
+    unset( $a );
+
     uasort( $agences, function ( $a, $b ) { return $b['crees'] <=> $a['crees']; } );
     uasort( $auteurs, function ( $a, $b ) { return $b['crees'] <=> $a['crees']; } );
     ksort( $par_jour );
 
-    return [ 'agences' => $agences, 'auteurs' => $auteurs, 'par_jour' => $par_jour ];
+    return [ 'agences' => $agences, 'auteurs' => $auteurs, 'par_jour' => $par_jour, 'days' => $days ];
 }
 
 function slsv_agence_nom( $slug ) {
@@ -247,12 +261,18 @@ function slsv_render_page() {
             <?php endforeach; ?>
         </div>
 
-        <h2>Classement des agences</h2>
+        <h2>Classement des agences — cadence de chargement</h2>
+        <p class="muted" style="margin-top:-6px;">
+            « /jour » et « /sem. » = rythme moyen de publication sur la période.
+            « Jours actifs » = nombre de journées distinctes où l'agence a réellement chargé au moins un produit
+            (la régularité : 14 offres en un seul jour, ce n'est pas « 2 par jour »).
+        </p>
         <table class="widefat striped">
             <thead><tr>
-                <th>Agence</th><th>Statut</th><th>Créés (période)</th><th style="width:140px;"></th>
+                <th>Agence</th><th>Statut</th><th>Créés</th><th style="width:110px;"></th>
+                <th>Par jour</th><th>Par sem.</th><th>Jours actifs</th>
                 <th>Dernière publication</th><th>Offres actives</th><th>Stock géré</th>
-                <th>Expirées affichées</th><th>Épuisées</th>
+                <th>Expirées</th><th>Épuisées</th>
             </tr></thead>
             <tbody>
             <?php foreach ( $data['agences'] as $slug => $a ) :
@@ -280,6 +300,9 @@ function slsv_render_page() {
                     <td><?php echo $statut; // phpcs:ignore ?></td>
                     <td><strong><?php echo (int) $a['crees']; ?></strong></td>
                     <td><div class="bar"><i style="width:<?php echo $a['crees'] ? $pct : 0; ?>%"></i></div></td>
+                    <td><?php echo esc_html( str_replace( '.', ',', (string) $a['par_jour'] ) ); ?></td>
+                    <td><strong><?php echo esc_html( str_replace( '.', ',', (string) $a['par_semaine'] ) ); ?></strong></td>
+                    <td><?php echo (int) $a['jours_actifs']; ?> <span class="muted" style="font-size:11px;">/ <?php echo (int) $data['days']; ?></span></td>
                     <td><?php echo null === $jours_depuis ? '—' : ( 0 === $jours_depuis ? 'aujourd\'hui' : 'il y a ' . $jours_depuis . ' j' ); ?></td>
                     <td><?php echo $a['actives'] ?: '<strong style="color:#b32d2e;">0</strong>'; ?></td>
                     <td><?php echo $a['actives'] ? $pct_stock . ' %' : '—'; ?></td>
