@@ -69,7 +69,11 @@ class MMGate_Client {
 		if ( strlen( $d ) === 10 && '0' === $d[0] ) {
 			$d = substr( $d, 1 );
 		}
-		return strlen( $d ) === 9 ? $d : '';
+		// Mobile Money = mobiles uniquement, prefixe 6 au Cameroun. Un fixe a
+		// 9 chiffres (2XX…) passerait le test de longueur mais echouerait cote
+		// operateur avec un message obscur : mieux vaut refuser ici, ou le
+		// message d'erreur explique quoi corriger.
+		return ( strlen( $d ) === 9 && '6' === $d[0] ) ? $d : '';
 	}
 
 	/**

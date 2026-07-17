@@ -97,6 +97,18 @@ class MMGate_Poller {
 				return 'failed';
 
 			case MMGate_Client::ETATO_INTROUVABLE:
+				// L'ecran d'attente sonde des 2,5 s apres l'initiation, et rien
+				// ne garantit que MMGate rende l'operation visible cote suivi
+				// aussi vite. Conclure a l'echec sur un 404 precoce annulerait
+				// une commande dont le client est EN TRAIN de valider le debit
+				// — il serait preleve pour une commande marquee echouee. On ne
+				// tranche qu'apres 90 s : un vrai IDOPER fantome ne coute que
+				// ce delai, un faux negatif couterait de l'argent au client.
+				$started = (int) $order->get_meta( '_mmgate_started' );
+				if ( $started && ( time() - $started ) < 90 ) {
+					self::requeue( $order );
+					return 'pending';
+				}
 				$order->update_status( 'failed', sprintf( __( 'MMGate : transaction introuvable (IDOPER %s).', 'mmgate-woocommerce' ), $idoper ) );
 				return 'failed';
 

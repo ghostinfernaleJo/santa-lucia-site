@@ -62,8 +62,12 @@ function slc_admin_page() {
         if ( $found ) {
             $orders = [ $found ];
         } else {
-            // recherche par telephone dans les statuts actifs
-            foreach ( slc_order_ids( $agence_sel, slc_active_statuses(), 300 ) as $oid ) {
+            // Recherche par telephone sur TOUS les statuts : un client rappelle
+            // souvent APRES le retrait (reclamation, oubli d'article) — sa
+            // commande terminee doit rester trouvable par son numero, comme
+            // elle l'est deja par code de retrait ou numero de commande.
+            $tous_statuts = array_diff( array_keys( slc_screen_statuses() ), [ 'actives' ] );
+            foreach ( slc_order_ids( $agence_sel, $tous_statuts, 300 ) as $oid ) {
                 $o = wc_get_order( $oid );
                 if ( $o && false !== strpos( preg_replace( '/\D/', '', $o->get_billing_phone() ), preg_replace( '/\D/', '', $recherche ) ) ) {
                     $orders[] = $o;

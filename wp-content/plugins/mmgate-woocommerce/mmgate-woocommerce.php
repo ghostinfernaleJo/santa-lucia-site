@@ -34,8 +34,6 @@ add_action( 'before_woocommerce_init', function () {
 	}
 } );
 
-add_filter( 'cron_schedules', [ 'MMGate_Poller', 'add_interval' ] );
-
 add_action( 'plugins_loaded', 'mmgate_wc_boot', 20 );
 function mmgate_wc_boot() {
 	if ( ! class_exists( 'WC_Payment_Gateway' ) ) {
@@ -49,6 +47,12 @@ function mmgate_wc_boot() {
 	require_once MMGATE_WC_PATH . 'includes/class-mmgate-gateway.php';
 	require_once MMGATE_WC_PATH . 'includes/class-mmgate-poller.php';
 	require_once MMGATE_WC_PATH . 'includes/class-mmgate-waiting.php';
+
+	// Enregistre ICI et pas au chargement du fichier : la classe n'existe que si
+	// WooCommerce est actif. Enregistre plus haut, un site sans WooCommerce
+	// evaluerait cron_schedules (quasi chaque requete) sur une classe absente
+	// -> fatal « Class not found » sur tout le site, admin compris.
+	add_filter( 'cron_schedules', [ 'MMGate_Poller', 'add_interval' ] );
 
 	MMGate_Poller::init();
 	MMGate_Waiting::init();
@@ -69,7 +73,10 @@ add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), function ( $li
 } );
 
 register_deactivation_hook( __FILE__, function () {
-	wp_clear_scheduled_hook( 'mmgate_sweep' );
+	wp_unschedule_hook( 'mmgate_sweep' );
+	// Les verifications unitaires encore en file (une par commande en attente)
+	// ne doivent pas survivre au plugin : leurs callbacks n'existeraient plus.
+	wp_unschedule_hook( 'mmgate_check_order' );
 } );
 
 /**

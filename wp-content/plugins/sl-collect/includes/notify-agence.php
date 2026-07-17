@@ -66,8 +66,14 @@ function slc_notify_agence_paid( $order_id ) {
         if ( is_email( $u->user_email ) ) $dest[] = $u->user_email;
     }
     // Repli : sans responsable joignable, la commande ne doit pas rester muette.
+    // slf_email (module Avis & Réclamations) est réutilisée SCIEMMENT : c'est
+    // l'adresse service-client réellement suivie du site. Elle peut toutefois
+    // exister en base avec une valeur vide → valider avant de s'en servir.
     if ( ! $dest ) {
-        $fallback = get_option( 'slf_email', get_option( 'admin_email' ) );
+        $fallback = get_option( 'slf_email' );
+        if ( ! is_email( $fallback ) ) {
+            $fallback = get_option( 'admin_email' );
+        }
         if ( is_email( $fallback ) ) $dest[] = $fallback;
     }
     if ( ! $dest ) {
@@ -132,18 +138,36 @@ function slc_menu_bubble() {
 function slc_count_active_orders_for_current_user() {
     if ( ! function_exists( 'wc_get_orders' ) ) return 0;
 
+    // admin_menu tourne sur CHAQUE ecran d'admin : sans cache, chaque
+    // chargement de page payait une requete commandes (meta_query), pour
+    // 18 responsables. Une pastille en retard de 2 minutes est un cout
+    // acceptable — l'ecran Commandes retrait, lui, reste exact.
+    $cache_key = 'slc_bubble_' . get_current_user_id();
+    $cached    = get_transient( $cache_key );
+    if ( false !== $cached ) {
+        return (int) $cached;
+    }
+
+    $n = 0;
     $args = [
         'status' => slc_active_statuses(),
         'limit'  => 50,
         'return' => 'ids',
     ];
 
-    if ( ! slc_is_admin_user() ) {
-        $slug = slc_user_agence_slug();
-        if ( $slug === '' ) return 0; // fail-closed, comme le reste de l'ecran
+    $slug = slc_is_admin_user() ? null : slc_user_agence_slug();
+    if ( '' === $slug ) {
+        // fail-closed, comme le reste de l'ecran — mais on cache aussi le 0,
+        // sinon chaque page de ce compte sans agence relancerait le calcul.
+        set_transient( $cache_key, 0, 2 * MINUTE_IN_SECONDS );
+        return 0;
+    }
+    if ( null !== $slug ) {
         $args['meta_key']   = '_sl_collect_agence';
         $args['meta_value'] = $slug;
     }
 
-    return count( wc_get_orders( $args ) );
+    $n = count( wc_get_orders( $args ) );
+    set_transient( $cache_key, $n, 2 * MINUTE_IN_SECONDS );
+    return $n;
 }

@@ -59,10 +59,15 @@ function slc_facture_route() {
     $key      = isset( $_GET['key'] ) ? sanitize_text_field( wp_unslash( $_GET['key'] ) ) : '';
     $order    = $order_id ? wc_get_order( $order_id ) : null;
 
+    // Varnish met en cache les 404 par URL (gotcha connu de ce site) : sans
+    // nocache_headers, une URL de facture visitee trop tot resterait « morte »
+    // en cache et servirait l'erreur meme une fois la commande valide.
     if ( ! $order ) {
+        nocache_headers();
         wp_die( 'Commande introuvable.', 'Facture', [ 'response' => 404 ] );
     }
     if ( ! slc_facture_can_view( $order, $key ) ) {
+        nocache_headers();
         wp_die( 'Vous n\'avez pas accès à cette facture.', 'Facture', [ 'response' => 403 ] );
     }
 

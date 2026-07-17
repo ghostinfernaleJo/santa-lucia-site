@@ -689,10 +689,19 @@ function sl_cwoo_sync_bon_plan_to_product( $bon_plan_id ) {
     $bp_stock_qty = get_post_meta( $bon_plan_id, '_sl_bp_stock_qty', true );
     if ( $bp_stock_on && $bp_stock_qty !== '' ) {
         $qty = max( 0, (int) $bp_stock_qty );
-        update_post_meta( $product_id, '_manage_stock', 'yes' );
-        update_post_meta( $product_id, '_backorders', 'no' );
-        update_post_meta( $product_id, '_stock', $qty );
-        update_post_meta( $product_id, '_stock_status', $qty > 0 ? 'instock' : 'outofstock' );
+        // N'écrire le stock que s'il change vraiment. La synchro de masse
+        // repasse sur des centaines de produits pendant les heures de vente :
+        // réécrire une valeur identique rouvrirait pour rien la fenêtre de
+        // course avec un décrément de commande simultané (la valeur d'avant
+        // commande serait reposée par-dessus = +1 en survente).
+        $deja_gere  = get_post_meta( $product_id, '_manage_stock', true ) === 'yes';
+        $stock_cour = (int) get_post_meta( $product_id, '_stock', true );
+        if ( ! $deja_gere || $stock_cour !== $qty ) {
+            update_post_meta( $product_id, '_manage_stock', 'yes' );
+            update_post_meta( $product_id, '_backorders', 'no' );
+            update_post_meta( $product_id, '_stock', $qty );
+            update_post_meta( $product_id, '_stock_status', $qty > 0 ? 'instock' : 'outofstock' );
+        }
     } else {
         update_post_meta( $product_id, '_manage_stock', 'no' );
         update_post_meta( $product_id, '_stock_status', 'instock' );
@@ -713,6 +722,18 @@ function sl_cwoo_sync_bon_plan_to_product( $bon_plan_id ) {
 
     if ( ! is_wp_error( $fallback_term ) && ! empty( $fallback_term['term_id'] ) ) {
         wp_set_object_terms( $product_id, [ (int) $fallback_term['term_id'] ], 'product_cat', false );
+    }
+
+    // Les update_post_meta bruts ci-dessus ne mettent PAS à jour la table
+    // wc_product_meta_lookup (tris par prix, filtre « en promo », colonne et
+    // filtres de stock de l'admin, analytics) : recharger le produit puis
+    // save() délègue le recalcul à WooCommerce. Sans danger côté recopie de
+    // stock : save() ne signale la prop stock que si elle a changé, or elle
+    // vient d'être écrite à la même valeur.
+    clean_post_cache( $product_id );
+    $p = function_exists( 'wc_get_product' ) ? wc_get_product( $product_id ) : null;
+    if ( $p ) {
+        $p->save();
     }
 
     return $product_id;

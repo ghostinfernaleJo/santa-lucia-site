@@ -432,9 +432,9 @@ function sl_bp_ajax_save_stock() {
     if ( function_exists( 'sl_cwoo_sync_bon_plan_to_product' ) ) {
         sl_cwoo_sync_bon_plan_to_product( $post_id );
     }
-    if ( function_exists( 'sl_bp_purge_front_cache' ) ) {
-        sl_bp_purge_front_cache( $post_id );
-    }
+    // Pas de purge explicite ici : les update_post_meta ci-dessus déclenchent
+    // déjà le watcher (_sl_bp_stock_* sont surveillées), qui met la purge en
+    // file. L'appeler en plus doublait le travail pour rien.
 
     if ( $stock_actif !== '1' ) {
         $state = '<em>illimité</em>';

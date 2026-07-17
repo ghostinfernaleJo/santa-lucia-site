@@ -427,27 +427,70 @@ function sl_bp_purge_front_cache( $post_id = 0 ) {
 
     $urls = array_unique( array_filter( $urls ) );
 
+    // LiteSpeed Cache : hooks in-process, gratuits — purge immédiate.
+    // Sans elle, LiteSpeed ressert sa copie périmée de /bon-plans/ même après
+    // la purge Varnish (Varnish re-demande au backend, qui sert LiteSpeed).
     foreach ( $urls as $url ) {
-        // 1) Varnish (PURGE HTTP)
-        wp_remote_request( $url, [
-            'method'    => 'PURGE',
-            'timeout'   => 3,
-            'blocking'  => true,
-            'sslverify' => false,
-        ] );
-        // 2) LiteSpeed Cache (plugin actif) — hook officiel, sans effet si absent.
-        //    Sans cette purge, LiteSpeed ressert sa copie périmée de /bon-plans/
-        //    même après la purge Varnish (Varnish re-demande au backend, qui sert LiteSpeed).
         do_action( 'litespeed_purge_url', $url );
     }
-
-    // LiteSpeed : purge ciblée par post (le bon plan + la page /bon-plans/)
     if ( $post_id ) {
         do_action( 'litespeed_purge_post', $post_id );
     }
     $bp_page = get_page_by_path( 'bon-plans' );
     if ( $bp_page ) {
         do_action( 'litespeed_purge_post', $bp_page->ID );
+    }
+
+    // Varnish : requêtes HTTP. En ligne et bloquantes (3 URLs × timeout 3 s),
+    // elles ajoutaient jusqu'à 9 s au chemin déclencheur — dont la CONFIRMATION
+    // DE PAIEMENT (décrément du stock → recopie _sl_bp_stock_qty → watcher →
+    // purge). On accumule par requête (dédup) et un seul événement cron part au
+    // shutdown : zéro latence pour l'utilisateur. Le non-bloquant direct est
+    // exclu : il peut couper la connexion avant l'envoi (déjà constaté ici).
+    sl_bp_queue_varnish_purge( $urls );
+}
+
+/** File d'attente de purge Varnish : dédupliquée par requête, expédiée au shutdown. */
+function sl_bp_queue_varnish_purge( array $urls ) {
+    static $queue = [], $registered = false;
+
+    foreach ( $urls as $u ) {
+        $queue[ $u ] = true;
+    }
+    if ( $registered ) {
+        return;
+    }
+    $registered = true;
+
+    // « shutdown » s'exécute aussi après wp_send_json()/die() : les chemins
+    // AJAX (save stock responsable, poll de paiement) sont couverts.
+    add_action( 'shutdown', function () use ( &$queue ) {
+        $urls = array_keys( $queue );
+        if ( ! $urls ) {
+            return;
+        }
+        sort( $urls ); // args stables → la dédup wp-cron reconnaît les doublons
+
+        // Un événement identique déjà en file s'exécutera APRÈS la présente
+        // modification : sa purge la couvrira, inutile d'en empiler un second.
+        if ( wp_next_scheduled( 'sl_bp_async_purge', [ $urls ] ) ) {
+            return;
+        }
+        if ( false === wp_schedule_single_event( time(), 'sl_bp_async_purge', [ $urls ] ) ) {
+            sl_bp_do_varnish_purge( $urls ); // repli : purge en ligne (rare)
+        }
+    } );
+}
+
+add_action( 'sl_bp_async_purge', 'sl_bp_do_varnish_purge' );
+function sl_bp_do_varnish_purge( $urls ) {
+    foreach ( (array) $urls as $url ) {
+        wp_remote_request( $url, [
+            'method'    => 'PURGE',
+            'timeout'   => 3,
+            'blocking'  => true,
+            'sslverify' => false,
+        ] );
     }
 }
 
