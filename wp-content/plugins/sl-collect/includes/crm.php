@@ -60,6 +60,24 @@ function slc_crm_save_from_checkout( $customer, $data ) {
     }
 }
 
+/**
+ * L'agence du client = la derniere agence de retrait utilisee.
+ * Capturee sur l'ORDRE (apres sl_bp_force_order_agency, qui peut corriger le
+ * champ soumis) et non sur le POST : c'est la valeur qui fait foi. Le client
+ * peut ensuite la changer dans Mon compte.
+ */
+add_action( 'woocommerce_checkout_order_processed', 'slc_crm_capture_agence', 20, 1 );
+function slc_crm_capture_agence( $order_id ) {
+    $order = wc_get_order( $order_id );
+    if ( ! $order || ! $order->get_customer_id() ) {
+        return;
+    }
+    $slug = (string) $order->get_meta( '_sl_collect_agence' );
+    if ( $slug !== '' ) {
+        update_user_meta( $order->get_customer_id(), '_slc_agence', $slug );
+    }
+}
+
 /** Y-m-d valide (année plausible), sinon ''. */
 function slc_crm_sanitize_birthday( $raw ) {
     $raw = sanitize_text_field( (string) $raw );
@@ -77,12 +95,22 @@ function slc_crm_sanitize_birthday( $raw ) {
 /** Mon compte : les memes champs, modifiables a tout moment. */
 add_action( 'woocommerce_edit_account_form', 'slc_crm_account_form' );
 function slc_crm_account_form() {
-    $uid   = get_current_user_id();
-    $bday  = (string) get_user_meta( $uid, '_slc_birthday', true );
-    $optin = get_user_meta( $uid, '_slc_marketing_optin', true ) === '1';
+    $uid    = get_current_user_id();
+    $bday   = (string) get_user_meta( $uid, '_slc_birthday', true );
+    $optin  = get_user_meta( $uid, '_slc_marketing_optin', true ) === '1';
+    $agence = (string) get_user_meta( $uid, '_slc_agence', true );
     ?>
     <fieldset style="margin-top:18px;">
         <legend>Offres &amp; anniversaire</legend>
+        <p class="woocommerce-form-row form-row">
+            <label for="slc_agence">Mon agence habituelle</label>
+            <select name="slc_agence" id="slc_agence" class="woocommerce-Input">
+                <option value="">— Choisir —</option>
+                <?php if ( function_exists( 'slc_agences' ) ) : foreach ( slc_agences() as $t ) : ?>
+                    <option value="<?php echo esc_attr( $t->slug ); ?>" <?php selected( $agence, $t->slug ); ?>><?php echo esc_html( $t->name ); ?></option>
+                <?php endforeach; endif; ?>
+            </select>
+        </p>
         <p class="woocommerce-form-row form-row">
             <label for="slc_birthday">Date d'anniversaire (facultatif)</label>
             <input type="date" name="slc_birthday" id="slc_birthday" class="woocommerce-Input input-text"
@@ -102,6 +130,13 @@ add_action( 'woocommerce_save_account_details', 'slc_crm_account_save' );
 function slc_crm_account_save( $uid ) {
     if ( isset( $_POST['slc_birthday'] ) ) {
         update_user_meta( $uid, '_slc_birthday', slc_crm_sanitize_birthday( wp_unslash( $_POST['slc_birthday'] ) ) );
+    }
+    if ( isset( $_POST['slc_agence'] ) ) {
+        $slug = sanitize_title( wp_unslash( $_POST['slc_agence'] ) );
+        // N'accepter qu'une agence reelle : cette meta alimente le filtre CRM.
+        if ( $slug === '' || get_term_by( 'slug', $slug, 'sl_agence_promo' ) ) {
+            update_user_meta( $uid, '_slc_agence', $slug );
+        }
     }
     $avant = get_user_meta( $uid, '_slc_marketing_optin', true );
     $optin = ! empty( $_POST['slc_optin'] ) ? '1' : '';
@@ -213,7 +248,7 @@ function slc_crm_menu() {
 }
 
 /** Requete clients selon les filtres de l'ecran. */
-function slc_crm_query( $filtre, $recherche, $paged, $per_page = 30 ) {
+function slc_crm_query( $filtre, $recherche, $paged, $per_page = 30, $agence = '' ) {
     $args = [
         'role__in' => [ 'customer', 'subscriber' ],
         'number'   => $per_page,
@@ -227,6 +262,13 @@ function slc_crm_query( $filtre, $recherche, $paged, $per_page = 30 ) {
         $args['meta_query'] = [ [ 'key' => '_slc_marketing_optin', 'value' => '1' ] ];
     } elseif ( 'anniv' === $filtre ) {
         $args['meta_query'] = [ [ 'key' => '_slc_birthday', 'value' => '-' . current_time( 'm' ) . '-', 'compare' => 'LIKE' ] ];
+    }
+
+    // Filtre par agence (cumulable avec le filtre principal, relation AND) :
+    // c'est lui qui permet « tous les clients de Mokolo » pour une offre ciblee.
+    if ( $agence !== '' ) {
+        $args['meta_query']   = $args['meta_query'] ?? [];
+        $args['meta_query'][] = [ 'key' => '_slc_agence', 'value' => $agence ];
     }
 
     if ( $recherche !== '' ) {
@@ -248,7 +290,16 @@ function slc_crm_query( $filtre, $recherche, $paged, $per_page = 30 ) {
 /** Donnees d'une ligne client (quelques requetes par ligne : page a 30, admin only). */
 function slc_crm_row( $uid ) {
     $last   = wc_get_orders( [ 'customer_id' => $uid, 'limit' => 1, 'return' => 'objects' ] );
-    $agence = $last ? (string) $last[0]->get_meta( '_sl_collect_agence' ) : '';
+    $agence = (string) get_user_meta( $uid, '_slc_agence', true );
+    // Rattrapage des clients d'avant la meta : on derive de la derniere
+    // commande UNE fois et on enregistre — le filtre par agence les voit
+    // ensuite, et l'ecran s'auto-repare au fil des consultations.
+    if ( $agence === '' && $last ) {
+        $agence = (string) $last[0]->get_meta( '_sl_collect_agence' );
+        if ( $agence !== '' ) {
+            update_user_meta( $uid, '_slc_agence', $agence );
+        }
+    }
     return [
         'tel'      => get_user_meta( $uid, 'billing_phone', true ),
         'bday'     => (string) get_user_meta( $uid, '_slc_birthday', true ),
@@ -267,9 +318,10 @@ function slc_crm_render_page() {
 
     $filtre    = isset( $_GET['filtre'] ) ? sanitize_key( $_GET['filtre'] ) : '';
     $recherche = isset( $_GET['q'] ) ? sanitize_text_field( wp_unslash( $_GET['q'] ) ) : '';
+    $agence    = isset( $_GET['ag'] ) ? sanitize_title( wp_unslash( $_GET['ag'] ) ) : '';
     $paged     = isset( $_GET['pg'] ) ? max( 1, (int) $_GET['pg'] ) : 1;
 
-    $q     = slc_crm_query( $filtre, $recherche, $paged );
+    $q     = slc_crm_query( $filtre, $recherche, $paged, 30, $agence );
     $total = (int) $q->get_total();
     $pages = max( 1, (int) ceil( $total / 30 ) );
 
@@ -277,7 +329,7 @@ function slc_crm_render_page() {
     $nb_optin = count( get_users( [ 'role__in' => [ 'customer', 'subscriber' ], 'meta_key' => '_slc_marketing_optin', 'meta_value' => '1', 'fields' => 'ID' ] ) );
     $nb_anniv = count( get_users( [ 'role__in' => [ 'customer', 'subscriber' ], 'meta_query' => [ [ 'key' => '_slc_birthday', 'value' => '-' . current_time( 'm' ) . '-', 'compare' => 'LIKE' ] ], 'fields' => 'ID' ] ) );
 
-    $export_url = wp_nonce_url( admin_url( 'admin-post.php?action=slc_crm_export&filtre=' . rawurlencode( $filtre ) ), 'slc_crm_export' );
+    $export_url = wp_nonce_url( admin_url( 'admin-post.php?action=slc_crm_export&filtre=' . rawurlencode( $filtre ) . '&ag=' . rawurlencode( $agence ) ), 'slc_crm_export' );
     $base_url   = admin_url( 'admin.php?page=sl-clients' );
     ?>
     <div class="wrap">
@@ -300,6 +352,14 @@ function slc_crm_render_page() {
                     <option value="" <?php selected( $filtre, '' ); ?>>Tous les clients</option>
                     <option value="optin" <?php selected( $filtre, 'optin' ); ?>>Consentants aux offres</option>
                     <option value="anniv" <?php selected( $filtre, 'anniv' ); ?>>Anniversaire ce mois-ci</option>
+                </select>
+            </label>
+            <label>Agence<br>
+                <select name="ag" onchange="this.form.submit()">
+                    <option value="">Toutes les agences</option>
+                    <?php if ( function_exists( 'slc_agences' ) ) : foreach ( slc_agences() as $t ) : ?>
+                        <option value="<?php echo esc_attr( $t->slug ); ?>" <?php selected( $agence, $t->slug ); ?>><?php echo esc_html( $t->name ); ?></option>
+                    <?php endforeach; endif; ?>
                 </select>
             </label>
             <label>Recherche (nom / email / téléphone)<br>
@@ -340,10 +400,10 @@ function slc_crm_render_page() {
             <p style="margin-top:12px;">
                 Page <?php echo (int) $paged; ?> / <?php echo (int) $pages; ?>
                 <?php if ( $paged > 1 ) : ?>
-                    <a class="button" href="<?php echo esc_url( add_query_arg( [ 'filtre' => $filtre, 'q' => $recherche, 'pg' => $paged - 1 ], $base_url ) ); ?>">← Précédent</a>
+                    <a class="button" href="<?php echo esc_url( add_query_arg( [ 'filtre' => $filtre, 'q' => $recherche, 'ag' => $agence, 'pg' => $paged - 1 ], $base_url ) ); ?>">← Précédent</a>
                 <?php endif; ?>
                 <?php if ( $paged < $pages ) : ?>
-                    <a class="button" href="<?php echo esc_url( add_query_arg( [ 'filtre' => $filtre, 'q' => $recherche, 'pg' => $paged + 1 ], $base_url ) ); ?>">Suivant →</a>
+                    <a class="button" href="<?php echo esc_url( add_query_arg( [ 'filtre' => $filtre, 'q' => $recherche, 'ag' => $agence, 'pg' => $paged + 1 ], $base_url ) ); ?>">Suivant →</a>
                 <?php endif; ?>
             </p>
         <?php endif; ?>
@@ -390,7 +450,8 @@ function slc_crm_export() {
     check_admin_referer( 'slc_crm_export' );
 
     $filtre = isset( $_GET['filtre'] ) ? sanitize_key( $_GET['filtre'] ) : '';
-    $q      = slc_crm_query( $filtre, '', 1, 5000 );
+    $ag     = isset( $_GET['ag'] ) ? sanitize_title( wp_unslash( $_GET['ag'] ) ) : '';
+    $q      = slc_crm_query( $filtre, '', 1, 5000, $ag );
 
     // Regle deja apprise sur ce site : vider les buffers avant tout download
     // (un fichier de la pile emet un BOM parasite qui corrompt le binaire).
