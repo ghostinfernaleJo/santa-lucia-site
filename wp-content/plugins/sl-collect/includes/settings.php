@@ -90,6 +90,8 @@ function slc_settings_page() {
     if ( isset( $_POST['slc_save_settings'] ) ) {
         check_admin_referer( 'slc_save_settings' );
         update_option( 'sl_collect_add_to_cart', empty( $_POST['slc_add_to_cart'] ) ? 'no' : 'yes' );
+        update_option( 'sl_collect_guest', empty( $_POST['slc_guest'] ) ? 'no' : 'yes' );
+        update_option( 'sl_collect_sms', empty( $_POST['slc_sms'] ) ? 'no' : 'yes' );
         $phone = sanitize_text_field( wp_unslash( $_POST['slc_phone'] ?? '' ) );
         if ( $phone !== '' ) update_option( 'sl_collect_phone', $phone );
         $message = 'Réglages enregistrés.';
@@ -130,6 +132,30 @@ function slc_settings_page() {
                     L'icône panier du haut de page suit automatiquement ce réglage.
                     Le bouton WhatsApp reste affiché dans les deux modes (un seul, en français).
                 </p>
+            </div>
+
+            <div style="background:#fff;border:1px solid #dcdcde;border-radius:10px;padding:20px 24px;margin:18px 0;">
+                <h2 style="margin-top:0;">👤 Commande sans compte</h2>
+                <label style="display:flex;align-items:flex-start;gap:10px;font-size:14px;">
+                    <input type="checkbox" name="slc_guest" value="1" <?php checked( get_option( 'sl_collect_guest', 'yes' ), 'yes' ); ?> style="margin-top:3px;">
+                    <span>
+                        <strong>Autoriser les visiteurs à commander sans créer de compte</strong><br>
+                        <span style="color:#666;">Le téléphone et l'email restent obligatoires : c'est par eux que partent la facture
+                        (lien consultable sans connexion) et les SMS. La création de compte reste proposée au checkout, en option.</span>
+                    </span>
+                </label>
+            </div>
+
+            <div style="background:#fff;border:1px solid #dcdcde;border-radius:10px;padding:20px 24px;margin:18px 0;">
+                <h2 style="margin-top:0;">💬 SMS automatiques</h2>
+                <label style="display:flex;align-items:flex-start;gap:10px;font-size:14px;">
+                    <input type="checkbox" name="slc_sms" value="1" <?php checked( get_option( 'sl_collect_sms', 'yes' ), 'yes' ); ?> style="margin-top:3px;">
+                    <span>
+                        <strong>Envoyer un SMS au client (paiement confirmé, commande prête)</strong><br>
+                        <span style="color:#666;">Via le compte MMGate — <strong>5 FCFA par SMS</strong>, débités du solde partenaire.
+                        Si le solde est insuffisant, le SMS n'est pas envoyé et la raison est notée sur la commande.</span>
+                    </span>
+                </label>
             </div>
 
             <div style="background:#fff;border:1px solid #dcdcde;border-radius:10px;padding:20px 24px;margin:18px 0;">

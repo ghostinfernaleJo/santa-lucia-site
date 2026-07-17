@@ -6,9 +6,21 @@ if ( ! defined( 'ABSPATH' ) ) exit;
    ============================================================ */
 
 // Le theme (Grogin) desactive la creation de compte au checkout via
-// __return_false ; le workflow Drop & Collect l'exige (compte obligatoire,
-// pas de commande invite) -> on la reactive en priorite haute.
+// __return_false -> on la reactive en priorite haute (elle reste PROPOSEE,
+// via la case « Creer un compte ? », plus jamais imposee).
 add_filter( 'woocommerce_checkout_registration_enabled', '__return_true', 99 );
+
+/**
+ * Commande SANS compte (invite), pilotee par l'option sl_collect_guest.
+ * L'activation du plugin avait force woocommerce_enable_guest_checkout=no ;
+ * plutot que de retoucher la base, ce filtre fait foi. Garde-fou metier :
+ * telephone (billing_phone, requis plus bas) + email (requis par Woo) restent
+ * OBLIGATOIRES — c'est ce qui permet d'envoyer la facture (lien a cle par
+ * email, consultable sans connexion) et le SMS a un client sans compte.
+ */
+add_filter( 'pre_option_woocommerce_enable_guest_checkout', function () {
+    return get_option( 'sl_collect_guest', 'yes' ) === 'yes' ? 'yes' : 'no';
+} );
 add_filter( 'woocommerce_checkout_fields', 'slc_checkout_fields', 20 );
 function slc_checkout_fields( $fields ) {
     if ( isset( $fields['billing']['billing_phone'] ) ) {
