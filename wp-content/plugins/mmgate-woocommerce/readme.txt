@@ -57,6 +57,23 @@ Le texte est translittéré en ASCII avant envoi : certains téléphones forcent
 
 == Frequently Asked Questions ==
 
+= « ETAT 202 : mot de passe erroné » alors que mon mot de passe est correct =
+
+Regardez s'il contient `#`, `/`, `?` ou `%`. L'API MMGate transmet le mot de passe **dans le chemin de l'URL**, où ces caractères ont une signification particulière.
+
+Le `#` est le cas le plus vicieux : non encodé, il signale un fragment et tronque l'URL avant l'envoi ; encodé en `%23`, il n'arrive intact que si le routeur MMGate décode ses segments. Si ce n'est pas le cas, **aucun encodage ne peut fonctionner** — c'est une conséquence de leur conception, pas une limite de ce plugin.
+
+**Solution : demandez à MMGate un mot de passe API purement alphanumérique**, long (24 caractères ou plus). Vous n'y perdez rien en robustesse et vous éliminez toute une classe de pannes silencieuses. Le plugin vous avertit automatiquement si votre mot de passe contient l'un de ces caractères.
+
+= Comment lire les codes d'erreur ? =
+
+MMGate valide dans cet ordre : **partenaire → utilisateur → mot de passe**. Chaque code désigne donc **une seule valeur**, inutile de tout ressaisir :
+
+* **204** — le code partenaire est faux.
+* **205** — le partenaire est bon, l'utilisateur est introuvable. MMGate attend l'utilisateur *API* (`utipart`), pas votre identifiant de connexion au tableau de bord.
+* **203** — partenaire et utilisateur bons, mais l'utilisateur est désactivé côté MMGate : rien à corriger chez vous.
+* **202** — partenaire et utilisateur bons, seul le mot de passe est en cause (voir la question précédente).
+
 = Le test de connexion réussit mais le paiement échoue =
 
 Le test de connexion valide CDPRT, USR et PWD via l'endpoint SOLDE, qui n'utilise pas le token. Les paiements, eux, exigent en plus un `X-Partner-Token` valide. Un token absent ou périmé se manifeste exactement ainsi.

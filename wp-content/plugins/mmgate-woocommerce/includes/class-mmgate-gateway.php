@@ -134,8 +134,51 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 				. '</p></div>';
 		}
 
+		$this->warn_risky_password();
 		$this->render_connection_test();
 		parent::admin_options();
+	}
+
+	/**
+	 * L'API MMGate fait transiter le mot de passe dans le CHEMIN de l'URL.
+	 * Certains caracteres y sont donc hasardeux :
+	 *
+	 *  - « # » delimite un fragment : non encode, l'URL est tronquee avant
+	 *    l'envoi ; encode en %23, il n'arrive intact que si le routeur MMGate
+	 *    decode ses segments. Si ce n'est pas le cas, AUCUN encodage ne marche.
+	 *  - « / » et « ? » redecoupent le chemin ou ouvrent la query string : meme
+	 *    encodes, beaucoup de serveurs les normalisent en amont de PHP.
+	 *  - « % » peut subir un double decodage.
+	 *
+	 * Symptome typique : ETAT 202 « mot de passe erroné » avec un mot de passe
+	 * pourtant exact. Impossible a deviner sans connaitre cette contrainte,
+	 * d'ou cet avertissement.
+	 */
+	private function warn_risky_password() {
+		$pwd = $this->creds()['pwd'];
+		if ( '' === $pwd ) {
+			return;
+		}
+
+		$risques = [];
+		foreach ( [ '#' => 'dièse', '/' => 'barre oblique', '?' => 'point d\'interrogation', '%' => 'pourcent' ] as $c => $nom ) {
+			if ( false !== strpos( $pwd, $c ) ) {
+				$risques[] = sprintf( '<code>%s</code> (%s)', esc_html( $c ), esc_html( $nom ) );
+			}
+		}
+		if ( ! $risques ) {
+			return;
+		}
+
+		echo '<div class="notice notice-warning inline"><p><strong>'
+			. esc_html__( 'Votre mot de passe API contient des caractères à risque : ', 'mmgate-woocommerce' )
+			. wp_kses_post( implode( ', ', $risques ) ) . '</strong></p><p>'
+			. esc_html__( 'L\'API MMGate transmet le mot de passe dans le chemin de l\'URL. Ces caractères y ont une signification particulière et peuvent être altérés avant d\'atteindre MMGate — vous obtiendriez alors « ETAT 202 : mot de passe erroné » alors que votre mot de passe est correct.', 'mmgate-woocommerce' )
+			. '</p><p><strong>'
+			. esc_html__( 'Recommandation : demandez à MMGate un mot de passe API purement alphanumérique (lettres et chiffres uniquement, 24 caractères ou plus).', 'mmgate-woocommerce' )
+			. '</strong> '
+			. esc_html__( 'Vous n\'y perdez rien en robustesse, et vous éliminez toute une classe de pannes silencieuses.', 'mmgate-woocommerce' )
+			. '</p></div>';
 	}
 
 	/**
@@ -313,7 +356,7 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 		$map = [
 			202 => [
 				'quoi'   => __( 'mot de passe erroné', 'mmgate-woocommerce' ),
-				'action' => __( 'Le code partenaire et l\'utilisateur ont été acceptés : seul <code>PWD</code> est en cause. Vérifiez le mot de passe de l\'<strong>utilisateur API</strong> — ce n\'est pas forcément celui de votre connexion au tableau de bord MMGate.', 'mmgate-woocommerce' ),
+				'action' => __( 'Le code partenaire et l\'utilisateur ont été acceptés : seul <code>PWD</code> est en cause. Vérifiez le mot de passe de l\'<strong>utilisateur API</strong> — ce n\'est pas forcément celui de votre connexion au tableau de bord MMGate. <strong>Si votre mot de passe contient des caractères spéciaux, suspectez-les avant de suspecter la valeur</strong> (voir l\'avertissement ci-dessus).', 'mmgate-woocommerce' ),
 			],
 			203 => [
 				'quoi'   => __( 'utilisateur inactif', 'mmgate-woocommerce' ),
