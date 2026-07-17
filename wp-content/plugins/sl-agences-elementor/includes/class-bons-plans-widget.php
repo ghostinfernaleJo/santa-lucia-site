@@ -515,6 +515,8 @@ class SL_Bons_Plans_Widget extends Widget_Base {
                                     <?php endif; ?>
                                 </div>
 
+                                <?php if ( function_exists( 'sl_bp_cart_button_html' ) ) echo sl_bp_cart_button_html( $p->ID ); ?>
+
                             </a><!-- .slbp-card -->
                         <?php endforeach; ?>
                     </div><!-- .slbp-all-cards -->

@@ -3,14 +3,147 @@
  * Utilizes GSAP for smooth animations between slides.
  */
 
+var SL_GSAP_WAIT_ATTEMPTS = window.SL_GSAP_WAIT_ATTEMPTS || 40;
+var SL_GSAP_WAIT_DELAY = window.SL_GSAP_WAIT_DELAY || 50;
+
+function createImmersionFallbackGsap() {
+    function toArray(targets) {
+        if (!targets) return [];
+        if (targets instanceof Element) return [targets];
+        if (Array.isArray(targets)) return targets.filter(Boolean);
+        if (targets instanceof NodeList) return Array.from(targets).filter(Boolean);
+        return [targets];
+    }
+
+    function applyVars(target, vars) {
+        if (!target || !vars) return;
+        const skip = ['duration', 'delay', 'stagger', 'ease', 'onComplete', 'onUpdate'];
+
+        if (target instanceof Element) {
+            if (vars.opacity !== undefined) target.style.opacity = vars.opacity;
+            if (vars.y !== undefined || vars.xPercent !== undefined) {
+                const transforms = [];
+                if (vars.y !== undefined) transforms.push(`translateY(${vars.y}px)`);
+                if (vars.xPercent !== undefined) transforms.push(`translateX(${vars.xPercent}%)`);
+                target.style.transform = transforms.join(' ');
+            }
+            return;
+        }
+
+        Object.keys(vars).forEach(key => {
+            if (!skip.includes(key)) target[key] = vars[key];
+        });
+    }
+
+    function tween(targets, vars) {
+        const list = toArray(targets);
+        const delay = Math.max(0, Number(vars && vars.delay ? vars.delay : 0) * 1000);
+        let killed = false;
+        let paused = false;
+        let completed = false;
+        let startTime = 0;
+        let pauseStarted = 0;
+        let pausedFor = 0;
+        const targetObject = list[0] && !(list[0] instanceof Element) ? list[0] : null;
+        const startP = targetObject && typeof targetObject.p === 'number' ? targetObject.p : 0;
+        const endP = vars && typeof vars.p === 'number' ? vars.p : startP;
+        const duration = Math.max(0.001, Number(vars && vars.duration ? vars.duration : 0) * 1000);
+
+        const api = {
+            kill() {
+                killed = true;
+            },
+            pause() {
+                if (!paused) {
+                    paused = true;
+                    pauseStarted = performance.now();
+                }
+            },
+            play() {
+                if (paused) {
+                    paused = false;
+                    pausedFor += performance.now() - pauseStarted;
+                    requestAnimationFrame(step);
+                }
+            }
+        };
+
+        function finish() {
+            if (completed || killed) return;
+            completed = true;
+            list.forEach(target => applyVars(target, vars));
+            if (vars && typeof vars.onUpdate === 'function') {
+                vars.onUpdate.call({ targets: () => list });
+            }
+            if (vars && typeof vars.onComplete === 'function') {
+                vars.onComplete();
+            }
+        }
+
+        function step(now) {
+            if (killed || completed) return;
+            if (paused) return;
+            if (!startTime) startTime = now;
+            const elapsed = now - startTime - pausedFor;
+            if (elapsed < delay) {
+                requestAnimationFrame(step);
+                return;
+            }
+
+            if (targetObject && vars && typeof vars.onUpdate === 'function') {
+                const progress = Math.min(1, (elapsed - delay) / duration);
+                targetObject.p = startP + ((endP - startP) * progress);
+                vars.onUpdate.call({ targets: () => list });
+                if (progress < 1) {
+                    requestAnimationFrame(step);
+                    return;
+                }
+            }
+
+            finish();
+        }
+
+        requestAnimationFrame(step);
+        return api;
+    }
+
+    return {
+        set(targets, vars) {
+            toArray(targets).forEach(target => applyVars(target, vars));
+        },
+        to: tween,
+        fromTo(targets, fromVars, toVars) {
+            toArray(targets).forEach(target => applyVars(target, fromVars));
+            return tween(targets, toVars);
+        }
+    };
+}
+
+function withImmersionGsap(callback, attempt = 0) {
+    if (window.gsap) {
+        callback();
+        return;
+    }
+
+    if (attempt < SL_GSAP_WAIT_ATTEMPTS) {
+        setTimeout(() => withImmersionGsap(callback, attempt + 1), SL_GSAP_WAIT_DELAY);
+        return;
+    }
+
+    window.gsap = createImmersionFallbackGsap();
+    callback();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-    initImmersionSliders();
+    withImmersionGsap(initImmersionSliders);
 });
 
 // Also initialize on Elementor frontend loaded (for preview mode)
 window.addEventListener('elementor/frontend/init', () => {
+    if (!window.elementorFrontend || !elementorFrontend.hooks) return;
     elementorFrontend.hooks.addAction('frontend/element_ready/sl_immersion_slider.default', function($scope) {
-        initImmersionSlider($scope[0].querySelector('.sl-immersion-container'));
+        const root = $scope && $scope[0] ? $scope[0] : null;
+        withImmersionGsap(() => initImmersionSlider(root ? root.querySelector('.sl-immersion-container') : null));
     });
 });
 

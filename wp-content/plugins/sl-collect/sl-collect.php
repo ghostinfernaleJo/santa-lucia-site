@@ -33,6 +33,7 @@ function sl_collect_boot() {
     require_once SL_COLLECT_PATH . 'includes/checkout.php';
     require_once SL_COLLECT_PATH . 'includes/gateway-call.php';
     require_once SL_COLLECT_PATH . 'includes/admin-agence.php';
+    require_once SL_COLLECT_PATH . 'includes/notify-agence.php';
     require_once SL_COLLECT_PATH . 'includes/cron.php';
 }
 

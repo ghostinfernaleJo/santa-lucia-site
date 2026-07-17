@@ -30,6 +30,7 @@ function sl_ff_shortcode( $atts ) {
     if ( $agence && function_exists( 'sl_ff_filter_repas_available_for_agence' ) ) {
         $repas = sl_ff_filter_repas_available_for_agence( $repas, $agence, $today_jour );
     }
+    $repas = sl_ff_dedupe_repas_by_title( $repas, $agence );
 
     $agence_term = $agence ? get_term_by( 'slug', $agence, 'sl_agence_promo' ) : null;
     $agence_nom  = ( $agence_term && ! is_wp_error( $agence_term ) )
@@ -162,10 +163,11 @@ function sl_ff_browser_shortcode( $atts ) {
                 'fields'         => 'ids',
                 'meta_query'     => [ sl_ff_agency_meta_query( $a->slug ) ],
             ] );
-            $n = function_exists( 'sl_ff_filter_repas_available_for_agence' )
-                ? count( sl_ff_filter_repas_available_for_agence( array_map( 'get_post', $posts_for_agence ), $a->slug, $today_jour ) )
-                : count( $posts_for_agence );
-            $counts[ $a->slug ] = $n;
+            $dispo_posts = function_exists( 'sl_ff_filter_repas_available_for_agence' )
+                ? sl_ff_filter_repas_available_for_agence( array_map( 'get_post', $posts_for_agence ), $a->slug, $today_jour )
+                : array_map( 'get_post', $posts_for_agence );
+            $dispo_posts = sl_ff_dedupe_repas_by_title( $dispo_posts, $a->slug );
+            $counts[ $a->slug ] = count( $dispo_posts );
         }
         set_transient( $ckey, $counts, 6 * HOUR_IN_SECONDS );
     }
@@ -273,6 +275,7 @@ function sl_ff_render_menu_html( $agence, $date = '' ) {
     if ( function_exists( 'sl_ff_filter_repas_available_for_agence' ) ) {
         $repas = sl_ff_filter_repas_available_for_agence( $repas, $agence, $today_jour );
     }
+    $repas = sl_ff_dedupe_repas_by_title( $repas, $agence );
 
     if ( empty( $repas ) ) {
         $vide = '<div class="sl-ff-vide"><span class="sl-ff-vide-icon">&#127869;</span><p>Aucun plat disponible aujourd&#39;hui pour cette agence.</p></div>';
@@ -364,4 +367,55 @@ function sl_ff_prix_html( $promo ) {
         return '<p class="sl-ff-prix"><strong class="sl-ff-prix-normal">' . esc_html( sl_ff_format_prix( $promo['prix'] ) ) . '</strong></p>';
     }
     return '';
+}
+
+/**
+ * Dedoublonne une liste de repas par NOM de plat (normalise).
+ * La base contient parfois plusieurs fiches publiees pour le meme plat
+ * (imports successifs) : cote client on n'en affiche qu'UNE. On garde la
+ * fiche « maitresse » : celle qui a un prix pour l'agence, puis celle
+ * rattachee au plus d'agences, puis la plus ancienne (ID le plus petit).
+ */
+function sl_ff_dedupe_repas_by_title( $repas, $agence = '' ) {
+    $repas = array_values( array_filter( (array) $repas, function ( $r ) {
+        return $r && isset( $r->ID, $r->post_title );
+    } ) );
+    if ( count( $repas ) < 2 ) {
+        return $repas;
+    }
+
+    // Ordre de priorite : la meilleure fiche de chaque nom gagne.
+    $ranked = $repas;
+    usort( $ranked, function ( $a, $b ) use ( $agence ) {
+        if ( function_exists( 'sl_ff_get_agence_prix' ) ) {
+            $pa = sl_ff_get_agence_prix( $a->ID, $agence );
+            $pb = sl_ff_get_agence_prix( $b->ID, $agence );
+            $ha = ( (int) ( $pa['prix'] ?? 0 ) > 0 ) ? 1 : 0;
+            $hb = ( (int) ( $pb['prix'] ?? 0 ) > 0 ) ? 1 : 0;
+            if ( $ha !== $hb ) return $hb - $ha;
+        }
+        if ( function_exists( 'sl_ff_post_agence_slugs' ) ) {
+            $na = count( sl_ff_post_agence_slugs( $a->ID ) );
+            $nb = count( sl_ff_post_agence_slugs( $b->ID ) );
+            if ( $na !== $nb ) return $nb - $na;
+        }
+        return $a->ID - $b->ID;
+    } );
+
+    $keep = [];
+    foreach ( $ranked as $r ) {
+        $k = function_exists( 'sl_ff_norm_txt' ) ? sl_ff_norm_txt( $r->post_title ) : mb_strtolower( trim( $r->post_title ) );
+        if ( isset( $keep[ $k ] ) ) continue;
+        $keep[ $k ] = $r->ID;
+    }
+    $keep_ids = array_flip( $keep );   // ID => k
+
+    // On restitue la liste dans l'ordre d'origine (par titre), sans les doublons.
+    $out = [];
+    foreach ( $repas as $r ) {
+        if ( isset( $keep_ids[ $r->ID ] ) ) {
+            $out[] = $r;
+        }
+    }
+    return $out;
 }

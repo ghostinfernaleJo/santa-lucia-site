@@ -631,8 +631,11 @@ function sl_cwoo_sync_bon_plan_to_product( $bon_plan_id ) {
 
     $prix_av = (float) get_post_meta( $bon_plan_id, '_sl_bp_prix_avant', true );
     $prix_ap = (float) get_post_meta( $bon_plan_id, '_sl_bp_prix_apres', true );
-    if ( $prix_av <= 0 || $prix_ap <= 0 || $prix_ap >= $prix_av ) {
-        return 0;
+    // Prix de vente = prix du bon plan (prix_apres) ; a defaut le prix habituel.
+    $prix_vente   = $prix_ap > 0 ? $prix_ap : $prix_av;
+    $has_discount = ( $prix_av > 0 && $prix_ap > 0 && $prix_ap < $prix_av );
+    if ( $prix_vente <= 0 ) {
+        return 0; // aucun prix -> produit non vendable
     }
 
     $existing = get_posts([
@@ -664,13 +667,38 @@ function sl_cwoo_sync_bon_plan_to_product( $bon_plan_id ) {
     }
 
     update_post_meta( $product_id, '_sl_bp_source_id', $bon_plan_id );
-    update_post_meta( $product_id, '_regular_price', wc_format_decimal( $prix_av ) );
-    update_post_meta( $product_id, '_sale_price', wc_format_decimal( $prix_ap ) );
-    update_post_meta( $product_id, '_price', wc_format_decimal( $prix_ap ) );
-    update_post_meta( $product_id, '_stock_status', 'instock' );
-    update_post_meta( $product_id, '_manage_stock', 'no' );
+
+    // Prix : remise (prix barre) si prix_avant > prix_apres ET non expire ;
+    // sinon prix de vente simple. Le balayage quotidien retire le solde a l'echeance.
+    $bp_fin     = (string) get_post_meta( $bon_plan_id, '_sl_bp_date_fin', true );
+    $bp_expired = ( $bp_fin !== '' && current_time( 'Y-m-d' ) > $bp_fin );
+    $regular    = $has_discount ? $prix_av : $prix_vente;
+    $on_sale    = ( $has_discount && ! $bp_expired );
+    update_post_meta( $product_id, '_regular_price', wc_format_decimal( $regular ) );
+    if ( $on_sale ) {
+        update_post_meta( $product_id, '_sale_price', wc_format_decimal( $prix_ap ) );
+        update_post_meta( $product_id, '_price', wc_format_decimal( $prix_ap ) );
+    } else {
+        update_post_meta( $product_id, '_sale_price', '' );
+        update_post_meta( $product_id, '_price', wc_format_decimal( $regular ) );
+    }
+    // Stock chiffré par agence : si le bon plan a une limite de stock active,
+    // on active la vraie gestion de stock WooCommerce (décrément auto à la
+    // commande, rupture native). Chaque produit = 1 agence -> stock par agence.
+    $bp_stock_on  = get_post_meta( $bon_plan_id, '_sl_bp_stock_actif', true ) === '1';
+    $bp_stock_qty = get_post_meta( $bon_plan_id, '_sl_bp_stock_qty', true );
+    if ( $bp_stock_on && $bp_stock_qty !== '' ) {
+        $qty = max( 0, (int) $bp_stock_qty );
+        update_post_meta( $product_id, '_manage_stock', 'yes' );
+        update_post_meta( $product_id, '_backorders', 'no' );
+        update_post_meta( $product_id, '_stock', $qty );
+        update_post_meta( $product_id, '_stock_status', $qty > 0 ? 'instock' : 'outofstock' );
+    } else {
+        update_post_meta( $product_id, '_manage_stock', 'no' );
+        update_post_meta( $product_id, '_stock_status', 'instock' );
+    }
     update_post_meta( $product_id, '_virtual', 'yes' );
-    update_post_meta( $product_id, '_sold_individually', 'yes' );
+    update_post_meta( $product_id, '_sold_individually', 'no' );
     update_post_meta( $product_id, '_sl_bp_fallback_product', 'yes' );
 
     $thumb_id = get_post_thumbnail_id( $bon_plan_id );
@@ -688,6 +716,138 @@ function sl_cwoo_sync_bon_plan_to_product( $bon_plan_id ) {
     }
 
     return $product_id;
+}
+
+/* ============================================================
+ *  VENTE EN LIGNE DES BONS PLANS
+ *  Chaque bon plan publié = produit WooCommerce achetable (panier).
+ *  Synchro auto à l'enregistrement ; dépublication -> produit en brouillon.
+ * ============================================================ */
+add_action( 'save_post_sl_bon_plan', 'sl_cwoo_autosync_bon_plan_to_product', 30, 1 );
+function sl_cwoo_autosync_bon_plan_to_product( $post_id ) {
+    if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
+    if ( wp_is_post_revision( $post_id ) ) return;
+    if ( 'sl_bon_plan' !== get_post_type( $post_id ) ) return;
+
+    if ( 'publish' === get_post_status( $post_id ) ) {
+        sl_cwoo_sync_bon_plan_to_product( $post_id );
+    } else {
+        // Bon plan non publié -> produit lié mis en brouillon (non vendable).
+        foreach ( get_posts( [ 'post_type'=>'product','post_status'=>'publish','posts_per_page'=>-1,'fields'=>'ids','meta_key'=>'_sl_bp_source_id','meta_value'=>$post_id ] ) as $pid ) {
+            wp_update_post( [ 'ID'=>$pid, 'post_status'=>'draft' ] );
+        }
+    }
+    if ( function_exists( 'wc_delete_product_transients' ) ) wc_delete_product_transients();
+}
+
+// Synchro en masse de tous les bons plans publiés (idempotent, chunkable).
+function sl_cwoo_sync_all_bon_plans( $limit = 0, $offset = 0 ) {
+    $ids = get_posts( [
+        'post_type'      => 'sl_bon_plan',
+        'post_status'    => 'publish',
+        'fields'         => 'ids',
+        'posts_per_page' => $limit > 0 ? $limit : -1,
+        'offset'         => $offset,
+        'orderby'        => 'ID',
+        'order'          => 'ASC',
+        'no_found_rows'  => true,
+    ] );
+    $done = 0;
+    foreach ( $ids as $bpid ) { if ( sl_cwoo_sync_bon_plan_to_product( (int) $bpid ) ) $done++; }
+    return [ 'traites' => count( $ids ), 'produits' => $done ];
+}
+
+// Le stock WooCommerce décrémenté (à la commande) est répercuté sur le Bon Plan
+// source (_sl_bp_stock_qty) pour que l'affichage « limite de stock » et le
+// masquage à 0 restent cohérents avec le stock réel vendu.
+add_action( 'woocommerce_product_set_stock', 'sl_cwoo_sync_stock_back_to_bon_plan', 20 );
+function sl_cwoo_sync_stock_back_to_bon_plan( $product ) {
+    $pid = is_object( $product ) ? $product->get_id() : (int) $product;
+    if ( ! $pid ) return;
+    $bp = (int) get_post_meta( $pid, '_sl_bp_source_id', true );
+    if ( ! $bp || get_post_meta( $bp, '_sl_bp_stock_actif', true ) !== '1' ) return;
+    $p = wc_get_product( $pid );
+    if ( ! $p || ! $p->managing_stock() ) return;
+    $qty = $p->get_stock_quantity();
+    if ( $qty !== null ) update_post_meta( $bp, '_sl_bp_stock_qty', max( 0, (int) $qty ) );
+}
+
+/* ============================================================
+ *  AUTO-EXPIRATION des produits WooCommerce issus des Bons Plans
+ *  Retire le prix soldé (_sale_price) des que le Bon Plan source est
+ *  expiré (date de fin passée) ou dépublié/supprimé. Évite que des
+ *  promotions terminées restent affichées (page /promotions/, boutique).
+ * ============================================================ */
+
+// Retire le solde de tous les produits synchronisés d'un bon plan donné.
+function sl_cwoo_clear_sale_for_bon_plan( $bon_plan_id ) {
+    if ( ! function_exists( 'wc_get_product' ) ) return;
+    $prods = get_posts( [
+        'post_type'      => 'product',
+        'post_status'    => 'any',
+        'posts_per_page' => -1,
+        'fields'         => 'ids',
+        'meta_key'       => '_sl_bp_source_id',
+        'meta_value'     => (int) $bon_plan_id,
+    ] );
+    $changed = false;
+    foreach ( $prods as $pid ) {
+        $p = wc_get_product( $pid );
+        if ( $p && $p->get_sale_price() !== '' ) {
+            $p->set_sale_price( '' );
+            $p->set_date_on_sale_from( null );
+            $p->set_date_on_sale_to( null );
+            $p->save();
+            $changed = true;
+        }
+    }
+    if ( $changed ) delete_transient( 'wc_products_onsale' );
+}
+
+// 1) Retrait instantané quand un bon plan quitte l'état publié (brouillon, corbeille...).
+add_action( 'transition_post_status', 'sl_cwoo_bp_status_change_expire', 10, 3 );
+function sl_cwoo_bp_status_change_expire( $new_status, $old_status, $post ) {
+    if ( ! $post || 'sl_bon_plan' !== $post->post_type ) return;
+    if ( 'publish' === $new_status ) return; // toujours actif : la synchro gère le solde
+    sl_cwoo_clear_sale_for_bon_plan( (int) $post->ID );
+}
+
+// 2) Balayage quotidien : expire les soldes dont le bon plan n'est plus valide.
+add_action( 'sl_cwoo_daily_expire', 'sl_cwoo_expire_synced_products' );
+add_action( 'init', function () {
+    if ( ! wp_next_scheduled( 'sl_cwoo_daily_expire' ) ) {
+        wp_schedule_event( time() + 300, 'daily', 'sl_cwoo_daily_expire' );
+    }
+} );
+function sl_cwoo_expire_synced_products() {
+    if ( ! function_exists( 'wc_get_product' ) ) return;
+    $today = current_time( 'Y-m-d' );
+    $prods = get_posts( [
+        'post_type'      => 'product',
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'fields'         => 'ids',
+        'meta_key'       => '_sl_bp_source_id',
+    ] );
+    $changed = false;
+    foreach ( $prods as $pid ) {
+        $bp     = (int) get_post_meta( $pid, '_sl_bp_source_id', true );
+        $active = false;
+        if ( $bp && 'publish' === get_post_status( $bp ) ) {
+            $fin    = (string) get_post_meta( $bp, '_sl_bp_date_fin', true );
+            $active = ( '' === $fin || $today <= $fin );
+        }
+        if ( $active ) continue;
+        $p = wc_get_product( $pid );
+        if ( $p && $p->get_sale_price() !== '' ) {
+            $p->set_sale_price( '' );
+            $p->set_date_on_sale_from( null );
+            $p->set_date_on_sale_to( null );
+            $p->save();
+            $changed = true;
+        }
+    }
+    if ( $changed ) delete_transient( 'wc_products_onsale' );
 }
 
 add_action( 'admin_menu', 'sl_cwoo_add_home_promo_settings_page', 45 );
@@ -808,4 +968,111 @@ function sl_cwoo_add_whatsapp_button() {
     echo '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>';
     echo 'Commander sur WhatsApp';
     echo '</a>';
+}
+
+/* ============================================================
+ *  10. SHORTCODE [sl_promo_boutique]
+ *  Grille boutique WooCommerce : affiche UNIQUEMENT les produits de la
+ *  campagne ACTIVE ; s'il n'y a pas de campagne, repli sur les Bons Plans.
+ *  Pour une page « Promotions » dédiée (aucune manip Elementor requise).
+ *  Attributs : colonnes (def 4), par_page (def 24), titre (auto sinon).
+ * ============================================================ */
+add_shortcode( 'sl_promo_boutique', 'sl_cwoo_promo_boutique_shortcode' );
+function sl_cwoo_promo_boutique_shortcode( $atts ) {
+    if ( ! function_exists( 'wc_get_template_part' ) || ! function_exists( 'sl_cwoo_get_home_promo_product_ids' ) ) {
+        return '';
+    }
+    $atts = shortcode_atts( [ 'colonnes' => 4, 'par_page' => 10, 'titre' => '' ], $atts, 'sl_promo_boutique' );
+    $cols     = max( 1, min( 6, (int) $atts['colonnes'] ) );
+    $per_page = max( 1, (int) $atts['par_page'] );
+    $paged    = isset( $_GET['pp'] ) ? max( 1, (int) $_GET['pp'] ) : 1;
+
+    // Produits : campagne active en priorité, sinon repli Bons Plans.
+    $ids = array_values( array_filter( array_map( 'intval', (array) sl_cwoo_get_home_promo_product_ids() ) ) );
+    if ( empty( $ids ) ) {
+        return '<div class="sl-promo-boutique woocommerce"><p class="woocommerce-info" style="text-align:center;">Aucune promotion en cours pour le moment. Revenez bient&ocirc;t !</p></div>';
+    }
+
+    // Y a-t-il une campagne active ? (pour le titre + la date)
+    $today = current_time( 'Y-m-d' );
+    $camp_active = ( function_exists( 'sl_cwoo_get_active_campaign_product_ids' ) && ! empty( sl_cwoo_get_active_campaign_product_ids() ) );
+    $camp_name = ''; $camp_fin = '';
+    if ( $camp_active ) {
+        foreach ( get_posts( [ 'post_type' => 'sl_campagne_woo', 'post_status' => 'publish', 'posts_per_page' => -1 ] ) as $cp ) {
+            $d = (string) get_post_meta( $cp->ID, '_sl_cwoo_date_debut', true );
+            $f = (string) get_post_meta( $cp->ID, '_sl_cwoo_date_fin', true );
+            if ( ( $d === '' || $today >= $d ) && ( $f === '' || $today <= $f ) ) { $camp_name = $cp->post_title; $camp_fin = $f; break; }
+        }
+    }
+    $heading = $atts['titre'];
+    if ( $heading === '' ) {
+        $heading = $camp_active ? ( $camp_name ?: 'Campagne en cours' ) : 'Nos Bons Plans du moment';
+    }
+
+    $q = new WP_Query( [
+        'post_type'      => 'product',
+        'post_status'    => 'publish',
+        'post__in'       => $ids,
+        'orderby'        => 'post__in',
+        'posts_per_page' => $per_page,
+        'paged'          => $paged,
+    ] );
+    if ( ! $q->have_posts() ) { wp_reset_postdata(); return ''; }
+
+    $cols_t = min( 2, $cols );
+    ob_start();
+    echo '<style>
+    .sl-promo-boutique ul.products{display:grid !important;grid-template-columns:repeat(' . $cols . ',minmax(0,1fr)) !important;gap:18px !important;margin:0 !important;padding:0 !important;list-style:none !important;width:100%;}
+    .sl-promo-boutique ul.products:before,.sl-promo-boutique ul.products:after{display:none !important;content:none !important;}
+    .sl-promo-boutique ul.products li.product{width:auto !important;max-width:100% !important;min-width:0 !important;margin:0 !important;padding:0 !important;float:none !important;clear:none !important;}
+    .sl-promo-boutique ul.products li.product img{max-width:100% !important;height:auto !important;display:block;margin:0 auto;}
+    @media(max-width:1024px){.sl-promo-boutique ul.products{grid-template-columns:repeat(' . $cols_t . ',minmax(0,1fr)) !important;}}
+    @media(max-width:600px){.sl-promo-boutique ul.products{grid-template-columns:repeat(1,minmax(0,1fr)) !important;}}
+    .sl-promo-pagination{margin:28px 0 6px;text-align:center;}
+    .sl-promo-pagination .page-numbers{list-style:none;display:inline-flex;gap:6px;padding:0;margin:0;flex-wrap:wrap;justify-content:center;}
+    .sl-promo-pagination li{margin:0;}
+    .sl-promo-pagination a.page-numbers,.sl-promo-pagination span.page-numbers{display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:40px;padding:0 12px;border:1px solid #e5e5e5;border-radius:8px;text-decoration:none;color:#333;font-weight:700;background:#fff;transition:.15s;}
+    .sl-promo-pagination span.current{background:#E91E63;border-color:#E91E63;color:#fff;}
+    .sl-promo-pagination a.page-numbers:hover{border-color:#E91E63;color:#E91E63;}
+    .sl-promo-pagination .dots{border:none;background:transparent;}
+    </style>';
+    echo '<div class="sl-promo-boutique woocommerce" id="sl-promo-top">';
+    if ( $heading ) {
+        echo '<h2 class="sl-promo-boutique-titre" style="text-align:center;margin:0 0 6px;font-weight:800;">' . esc_html( $heading ) . '</h2>';
+        if ( $camp_active && $camp_fin ) {
+            echo '<p style="text-align:center;color:#666;margin:0 0 18px;">Offre valable jusqu\'au ' . esc_html( date_i18n( 'd F Y', strtotime( $camp_fin ) ) ) . '</p>';
+        } else {
+            echo '<p style="text-align:center;color:#666;margin:0 0 18px;">Aucune campagne en cours pour le moment &mdash; d&eacute;couvrez nos bons plans.</p>';
+        }
+    }
+    if ( function_exists( 'wc_set_loop_prop' ) ) { wc_set_loop_prop( 'columns', $cols ); }
+    woocommerce_product_loop_start();
+    while ( $q->have_posts() ) {
+        $q->the_post();
+        wc_get_template_part( 'content', 'product' );
+    }
+    woocommerce_product_loop_end();
+
+    // Pagination : s'active automatiquement dès qu'il y a plus d'une page
+    // (ex. plus de 10 produits avec par_page=10).
+    $total_pages = (int) $q->max_num_pages;
+    if ( $total_pages > 1 ) {
+        $links = paginate_links( [
+            'base'         => add_query_arg( 'pp', '%#%' ),
+            'format'       => '',
+            'current'      => $paged,
+            'total'        => $total_pages,
+            'prev_text'    => '&lsaquo;',
+            'next_text'    => '&rsaquo;',
+            'add_fragment' => '#sl-promo-top',
+            'type'         => 'list',
+        ] );
+        if ( $links ) {
+            echo '<nav class="sl-promo-pagination" aria-label="Pagination des promotions">' . $links . '</nav>';
+        }
+    }
+
+    echo '</div>';
+    wp_reset_postdata();
+    return ob_get_clean();
 }
