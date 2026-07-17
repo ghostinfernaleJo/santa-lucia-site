@@ -97,8 +97,11 @@ class MMGate_Waiting {
 					}
 					if ( d.state === 'failed' ) {
 						box.classList.add('is-failed');
-						state.textContent = <?php echo wp_json_encode( __( 'Paiement non abouti. Rechargez la page pour voir le détail.', 'mmgate-woocommerce' ) ); ?>;
-						setTimeout(function(){ window.location.reload(); }, 2500);
+						state.textContent = ( d.reason ? d.reason + ' — ' : '' )
+							+ <?php echo wp_json_encode( __( 'Vous allez pouvoir réessayer, avec ce numéro ou un autre.', 'mmgate-woocommerce' ) ); ?>;
+						setTimeout(function(){
+							window.location.href = d.retry || window.location.href;
+						}, 3200);
 						return;
 					}
 					retry();

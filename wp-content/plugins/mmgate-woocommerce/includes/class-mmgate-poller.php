@@ -95,7 +95,11 @@ class MMGate_Poller {
 			case MMGate_Client::ETATO_ANNULEE:
 				// La raison est posee en meta AVANT le changement de statut :
 				// le listing des commandes l'affiche sans ouvrir la commande.
-				$order->update_meta_data( '_mmgate_fail_reason', __( 'Annulé ou refusé par le client sur son téléphone (ETATO 403)', 'mmgate-woocommerce' ) );
+				// Le 403 de MMGate couvre indistinctement : refus explicite,
+				// annulation, et SOLDE INSUFFISANT — le cas le plus frequent en
+				// Mobile Money. Le libelle les nomme tous, pour orienter le
+				// client vers la bonne action (changer de numero).
+				$order->update_meta_data( '_mmgate_fail_reason', __( 'Refusé, annulé ou solde insuffisant sur le compte (ETATO 403)', 'mmgate-woocommerce' ) );
 				$order->save();
 				$order->update_status( 'failed', sprintf( __( 'MMGate : paiement annulé ou refusé (IDOPER %s).', 'mmgate-woocommerce' ), $idoper ) );
 				return 'failed';
@@ -181,6 +185,11 @@ class MMGate_Poller {
 			'state'    => $state,
 			'status'   => $order->get_status(),
 			'redirect' => in_array( $state, [ 'paid', 'done' ], true ) ? $order->get_checkout_order_received_url() : '',
+			// Echec -> URL de re-paiement : le client atterrit sur le formulaire
+			// ou il peut changer de numero (cas solde insuffisant), au lieu de
+			// rester sur un ecran d'attente mort.
+			'retry'    => 'failed' === $state ? $order->get_checkout_payment_url() : '',
+			'reason'   => 'failed' === $state ? (string) $order->get_meta( '_mmgate_fail_reason' ) : '',
 		] );
 	}
 }

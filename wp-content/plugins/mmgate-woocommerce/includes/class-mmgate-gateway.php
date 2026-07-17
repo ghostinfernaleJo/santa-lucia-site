@@ -244,6 +244,29 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 		if ( is_checkout() && WC()->customer ) {
 			$default = WC()->customer->get_billing_phone();
 		}
+
+		// Reprise apres echec (page order-pay) : la cause la plus frequente est
+		// un solde insuffisant sur le compte debite — le client doit pouvoir
+		// payer avec un AUTRE numero, et il faut le lui DIRE : un champ
+		// pre-rempli en silence ressemble a une fatalite, pas a un choix.
+		global $wp;
+		if ( ! empty( $wp->query_vars['order-pay'] ) ) {
+			$retry = wc_get_order( absint( $wp->query_vars['order-pay'] ) );
+			if ( $retry && ( $retry->has_status( 'failed' ) || $retry->get_meta( '_mmgate_idoper_history' ) ) ) {
+				$raison  = (string) $retry->get_meta( '_mmgate_fail_reason' );
+				$dernier = (string) $retry->get_meta( '_mmgate_msisdn' );
+				if ( $dernier !== '' ) {
+					$default = $dernier;
+				}
+				echo '<div style="background:#fff7ed;border-left:4px solid #b45309;border-radius:6px;padding:10px 14px;margin:0 0 12px;">'
+					. '<strong>' . esc_html__( 'La tentative précédente n\'a pas abouti', 'mmgate-woocommerce' ) . '</strong>'
+					. ( $raison !== '' ? '<br><span style="font-size:13px;">' . esc_html( $raison ) . '</span>' : '' )
+					. '<br><span style="font-size:13px;">'
+					. esc_html__( 'Si le solde de ce compte était insuffisant, vous pouvez payer avec un autre numéro Mobile Money : modifiez simplement le champ ci-dessous.', 'mmgate-woocommerce' )
+					. '</span></div>';
+			}
+		}
+
 		echo '<p class="form-row form-row-wide">
 			<label for="mmgate_msisdn">' . esc_html__( 'Numéro Mobile Money à débiter', 'mmgate-woocommerce' ) . ' <abbr class="required">*</abbr></label>
 			<input type="tel" id="mmgate_msisdn" name="mmgate_msisdn" class="input-text" autocomplete="tel"
