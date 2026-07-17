@@ -158,15 +158,20 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 				$result = '<div class="notice notice-success inline"><p><strong>' . esc_html__( 'Connexion réussie.', 'mmgate-woocommerce' ) . '</strong> '
 					. sprintf(
 						/* translators: 1: code partenaire, 2: solde */
-						esc_html__( 'Partenaire %1$s — solde : %2$s FCFA. Les identifiants sont valides.', 'mmgate-woocommerce' ),
+						esc_html__( 'Partenaire %1$s — solde : %2$s FCFA.', 'mmgate-woocommerce' ),
 						esc_html( isset( $res['CDPRT'] ) ? $res['CDPRT'] : '?' ),
 						esc_html( $solde )
-					) . '</p></div>';
+					)
+					// L'endpoint SOLDE s'authentifie par URL et n'envoie PAS le
+					// token : un succes ici ne dit donc rien de sa validite.
+					// Le taire laisserait croire que tout est verifie.
+					. '</p><p>' . esc_html__( 'CDPRT, USR et PWD sont valides. Attention : ce test n\'utilise pas le token partenaire — seuls les paiements l\'exigent. Un token absent ou périmé se manifestera au premier paiement, pas ici.', 'mmgate-woocommerce' ) . '</p></div>';
 			} else {
-				$etat   = isset( $res['ETAT'] ) ? (int) $res['ETAT'] : 0;
+				$etat = isset( $res['ETAT'] ) ? (int) $res['ETAT'] : 0;
+				$diag = self::etat_diagnostic( $etat );
 				$result = '<div class="notice notice-error inline"><p><strong>'
-					. sprintf( esc_html__( 'Refusé par MMGate (ETAT %d).', 'mmgate-woocommerce' ), $etat ) . '</strong> '
-					. esc_html( self::etat_message( $etat ) ) . '</p></div>';
+					. sprintf( esc_html__( 'Refusé par MMGate (ETAT %d) — %s', 'mmgate-woocommerce' ), $etat, esc_html( $diag['quoi'] ) )
+					. '</strong></p><p>' . wp_kses_post( $diag['action'] ) . '</p></div>';
 			}
 		}
 
@@ -295,7 +300,49 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 		return add_query_arg( 'mmgate_wait', '1', $this->get_return_url( $order ) );
 	}
 
-	/** Message client pour un code ETAT d'initiation. */
+	/**
+	 * Diagnostic ADMIN pour un code ETAT — a ne pas confondre avec
+	 * etat_message(), qui s'adresse au CLIENT. Ici on nomme le champ fautif :
+	 * un administrateur n'a que faire de « contactez la boutique », il EST la
+	 * boutique. Chaque code designe une valeur precise, ce qui evite de tout
+	 * ressaisir a l'aveugle.
+	 *
+	 * @return array{quoi:string,action:string}
+	 */
+	public static function etat_diagnostic( $etat ) {
+		$map = [
+			202 => [
+				'quoi'   => __( 'mot de passe erroné', 'mmgate-woocommerce' ),
+				'action' => __( 'Le code partenaire et l\'utilisateur ont été acceptés : seul <code>PWD</code> est en cause. Vérifiez le mot de passe de l\'<strong>utilisateur API</strong> — ce n\'est pas forcément celui de votre connexion au tableau de bord MMGate.', 'mmgate-woocommerce' ),
+			],
+			203 => [
+				'quoi'   => __( 'utilisateur inactif', 'mmgate-woocommerce' ),
+				'action' => __( 'Vos identifiants sont <strong>corrects</strong>, mais MMGate a désactivé cet utilisateur API. Rien à corriger de votre côté : demandez sa réactivation au support MMGate.', 'mmgate-woocommerce' ),
+			],
+			204 => [
+				'quoi'   => __( 'code partenaire erroné', 'mmgate-woocommerce' ),
+				'action' => __( 'MMGate ne reconnaît pas <code>CDPRT</code>. Recopiez le code partenaire exact depuis votre espace partenaire — il est sensible à la casse.', 'mmgate-woocommerce' ),
+			],
+			205 => [
+				'quoi'   => __( 'utilisateur non trouvé', 'mmgate-woocommerce' ),
+				'action' => __( 'Votre <strong>code partenaire est reconnu</strong> (sinon vous auriez un ETAT 204) et le mot de passe n\'a même pas été examiné : <strong>seul <code>USR</code> est en cause</strong>. MMGate attend l\'<strong>utilisateur API</strong> (appelé <em>utipart</em> dans leur documentation), qui est distinct de votre identifiant de connexion au tableau de bord. Vous le trouverez dans votre espace partenaire, généralement à côté du code partenaire et du token.', 'mmgate-woocommerce' ),
+			],
+			500 => [
+				'quoi'   => __( 'partenaire désactivé', 'mmgate-woocommerce' ),
+				'action' => __( 'Vos identifiants sont corrects mais votre compte marchand est désactivé côté MMGate — souvent une validation KYC incomplète. Contactez-les.', 'mmgate-woocommerce' ),
+			],
+			501 => [
+				'quoi'   => __( 'partenaire inexistant', 'mmgate-woocommerce' ),
+				'action' => __( 'Aucun compte partenaire ne correspond à ce <code>CDPRT</code>.', 'mmgate-woocommerce' ),
+			],
+		];
+		return isset( $map[ $etat ] ) ? $map[ $etat ] : [
+			'quoi'   => __( 'refus non documenté', 'mmgate-woocommerce' ),
+			'action' => __( 'Ce code ne figure pas dans la documentation MMGate pour cet appel. Transmettez-le au support MMGate avec votre code partenaire.', 'mmgate-woocommerce' ),
+		];
+	}
+
+	/** Message CLIENT pour un code ETAT d'initiation (jamais affiché à l'admin). */
 	public static function etat_message( $etat ) {
 		$map = [
 			201 => __( 'L\'envoi a échoué. Vérifiez le numéro et réessayez.', 'mmgate-woocommerce' ),
