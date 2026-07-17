@@ -17,16 +17,37 @@ function slc_admin_menu() {
     );
 }
 
-/** Statuts geres par l'ecran. */
+/**
+ * Statuts geres par l'ecran — TOUS les etats d'une commande, choisissables.
+ * Un paiement echoue est une commande comme une autre : la masquer du listing
+ * revenait a pretendre qu'elle n'existait pas (constat utilisateur 2026-07-17).
+ * La liste est completee dynamiquement depuis wc_get_order_statuses() : un
+ * statut ajoute demain (par Woo ou un autre plugin) apparaitra sans modification.
+ */
 function slc_screen_statuses() {
-    return [
+    $labels = [
         'actives'    => 'Toutes les commandes actives',
         'pending'    => 'En attente (à confirmer/payer)',
         'processing' => 'Payées — à préparer',
         'sl-prete'   => 'Prêtes — à remettre',
+        'failed'     => '❌ Paiement échoué',
+        'on-hold'    => 'En pause (on-hold)',
         'completed'  => 'Retirées',
         'cancelled'  => 'Annulées',
+        'refunded'   => 'Remboursées',
     ];
+    if ( function_exists( 'wc_get_order_statuses' ) ) {
+        foreach ( wc_get_order_statuses() as $key => $label ) {
+            $slug = preg_replace( '/^wc-/', '', $key );
+            if ( 'checkout-draft' === $slug ) {
+                continue; // paniers en cours de saisie, pas des commandes
+            }
+            if ( ! isset( $labels[ $slug ] ) ) {
+                $labels[ $slug ] = $label;
+            }
+        }
+    }
+    return $labels;
 }
 
 /** Statuts couverts par la vue « actives ». */
@@ -153,7 +174,17 @@ function slc_admin_page() {
                     <?php if ( $is_admin && $agence_sel === '' ) : ?>
                         <td><?php echo esc_html( slc_agence_name( $o->get_meta( '_sl_collect_agence' ) ) ); ?></td>
                     <?php endif; ?>
-                    <td><?php echo esc_html( wc_get_order_status_name( $st ) ); ?></td>
+                    <td><?php
+                        echo esc_html( wc_get_order_status_name( $st ) );
+                        // Un echec sans raison visible oblige a ouvrir la commande :
+                        // la raison (posee par la passerelle) s'affiche directement.
+                        if ( 'failed' === $st ) {
+                            $raison = (string) $o->get_meta( '_mmgate_fail_reason' );
+                            if ( $raison !== '' ) {
+                                echo '<br><small style="color:#b32d2e;">' . esc_html( $raison ) . '</small>';
+                            }
+                        }
+                    ?></td>
                     <td><?php echo esc_html( $o->get_date_created() ? $o->get_date_created()->date_i18n( 'd/m/Y H:i' ) : '—' ); ?></td>
                     <td>
                         <?php if ( 'processing' === $st ) : ?>
@@ -174,6 +205,8 @@ function slc_admin_page() {
                             </form>
                         <?php elseif ( 'pending' === $st ) : ?>
                             <span style="color:#996800;">⏳ Attente confirmation/paiement client</span>
+                        <?php elseif ( 'failed' === $st ) : ?>
+                            <span style="color:#b32d2e;">❌ Paiement non abouti — le client peut réessayer depuis « Mon compte → Payer »</span>
                         <?php else : ?>
                             —
                         <?php endif; ?>

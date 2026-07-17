@@ -281,9 +281,28 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 			$msisdn = MMGate_Client::normalize_msisdn( $order->get_billing_phone() );
 		}
 
-		// Idempotence : une commande deja initiee ne relance pas de debit.
-		if ( $order->get_meta( '_mmgate_idoper' ) ) {
-			return [ 'result' => 'success', 'redirect' => $this->waiting_url( $order ) ];
+		// Idempotence : une commande deja initiee ne relance pas de debit —
+		// TANT QUE la transaction est en cours. Sur une commande ECHOUEE, cette
+		// garde renvoyait eternellement le client vers l'ecran d'attente d'une
+		// transaction morte : impossible de re-payer via « Mon compte -> Payer ».
+		// Apres un echec, on archive l'ancienne transaction et on repart a neuf.
+		$idoper_prec = (string) $order->get_meta( '_mmgate_idoper' );
+		if ( $idoper_prec !== '' ) {
+			if ( $order->has_status( [ 'pending', 'on-hold' ] ) ) {
+				return [ 'result' => 'success', 'redirect' => $this->waiting_url( $order ) ];
+			}
+			$hist   = (array) $order->get_meta( '_mmgate_idoper_history' );
+			$hist[] = $idoper_prec;
+			$order->update_meta_data( '_mmgate_idoper_history', $hist );
+			$order->delete_meta_data( '_mmgate_idoper' );
+			$order->delete_meta_data( '_mmgate_started' );
+			$order->delete_meta_data( '_mmgate_fail_reason' );
+			$order->save();
+			$order->add_order_note( sprintf(
+				/* translators: %s: identifiant de l'ancienne transaction */
+				__( 'MMGate : nouvelle tentative de paiement par le client (transaction précédente : %s).', 'mmgate-woocommerce' ),
+				$idoper_prec
+			) );
 		}
 
 		$montant = (int) round( (float) $order->get_total() );

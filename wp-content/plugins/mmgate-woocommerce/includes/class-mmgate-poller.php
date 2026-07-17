@@ -93,6 +93,10 @@ class MMGate_Poller {
 				return 'paid';
 
 			case MMGate_Client::ETATO_ANNULEE:
+				// La raison est posee en meta AVANT le changement de statut :
+				// le listing des commandes l'affiche sans ouvrir la commande.
+				$order->update_meta_data( '_mmgate_fail_reason', __( 'Annulé ou refusé par le client sur son téléphone (ETATO 403)', 'mmgate-woocommerce' ) );
+				$order->save();
 				$order->update_status( 'failed', sprintf( __( 'MMGate : paiement annulé ou refusé (IDOPER %s).', 'mmgate-woocommerce' ), $idoper ) );
 				return 'failed';
 
@@ -109,6 +113,8 @@ class MMGate_Poller {
 					self::requeue( $order );
 					return 'pending';
 				}
+				$order->update_meta_data( '_mmgate_fail_reason', __( 'Transaction introuvable chez MMGate (ETATO 404)', 'mmgate-woocommerce' ) );
+				$order->save();
 				$order->update_status( 'failed', sprintf( __( 'MMGate : transaction introuvable (IDOPER %s).', 'mmgate-woocommerce' ), $idoper ) );
 				return 'failed';
 
@@ -117,6 +123,8 @@ class MMGate_Poller {
 			default:
 				$started = (int) $order->get_meta( '_mmgate_started' );
 				if ( $started && ( time() - $started ) > self::TIMEOUT ) {
+					$order->update_meta_data( '_mmgate_fail_reason', __( 'Délai dépassé : 15 min sans validation sur le téléphone', 'mmgate-woocommerce' ) );
+					$order->save();
 					$order->update_status( 'failed', __( 'MMGate : délai de validation dépassé, aucune confirmation du client.', 'mmgate-woocommerce' ) );
 					return 'failed';
 				}

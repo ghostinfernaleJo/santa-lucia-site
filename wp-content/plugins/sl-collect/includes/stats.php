@@ -193,14 +193,14 @@ function slst_paid_statuses() {
 function slst_collect_data( $days ) {
     $orders = wc_get_orders( [
         'limit'        => 1000,
-        'status'       => array_merge( slst_paid_statuses(), [ 'pending', 'cancelled' ] ),
+        'status'       => array_merge( slst_paid_statuses(), [ 'pending', 'cancelled', 'failed' ] ),
         'date_created' => '>' . ( time() - $days * DAY_IN_SECONDS ),
         'return'       => 'objects',
     ] );
 
     $par_agence = [];
     $produits   = [];
-    $vide       = [ 'payees' => 0, 'ca' => 0.0, 'retirees' => 0, 'annulees' => 0, 'attente' => 0 ];
+    $vide       = [ 'payees' => 0, 'ca' => 0.0, 'retirees' => 0, 'annulees' => 0, 'attente' => 0, 'echouees' => 0 ];
 
     foreach ( $orders as $o ) {
         $slug = (string) $o->get_meta( '_sl_collect_agence' );
@@ -230,6 +230,10 @@ function slst_collect_data( $days ) {
             $par_agence[ $slug ]['annulees']++;
         } elseif ( 'pending' === $st ) {
             $par_agence[ $slug ]['attente']++;
+        } elseif ( 'failed' === $st ) {
+            // Un taux d'echec eleve = friction de paiement (reseau MoMo, solde
+            // client, UX) — donnee de decision, pas un detail technique.
+            $par_agence[ $slug ]['echouees']++;
         }
     }
 
@@ -323,7 +327,7 @@ function slst_render_page() {
     ) );
 
     // --- KPIs globaux ---
-    $tot = [ 'payees' => 0, 'ca' => 0.0, 'retirees' => 0, 'annulees' => 0, 'attente' => 0 ];
+    $tot = [ 'payees' => 0, 'ca' => 0.0, 'retirees' => 0, 'annulees' => 0, 'attente' => 0, 'echouees' => 0 ];
     foreach ( $data['agences'] as $a ) {
         foreach ( $tot as $k => $v ) { $tot[ $k ] += $a[ $k ]; }
     }
@@ -370,6 +374,7 @@ function slst_render_page() {
             <div class="card"><small>Panier moyen</small><b><?php echo slst_fmt( $panier_moyen ); ?> F</b></div>
             <div class="card"><small>Taux de retrait</small><b><?php echo $taux_retrait; ?> %</b></div>
             <div class="card <?php echo $tot['annulees'] ? 'warn' : ''; ?>"><small>Annulées (dont 72 h)</small><b><?php echo slst_fmt( $tot['annulees'] ); ?></b></div>
+            <div class="card <?php echo $tot['echouees'] ? 'warn' : ''; ?>"><small>Paiements échoués</small><b><?php echo slst_fmt( $tot['echouees'] ); ?></b></div>
             <div class="card"><small>En attente (non payées)</small><b><?php echo slst_fmt( $tot['attente'] ); ?></b></div>
             <div class="card <?php echo ( $nb_recherches && $nb_sans_res / max( 1, $nb_recherches ) > .3 ) ? 'warn' : ''; ?>">
                 <small>Recherches (dont sans résultat)</small>
@@ -384,7 +389,7 @@ function slst_render_page() {
         <table class="widefat striped">
             <thead><tr>
                 <th>Agence</th><th>Payées</th><th>CA</th><th style="width:170px;"></th>
-                <th>Panier moy.</th><th>Retirées</th><th>Annulées</th><th>En attente</th>
+                <th>Panier moy.</th><th>Retirées</th><th>Annulées</th><th>Échouées</th><th>En attente</th>
             </tr></thead>
             <tbody>
             <?php foreach ( $data['agences'] as $slug => $a ) :
@@ -397,6 +402,7 @@ function slst_render_page() {
                     <td><?php echo $a['payees'] ? slst_fmt( $a['ca'] / $a['payees'] ) . ' F' : '—'; ?></td>
                     <td><?php echo slst_fmt( $a['retirees'] ); ?></td>
                     <td><?php echo $a['annulees'] ? '<span style="color:#b32d2e;">' . slst_fmt( $a['annulees'] ) . '</span>' : '0'; ?></td>
+                    <td><?php echo $a['echouees'] ? '<span style="color:#b32d2e;">' . slst_fmt( $a['echouees'] ) . '</span>' : '0'; ?></td>
                     <td><?php echo slst_fmt( $a['attente'] ); ?></td>
                 </tr>
             <?php endforeach; ?>
