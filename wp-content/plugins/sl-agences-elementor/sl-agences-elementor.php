@@ -37,6 +37,7 @@ require_once SL_AGENCES_PATH . 'includes/feedback-module.php';
 require_once SL_AGENCES_PATH . 'includes/disable-comments.php';
 require_once SL_AGENCES_PATH . 'includes/pdf-bons-plans.php';
 require_once SL_AGENCES_PATH . 'includes/bon-plan-cart.php';
+require_once SL_AGENCES_PATH . 'includes/supervision-agences.php';
 
 // Force single template for Bons Plans
 add_filter( 'template_include', 'sl_bp_single_template' );
