@@ -84,7 +84,7 @@ La documentation MMGate se contredit sur le sens du flux : l'onglet PAIEMENTP an
 
 = Pourquoi une commande reste-t-elle « en attente » ? =
 
-Parce que le client n'a pas encore validé sur son téléphone. Au-delà de 15 minutes sans confirmation, la commande passe en échec. Les tâches planifiées WordPress étant déclenchées par le trafic, un site sans visiteur peut retarder ce basculement ; un vrai cron système est recommandé en production.
+Parce que le client n'a pas encore validé sur son téléphone. Au-delà de 2 minutes sans confirmation, la commande passe en échec. Les tâches planifiées WordPress étant déclenchées par le trafic, un site sans visiteur peut retarder ce basculement ; un vrai cron système est recommandé en production.
 
 = Le plugin gère-t-il les remboursements ? =
 

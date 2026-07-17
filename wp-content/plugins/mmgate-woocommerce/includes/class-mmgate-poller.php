@@ -21,8 +21,8 @@ class MMGate_Poller {
 	const CRON_ONE   = 'mmgate_check_order';
 	const CRON_SWEEP = 'mmgate_sweep';
 
-	/** Delai au-dela duquel une validation non faite est abandonnee. */
-	const TIMEOUT = 15 * MINUTE_IN_SECONDS;
+	/** Delai au-dela duquel une validation non faite est abandonnee (2 min). */
+	const TIMEOUT = 2 * MINUTE_IN_SECONDS;
 
 	public static function init() {
 		add_action( self::CRON_ONE, [ __CLASS__, 'check' ], 10, 1 );
@@ -127,7 +127,7 @@ class MMGate_Poller {
 			default:
 				$started = (int) $order->get_meta( '_mmgate_started' );
 				if ( $started && ( time() - $started ) > self::TIMEOUT ) {
-					$order->update_meta_data( '_mmgate_fail_reason', __( 'Délai dépassé : 15 min sans validation sur le téléphone', 'mmgate-woocommerce' ) );
+					$order->update_meta_data( '_mmgate_fail_reason', __( 'Délai dépassé : 2 min sans validation sur le téléphone', 'mmgate-woocommerce' ) );
 					$order->save();
 					$order->update_status( 'failed', __( 'MMGate : délai de validation dépassé, aucune confirmation du client.', 'mmgate-woocommerce' ) );
 					return 'failed';

@@ -110,8 +110,9 @@ class MMGate_Waiting {
 			}
 
 			function retry(){
-				// Au-dela de ~15 min le serveur aura de toute facon tranche.
-				if ( tries > 300 ) {
+				// Le serveur tranche a 2 min ; on sonde un peu au-dela (~2 min
+				// 30 = 50 x 3 s) pour laisser le statut d'echec revenir a l'ecran.
+				if ( tries > 50 ) {
 					state.textContent = <?php echo wp_json_encode( __( 'Toujours en attente. Vous recevrez un email dès la confirmation.', 'mmgate-woocommerce' ) ); ?>;
 					return;
 				}

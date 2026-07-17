@@ -28,6 +28,20 @@ function slc_checkout_fields( $fields ) {
         $fields['billing']['billing_phone']['label']    = 'Téléphone (obligatoire — utilisé au retrait)';
     }
 
+    // Un seul champ « Nom complet » au lieu de Prénom + Nom : au comptoir on
+    // demande le nom, pas l'etat civil. On reutilise billing_first_name en
+    // pleine largeur et on masque billing_last_name. Le nom saisi reste dans
+    // first_name ; last_name demeure vide. Tous les affichages du site font
+    // deja trim(first . ' ' . last) -> le nom complet ressort correctement,
+    // aucune recopie necessaire (verifie : aucun code ne lit last_name seul).
+    if ( isset( $fields['billing']['billing_first_name'] ) ) {
+        $fields['billing']['billing_first_name']['label']       = 'Nom complet';
+        $fields['billing']['billing_first_name']['class']       = [ 'form-row-wide' ];
+        $fields['billing']['billing_first_name']['priority']    = 10;
+        $fields['billing']['billing_first_name']['placeholder'] = 'Prénom et nom';
+    }
+    unset( $fields['billing']['billing_last_name'] );
+
     // Retrait en agence : les champs d'adresse de livraison sont inutiles
     unset(
         $fields['billing']['billing_address_1'],  // Numéro et nom de rue
