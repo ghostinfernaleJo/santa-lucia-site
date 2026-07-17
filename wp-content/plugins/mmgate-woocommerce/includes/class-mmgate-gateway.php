@@ -255,8 +255,14 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 
 	public function validate_fields() {
 		$raw = isset( $_POST['mmgate_msisdn'] ) ? wp_unslash( $_POST['mmgate_msisdn'] ) : '';
-		if ( MMGate_Client::normalize_msisdn( $raw ) === '' ) {
-			wc_add_notice( __( 'Numéro Mobile Money invalide. Indiquez un numéro camerounais à 9 chiffres (ex. 6XX XX XX XX).', 'mmgate-woocommerce' ), 'error' );
+		// Le champ peut ne pas avoir ete rempli : on retombe alors sur le
+		// telephone de facturation, qui est obligatoire au checkout.
+		if ( MMGate_Client::normalize_msisdn( $raw ) === '' && isset( $_POST['billing_phone'] ) ) {
+			$raw = wp_unslash( $_POST['billing_phone'] );
+		}
+		$err = MMGate_Client::msisdn_error( $raw );
+		if ( $err !== '' ) {
+			wc_add_notice( esc_html( $err ), 'error' );
 			return false;
 		}
 		return true;

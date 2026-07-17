@@ -63,7 +63,36 @@ class MMGate_Client {
 		} elseif ( strpos( $d, '237' ) === 0 && strlen( $d ) > 9 ) {
 			$d = substr( $d, 3 );
 		}
+		// Le Cameroun n'a pas de « 0 » de preface, mais beaucoup l'ajoutent par
+		// habitude (reflexe francais). On l'accepte plutot que de renvoyer un
+		// refus incomprehensible sur un numero par ailleurs correct.
+		if ( strlen( $d ) === 10 && '0' === $d[0] ) {
+			$d = substr( $d, 1 );
+		}
 		return strlen( $d ) === 9 ? $d : '';
+	}
+
+	/**
+	 * Explique POURQUOI un numero est refuse, pour que l'utilisateur puisse
+	 * corriger. Un simple « numero invalide » l'oblige a deviner : il ne voit
+	 * pas ce que le serveur a lu de sa saisie.
+	 *
+	 * @return string Message pret a afficher, ou '' si le numero est valide.
+	 */
+	public static function msisdn_error( $raw ) {
+		if ( self::normalize_msisdn( $raw ) !== '' ) {
+			return '';
+		}
+		$d = preg_replace( '/\D+/', '', (string) $raw );
+		if ( $d === '' ) {
+			return __( 'Indiquez le numéro Mobile Money à débiter (9 chiffres, par exemple 6XX XX XX XX).', 'mmgate-woocommerce' );
+		}
+		return sprintf(
+			/* translators: 1: nombre de chiffres lus, 2: chiffres lus */
+			__( 'Numéro Mobile Money invalide : nous avons lu %1$d chiffres (« %2$s »). Un numéro camerounais en compte 9 et commence par 6 — l\'indicatif +237 est facultatif.', 'mmgate-woocommerce' ),
+			strlen( $d ),
+			$d
+		);
 	}
 
 	/**
