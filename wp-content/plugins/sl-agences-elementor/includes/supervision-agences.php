@@ -191,17 +191,22 @@ function slsv_render_page() {
     <div class="wrap slsv">
         <h1>📈 Supervision des agences — Bons Plans</h1>
 
-        <form method="get" style="margin:12px 0;">
-            <input type="hidden" name="post_type" value="sl_bon_plan">
-            <input type="hidden" name="page" value="sl-bp-supervision">
-            <label>Période :
-                <select name="periode" onchange="this.form.submit()">
-                    <?php foreach ( [ 7 => '7 jours', 30 => '30 jours', 90 => '90 jours' ] as $d => $l ) : ?>
-                        <option value="<?php echo $d; ?>" <?php selected( $days, $d ); ?>><?php echo $l; ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-        </form>
+        <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin:12px 0;">
+            <form method="get">
+                <input type="hidden" name="post_type" value="sl_bon_plan">
+                <input type="hidden" name="page" value="sl-bp-supervision">
+                <label>Période :
+                    <select name="periode" onchange="this.form.submit()">
+                        <?php foreach ( [ 7 => '7 jours', 30 => '30 jours', 90 => '90 jours' ] as $d => $l ) : ?>
+                            <option value="<?php echo $d; ?>" <?php selected( $days, $d ); ?>><?php echo $l; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+            </form>
+            <a class="button button-primary"
+               href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=slrp_rapport&periode=' . $days ), 'slrp_rapport' ) ); ?>"
+               target="_blank" rel="noopener">🖨️ Imprimer le rapport (PDF)</a>
+        </div>
 
         <style>
         .slsv .cards{display:flex;flex-wrap:wrap;gap:12px;margin:14px 0 20px;}
