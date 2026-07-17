@@ -163,7 +163,11 @@ function slst_log_cart_add( $cart_item_key, $product_id, $quantity, $variation_i
    3. TABLEAU DE BORD
    ============================================================ */
 
-add_action( 'admin_menu', 'slst_add_menu', 20 );
+// Priorité 1000 : le menu parent « Commandes retrait » est enregistré à 999
+// (admin-agence.php). S'accrocher AVANT lui (ex. 20) rattache le sous-menu à
+// un parent qui n'existe pas encore — l'entrée se perd ou déroute le lien du
+// menu parent. Même pattern que Réglages (1000) et WhatsApp (1001).
+add_action( 'admin_menu', 'slst_add_menu', 1000 );
 function slst_add_menu() {
     add_submenu_page(
         'sl-collect',
