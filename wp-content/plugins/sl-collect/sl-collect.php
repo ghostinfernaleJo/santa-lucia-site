@@ -1,15 +1,22 @@
 <?php
 /**
  * Plugin Name: Santa Lucia Drop & Collect
- * Description: Click & Collect multi-agences — commande en ligne, retrait en agence (choix d'agence au checkout, code de retrait, ecran responsable, expiration automatique).
- * Version:     0.2.2
+ * Description: Click & Collect multi-agences — commande en ligne, retrait en agence (choix d'agence au checkout, code de retrait, facture PDF, ecran responsable, expiration automatique).
+ * Version:     0.3.0
  * Author:      Santa Lucia
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'SL_COLLECT_VERSION', '0.2.2' );
+define( 'SL_COLLECT_VERSION', '0.3.0' );
 define( 'SL_COLLECT_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SL_COLLECT_URL',  plugin_dir_url( __FILE__ ) );
+
+/**
+ * FPDF est deja installe par sl-agences-elementor (PDF des Bons Plans) : on le
+ * reutilise plutot que d'embarquer une seconde copie de la bibliotheque.
+ * Dependance assumee mais verifiee a l'usage (file_exists avant require).
+ */
+define( 'SL_COLLECT_FPDF', WP_PLUGIN_DIR . '/sl-agences-elementor/lib/fpdf/fpdf.php' );
 
 // Compatibilite WooCommerce HPOS (tables de commandes dediees)
 add_action( 'before_woocommerce_init', function () {
@@ -34,6 +41,9 @@ function sl_collect_boot() {
     require_once SL_COLLECT_PATH . 'includes/gateway-call.php';
     require_once SL_COLLECT_PATH . 'includes/admin-agence.php';
     require_once SL_COLLECT_PATH . 'includes/notify-agence.php';
+    require_once SL_COLLECT_PATH . 'includes/agence-fields.php';
+    require_once SL_COLLECT_PATH . 'includes/facture.php';
+    require_once SL_COLLECT_PATH . 'includes/facture-links.php';
     require_once SL_COLLECT_PATH . 'includes/cron.php';
 }
 
