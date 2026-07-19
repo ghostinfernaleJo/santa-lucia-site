@@ -1,0 +1,18 @@
+{
+  "id": "/",
+  "name": "Complexe Santa Lucia",
+  "short_name": "Santa Lucia",
+  "description": "Bons plans, menu fast-food et commande en ligne avec retrait en agence.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#1d54a0",
+  "lang": "fr",
+  "icons": [
+    { "src": "/wp-content/uploads/slpwa/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/wp-content/uploads/slpwa/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/wp-content/uploads/slpwa/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

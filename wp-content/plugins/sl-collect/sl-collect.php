@@ -2,12 +2,12 @@
 /**
  * Plugin Name: Santa Lucia Drop & Collect
  * Description: Click & Collect multi-agences — commande en ligne avec ou sans compte, retrait en agence (choix d'agence au checkout, code de retrait, facture PDF, SMS, ecran responsable, statistiques de vente, CRM clients, notifications push, expiration automatique).
- * Version:     0.7.0
+ * Version:     0.8.0
  * Author:      Santa Lucia
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'SL_COLLECT_VERSION', '0.7.0' );
+define( 'SL_COLLECT_VERSION', '0.8.0' );
 define( 'SL_COLLECT_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SL_COLLECT_URL',  plugin_dir_url( __FILE__ ) );
 
@@ -47,6 +47,7 @@ function sl_collect_boot() {
     require_once SL_COLLECT_PATH . 'includes/stats.php';
     require_once SL_COLLECT_PATH . 'includes/crm.php';
     require_once SL_COLLECT_PATH . 'includes/push.php';
+    require_once SL_COLLECT_PATH . 'includes/pwa.php';
     require_once SL_COLLECT_PATH . 'includes/sms-notify.php';
     require_once SL_COLLECT_PATH . 'includes/cron.php';
 }

@@ -325,7 +325,11 @@ function slp_print_front_js() {
     if ( ! $k ) {
         return; // openssl EC indisponible : pas de push, pas de bouton
     }
-    $sw   = plugins_url( 'assets/sw-push.js', SL_COLLECT_PATH . 'sl-collect.php' );
+    // Worker UNIQUE a la racine (portee /) : sert la PWA ET le push — requis
+    // notamment pour le push iOS en application installee. L'ancien
+    // assets/sw-push.js (portee dossier plugin) est migre automatiquement
+    // cote client (voir le nettoyage legacy dans le JS ci-dessous).
+    $sw   = home_url( '/sw.js' );
     $ajax = admin_url( 'admin-ajax.php' );
     ?>
     <script>
@@ -347,6 +351,25 @@ function slp_print_front_js() {
             for (var i=0;i<raw.length;i++) out[i] = raw.charCodeAt(i);
             return out;
         }
+
+        // Migration : purger l'ancien worker sw-push.js (portee plugin). Son
+        // abonnement est resilie proprement (serveur prevenu) — le visiteur
+        // pourra se reabonner en un clic sur le worker racine.
+        navigator.serviceWorker.getRegistrations().then(function(regs){
+            regs.forEach(function(r){
+                var src = (r.active && r.active.scriptURL) || (r.waiting && r.waiting.scriptURL) || '';
+                if ( src.indexOf('sw-push.js') === -1 ) return;
+                r.pushManager.getSubscription().then(function(s){
+                    if ( s ) {
+                        var body = 'action=sl_push_unsub&endpoint=' + encodeURIComponent(s.endpoint);
+                        fetch(AJAX, { method:'POST', credentials:'same-origin',
+                            headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body });
+                        s.unsubscribe();
+                    }
+                    r.unregister();
+                }).catch(function(){ r.unregister(); });
+            });
+        }).catch(function(){});
 
         navigator.serviceWorker.getRegistration(SW).then(function(reg){
             return reg ? reg.pushManager.getSubscription() : null;
