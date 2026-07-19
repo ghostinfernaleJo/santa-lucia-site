@@ -466,6 +466,13 @@ function sl_ff_ajax_save_promo() {
         'fin'        => $promo_fin,
     ] );
 
+    // Journal d'activite « qui travaille » : promo si une reduction/prix promo
+    // est posee, sinon simple mise a jour de prix.
+    if ( function_exists( 'sl_ff_activity_log' ) ) {
+        $est_promo = ( (int) $promo_pct > 0 || (int) $prix_promo > 0 );
+        sl_ff_activity_log( $est_promo ? 'promo' : 'prix', $agence, $post_id );
+    }
+
     if ( function_exists( 'sl_ff_bump_menu_cache' ) ) sl_ff_bump_menu_cache();
 
     $promo_info = sl_ff_get_promo_info( $post_id, $agence );

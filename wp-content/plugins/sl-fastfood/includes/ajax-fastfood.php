@@ -35,11 +35,22 @@ function sl_ff_ajax_save_planning() {
         sl_ff_set_agence_meta( $post_id, $agence );
     }
 
+    // Etat AVANT pour le journal d'activite « qui travaille » (avant/apres
+    // = activation / desactivation / changement de planning).
+    $jours_avant = function_exists( 'sl_ff_get_agence_jours' )
+        ? sl_ff_get_agence_jours( $post_id, $agence )
+        : (array) get_post_meta( $post_id, '_sl_ff_jours', true );
+
     if ( function_exists( 'sl_ff_set_agence_jours' ) ) {
         sl_ff_set_agence_jours( $post_id, $agence, $jours );
     } else {
         update_post_meta( $post_id, '_sl_ff_jours', $jours );
     }
+
+    if ( function_exists( 'sl_ff_activity_from_planning' ) ) {
+        sl_ff_activity_from_planning( $post_id, $agence, (array) $jours_avant, (array) $jours );
+    }
+
     if ( function_exists( 'sl_ff_bump_menu_cache' ) ) sl_ff_bump_menu_cache();
     wp_send_json_success( [ 'agence' => $agence, 'jours' => $jours ] );
 }

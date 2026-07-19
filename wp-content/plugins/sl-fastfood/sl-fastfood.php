@@ -23,6 +23,7 @@ require_once SL_FF_PATH . 'includes/shortcode-fastfood.php';
 require_once SL_FF_PATH . 'includes/profile-field-ff.php';
 require_once SL_FF_PATH . 'includes/supervision-ff.php';
 require_once SL_FF_PATH . 'includes/rapport-ff-pdf.php';
+require_once SL_FF_PATH . 'includes/activite-ff.php';
 
 add_action( 'wp_enqueue_scripts', 'sl_ff_front_assets' );
 function sl_ff_front_assets() {
