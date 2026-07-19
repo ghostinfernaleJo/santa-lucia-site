@@ -88,6 +88,20 @@ add_action( 'woocommerce_checkout_create_order', function ( $order, $data ) {
 }, 10, 2 );
 
 /* ============================================================
+   RAPPEL DU PROCESSUS avant validation (juste au-dessus du bouton
+   « Commander ») : le client doit savoir AVANT de cliquer qu'il va
+   recevoir un code de retrait et sous quel delai, pas seulement
+   apres coup sur l'ecran de confirmation.
+   ============================================================ */
+add_action( 'woocommerce_review_order_before_submit', 'slc_checkout_process_notice' );
+function slc_checkout_process_notice() {
+    echo '<div style="margin:0 0 16px;padding:14px 16px;border-radius:8px;background:#fff9e6;border:1px solid #ffe4a1;font-size:13.5px;line-height:1.5;color:#7a5b00;">'
+        . '<strong>Après votre commande :</strong> vous recevrez un <strong>code de retrait</strong> par SMS/e-mail dès qu\'elle sera prête en agence. '
+        . 'Retrait à effectuer sous <strong>72h</strong> (au-delà, la commande est automatiquement annulée).'
+        . '</div>';
+}
+
+/* ============================================================
    PAGE DE CONFIRMATION (« merci ») : numero bien visible +
    instructions selon le statut (en attente d'appel vs payee)
    ============================================================ */

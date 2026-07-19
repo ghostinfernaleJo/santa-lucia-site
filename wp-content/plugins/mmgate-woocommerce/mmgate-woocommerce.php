@@ -62,6 +62,15 @@ function mmgate_wc_boot() {
 		return $gateways;
 	} );
 
+	// Mobile Money en tête de liste au checkout : paiement immédiat, on le
+	// propose avant "confirmer par téléphone" (qui reste un repli manuel).
+	add_filter( 'woocommerce_available_payment_gateways', function ( $gateways ) {
+		if ( isset( $gateways['mmgate'] ) ) {
+			$gateways = [ 'mmgate' => $gateways['mmgate'] ] + $gateways;
+		}
+		return $gateways;
+	}, 20 );
+
 	load_plugin_textdomain( 'mmgate-woocommerce', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
 }
 
