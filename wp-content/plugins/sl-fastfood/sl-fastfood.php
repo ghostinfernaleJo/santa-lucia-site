@@ -2,12 +2,12 @@
 /**
  * Plugin Name: Santa Lucia Fast Food
  * Description: Menu du jour par agence avec planning hebdomadaire, import CSV/Excel, promotions et partage.
- * Version:     1.8.10
+ * Version:     1.9.0
  * Author:      Santa Lucia
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'SL_FF_VERSION', '1.8.10' );
+define( 'SL_FF_VERSION', '1.9.0' );
 define( 'SL_FF_PATH',    plugin_dir_path( __FILE__ ) );
 define( 'SL_FF_URL',     plugin_dir_url(  __FILE__ ) );
 
@@ -21,6 +21,8 @@ require_once SL_FF_PATH . 'includes/admin-images-ff.php';
 require_once SL_FF_PATH . 'includes/promos-fastfood.php';
 require_once SL_FF_PATH . 'includes/shortcode-fastfood.php';
 require_once SL_FF_PATH . 'includes/profile-field-ff.php';
+require_once SL_FF_PATH . 'includes/supervision-ff.php';
+require_once SL_FF_PATH . 'includes/rapport-ff-pdf.php';
 
 add_action( 'wp_enqueue_scripts', 'sl_ff_front_assets' );
 function sl_ff_front_assets() {

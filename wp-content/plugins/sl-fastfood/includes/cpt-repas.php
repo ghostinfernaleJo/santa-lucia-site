@@ -136,6 +136,15 @@ function sl_ff_set_agence_jours( $post_id, $agence, $jours ) {
 
     $by_agence = get_post_meta( $post_id, '_sl_ff_jours_by_agence', true );
     $by_agence = is_array( $by_agence ) ? $by_agence : [];
+
+    // Journal de désactivation : passage de « au moins un jour » à « aucun jour »
+    // pour cette agence = le repas cesse d'être proposé. On mémorise la date
+    // (le monitoring ne peut pas la deviner autrement — aucune donnée native).
+    $avant = isset( $by_agence[ $agence ] ) ? sl_ff_normalize_jours( $by_agence[ $agence ] ) : [];
+    if ( ! empty( $avant ) && empty( $jours ) && function_exists( 'sl_ff_log_deactivation' ) ) {
+        sl_ff_log_deactivation( $agence, $post_id );
+    }
+
     $by_agence[ $agence ] = $jours;
     update_post_meta( $post_id, '_sl_ff_jours_by_agence', $by_agence );
 
