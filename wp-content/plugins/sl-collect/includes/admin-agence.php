@@ -26,7 +26,8 @@ function slc_admin_menu() {
  */
 function slc_screen_statuses() {
     $labels = [
-        'actives'    => 'Toutes les commandes actives',
+        'toutes'     => 'Toutes les commandes (tout statut, y compris échouées)',
+        'actives'    => 'Commandes actives seulement (en attente/payées/prêtes)',
         'pending'    => 'En attente (à confirmer/payer)',
         'processing' => 'Payées — à préparer',
         'sl-prete'   => 'Prêtes — à remettre',
@@ -55,6 +56,11 @@ function slc_active_statuses() {
     return [ 'pending', 'processing', 'sl-prete' ];
 }
 
+/** Tous les statuts REELS geres par l'ecran (exclut les pseudo-filtres « toutes »/« actives »). */
+function slc_all_statuses() {
+    return array_diff( array_keys( slc_screen_statuses() ), [ 'toutes', 'actives' ] );
+}
+
 function slc_admin_page() {
     $is_admin = slc_is_admin_user();
     $ma_agence = slc_user_agence_slug();
@@ -68,8 +74,8 @@ function slc_admin_page() {
     $agence_sel = $is_admin
         ? ( isset( $_GET['agence'] ) ? sanitize_title( wp_unslash( $_GET['agence'] ) ) : '' )
         : $ma_agence;
-    $statut_sel = isset( $_GET['statut'] ) ? sanitize_key( wp_unslash( $_GET['statut'] ) ) : 'actives';
-    if ( ! isset( slc_screen_statuses()[ $statut_sel ] ) ) $statut_sel = 'actives';
+    $statut_sel = isset( $_GET['statut'] ) ? sanitize_key( wp_unslash( $_GET['statut'] ) ) : 'toutes';
+    if ( ! isset( slc_screen_statuses()[ $statut_sel ] ) ) $statut_sel = 'toutes';
     $recherche = isset( $_GET['q'] ) ? sanitize_text_field( wp_unslash( $_GET['q'] ) ) : '';
 
     // Recherche directe par code de retrait / numero de commande / telephone
@@ -87,7 +93,7 @@ function slc_admin_page() {
             // souvent APRES le retrait (reclamation, oubli d'article) — sa
             // commande terminee doit rester trouvable par son numero, comme
             // elle l'est deja par code de retrait ou numero de commande.
-            $tous_statuts = array_diff( array_keys( slc_screen_statuses() ), [ 'actives' ] );
+            $tous_statuts = slc_all_statuses();
             foreach ( slc_order_ids( $agence_sel, $tous_statuts, 300 ) as $oid ) {
                 $o = wc_get_order( $oid );
                 if ( $o && false !== strpos( preg_replace( '/\D/', '', $o->get_billing_phone() ), preg_replace( '/\D/', '', $recherche ) ) ) {
@@ -102,8 +108,14 @@ function slc_admin_page() {
             } ) );
         }
     } else {
-        $statuts_requete = ( 'actives' === $statut_sel ) ? slc_active_statuses() : [ $statut_sel ];
-        foreach ( slc_order_ids( $agence_sel, $statuts_requete, 100 ) as $oid ) {
+        if ( 'toutes' === $statut_sel ) {
+            $statuts_requete = slc_all_statuses();
+        } elseif ( 'actives' === $statut_sel ) {
+            $statuts_requete = slc_active_statuses();
+        } else {
+            $statuts_requete = [ $statut_sel ];
+        }
+        foreach ( slc_order_ids( $agence_sel, $statuts_requete, 200 ) as $oid ) {
             $o = wc_get_order( $oid );
             if ( $o ) $orders[] = $o;
         }
