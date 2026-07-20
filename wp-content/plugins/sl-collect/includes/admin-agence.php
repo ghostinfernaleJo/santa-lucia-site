@@ -196,6 +196,12 @@ function slc_admin_page() {
                                 echo '<br><small style="color:#b32d2e;">' . esc_html( $raison ) . '</small>';
                             }
                         }
+                        // Reference MMGate (IDOPER) : pour rapprocher la transaction avec
+                        // MMGate (support, reconciliation), quel que soit le statut.
+                        $idoper = (string) $o->get_meta( '_mmgate_idoper' );
+                        if ( $idoper !== '' ) {
+                            echo '<br><small style="color:#666;">IDOPER&nbsp;: <code>' . esc_html( $idoper ) . '</code></small>';
+                        }
                     ?></td>
                     <td><?php echo esc_html( $o->get_date_created() ? $o->get_date_created()->date_i18n( 'd/m/Y H:i' ) : '—' ); ?></td>
                     <td>
