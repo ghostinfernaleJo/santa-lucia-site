@@ -113,6 +113,9 @@ function sl_ff_shortcode( $atts ) {
                             <p class="sl-ff-item-desc"><?php echo esc_html( $desc ); ?></p>
                             <?php endif; ?>
                             <?php echo sl_ff_prix_html( $promo ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+                            <?php if ( $agence && function_exists( 'sl_ff_order_buttons_html' ) ) : ?>
+                            <?php echo sl_ff_order_buttons_html( $item->ID, $agence, $agence_nom ?: $agence, $item->post_title, $promo ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+                            <?php endif; ?>
                         </div>
                         <span class="sl-ff-dispo-ok">&#10003; Disponible</span>
                     </div>
@@ -254,7 +257,9 @@ function sl_ff_browser_shortcode( $atts ) {
    HELPER : genere le HTML des repas pour une agence (menu du jour)
    ========================================================================== */
 function sl_ff_render_menu_html( $agence, $date = '' ) {
-    $today_jour = sl_ff_today_jour();
+    $today_jour  = sl_ff_today_jour();
+    $agence_term = $agence ? get_term_by( 'slug', $agence, 'sl_agence_promo' ) : null;
+    $agence_nom  = ( $agence_term && ! is_wp_error( $agence_term ) ) ? sl_ff_agency_name( $agence_term->name ) : $agence;
 
     // Cache : ce HTML est demandé par chaque visiteur via admin-ajax
     // (non cacheable par Varnish). Invalidé par bump de version.
@@ -323,6 +328,9 @@ function sl_ff_render_menu_html( $agence, $date = '' ) {
                 $html .= '<p class="sl-ff-item-desc">' . esc_html( $desc ) . '</p>';
             }
             $html .= sl_ff_prix_html( $promo );
+            if ( $agence && function_exists( 'sl_ff_order_buttons_html' ) ) {
+                $html .= sl_ff_order_buttons_html( $item->ID, $agence, $agence_nom, $item->post_title, $promo );
+            }
             $html .= '</div>';
             $html .= '<span class="sl-ff-dispo-ok">&#10003; Disponible</span>';
             $html .= '</div>';

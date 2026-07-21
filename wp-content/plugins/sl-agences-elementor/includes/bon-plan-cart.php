@@ -57,6 +57,11 @@ function sl_bp_product_agency( $product_id ) {
     if ( $bp ) {
         $terms = get_the_terms( $bp, 'sl_agence_promo' );
         if ( $terms && ! is_wp_error( $terms ) ) $slug = $terms[0]->slug;
+    } else {
+        // Produit lie a un repas Fast Food (plugin sl-fastfood, includes/fastfood-cart.php) :
+        // l'agence est deja le slug directement, pas besoin de remonter a un post source.
+        $ff_agence = get_post_meta( $product_id, '_sl_ff_source_agence', true );
+        if ( $ff_agence ) $slug = sanitize_title( $ff_agence );
     }
     return $cache[ $product_id ] = $slug;
 }
@@ -99,6 +104,10 @@ function sl_bp_one_agency_validation( $passed, $product_id ) {
 add_action( 'wc_ajax_sl_bp_add', 'sl_bp_ajax_add_to_cart' );
 function sl_bp_ajax_add_to_cart() {
     $pid = isset( $_POST['product_id'] ) ? intval( $_POST['product_id'] ) : 0;
+    // Quantite optionnelle (par defaut 1, comme avant) : utilisee par la fiche
+    // repas Fast Food qui propose un selecteur de quantite. Aucun appelant
+    // existant n'envoie ce parametre -> comportement inchange partout ailleurs.
+    $qty = isset( $_POST['qty'] ) ? max( 1, intval( $_POST['qty'] ) ) : 1;
     if ( ! $pid || ! function_exists( 'WC' ) || ! WC()->cart ) {
         wp_send_json( [ 'ok' => false, 'msg' => 'Produit introuvable.' ] );
     }
@@ -110,7 +119,7 @@ function sl_bp_ajax_add_to_cart() {
             sl_bp_agency_name( $cart_ag ), sl_bp_agency_name( $new_ag )
         ) ] );
     }
-    $added = WC()->cart->add_to_cart( $pid, 1 );
+    $added = WC()->cart->add_to_cart( $pid, $qty );
     if ( ! $added ) {
         $errs = function_exists( 'wc_get_notices' ) ? wc_get_notices( 'error' ) : [];
         if ( function_exists( 'wc_clear_notices' ) ) wc_clear_notices();
