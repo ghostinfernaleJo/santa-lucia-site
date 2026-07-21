@@ -176,7 +176,13 @@ function sl_ff_order_buttons_html( $repas_id, $agence, $agence_nom, $titre, $pro
     return sl_ff_order_css()
         . '<div class="sl-ff-order-actions">'
         . sl_bp_cart_button_html( 0, $ff_pid )
-        . '<a class="sl-ff-wa-btn" href="' . esc_url( $wa_url ) . '" target="_blank" rel="noopener">' . $wa_svg . 'WhatsApp</a>'
+        // esc_attr (pas esc_url) : esc_url() supprime silencieusement les
+        // sequences %0a/%0A (defense anti-injection d'en-tetes) meme quand
+        // elles font partie d'un texte deja rawurlencode() -> les retours a
+        // la ligne du message WhatsApp disparaissaient. $wa_url est notre
+        // propre construction (hote wa.me fixe, texte deja encode) : esc_attr
+        // suffit et n'altere pas l'encodage.
+        . '<a class="sl-ff-wa-btn" href="' . esc_attr( $wa_url ) . '" target="_blank" rel="noopener">' . $wa_svg . 'WhatsApp</a>'
         . '</div>';
 }
 
