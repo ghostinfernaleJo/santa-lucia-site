@@ -74,6 +74,27 @@ function sl_search_repas_link( $repas_id ) {
 }
 
 /**
+ * Un repas Fast Food est-il AU MENU DU JOUR (dispo aujourd'hui dans au moins une
+ * agence) ? Sert a ne montrer dans la recherche que les repas reellement servis
+ * aujourd'hui, comme la page /menu-fast-food/. Fail-open si les helpers du plugin
+ * Fast Food manquent (mieux vaut afficher que tout masquer).
+ */
+function sl_search_repas_available_today( $repas_id ) {
+    if ( ! function_exists( 'sl_ff_post_agence_slugs' )
+        || ! function_exists( 'sl_ff_is_repas_available_for_agence' )
+        || ! function_exists( 'sl_ff_today_jour' ) ) {
+        return true;
+    }
+    $today = sl_ff_today_jour();
+    foreach ( sl_ff_post_agence_slugs( $repas_id ) as $slug ) {
+        if ( sl_ff_is_repas_available_for_agence( $repas_id, $slug, $today ) ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
  * Prix affichable d'un repas Fast Food pour la 1ere agence pertinente ('' si aucun).
  */
 function sl_search_repas_price_html( $repas_id ) {

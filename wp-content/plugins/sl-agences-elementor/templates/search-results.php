@@ -23,6 +23,17 @@ if ( have_posts() ) {
 }
 wp_reset_postdata();
 
+// Menu Fast Food : ne garder que les repas AU MENU DU JOUR (disponibles
+// aujourd'hui dans au moins une agence), comme la page /menu-fast-food/.
+// Un repas dont le titre matche mais qui n'est pas planifie aujourd'hui ne
+// doit pas apparaitre dans les resultats.
+if ( ! empty( $buckets['sl_repas'] ) && function_exists( 'sl_search_repas_available_today' ) ) {
+    $buckets['sl_repas'] = array_values( array_filter(
+        $buckets['sl_repas'],
+        'sl_search_repas_available_today'
+    ) );
+}
+
 $total = array_sum( array_map( 'count', $buckets ) );
 
 /** Vignette d'un post (repli placeholder). */
