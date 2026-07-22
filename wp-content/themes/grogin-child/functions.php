@@ -54,27 +54,42 @@ function sl_footer_app_images_replace( $html ) {
         'https://klbtheme.com/grogin/wp-content/uploads/2023/10/apple-store-button-dark.png'
             => 'https://complexesantalucia.com/wp-content/uploads/2026/06/apple-store-button-dark.png',
     );
-    $html = str_replace(
+    return str_replace(
         array_keys( $replacements ),
         array_values( $replacements ),
         $html
     );
+}
 
-    // Recherche site-wide : le formulaire du header force post_type=product,
-    // ce qui limite la recherche aux produits WooCommerce. On retire ce champ
-    // cache pour que l'URL soit un ?s= propre (la recherche unifiee, cote
-    // plugin, prend le relais et cherche produits + bons plans + fast food +
-    // articles). On reetiquette aussi le placeholder produit-only.
-    // Lookaheads : matche l'input qui porte A LA FOIS name="post_type" ET
-    // value="product", quel que soit l'ordre des attributs.
-    $html = preg_replace(
-        '#<input(?=[^>]*\bname=(["\'])post_type\1)(?=[^>]*\bvalue=(["\'])product\2)[^>]*>#i',
-        '',
-        $html
-    );
-    $html = str_replace( 'Rechercher des produits', 'Rechercher sur le site', $html );
-
-    return $html;
+/**
+ * Recherche site-wide — nettoyage cosmetique du champ de recherche du header.
+ *
+ * Le formulaire du header (theme Grogin) porte un champ cache post_type=product
+ * et un placeholder « Rechercher des produits ». Cote serveur, la recherche
+ * unifiee (plugin sl-agences-elementor, sl_search_broaden_query) ignore deja ce
+ * post_type et cherche partout — le champ est donc inoffensif. Reste le cote
+ * cosmetique : on retire le champ cache (URL ?s= propre) et on corrige le
+ * libelle. Fait en JS car le header est servi comme fragment mis en cache
+ * (ESI LiteSpeed) hors de portee d'un output-buffer PHP.
+ */
+add_action( 'wp_footer', 'sl_search_header_cosmetics', 99 );
+function sl_search_header_cosmetics() {
+    ?>
+    <script>
+    (function(){
+        function clean(){
+            document.querySelectorAll('input[name="post_type"]').forEach(function(i){
+                if ( i.value === 'product' && i.type === 'hidden' ) i.remove();
+            });
+            document.querySelectorAll('input[type="search"][name="s"]').forEach(function(i){
+                if ( i.placeholder === 'Rechercher des produits' ) i.placeholder = 'Rechercher sur le site';
+            });
+        }
+        if ( document.readyState !== 'loading' ) clean();
+        else document.addEventListener('DOMContentLoaded', clean);
+    })();
+    </script>
+    <?php
 }
 
 /**
