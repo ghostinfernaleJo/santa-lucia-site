@@ -92,6 +92,38 @@ function sl_search_repas_price_html( $repas_id ) {
 }
 
 /**
+ * D. Nettoyage cosmetique du champ de recherche du header.
+ *
+ * Le formulaire du header (theme Grogin) porte un champ cache post_type=product
+ * et un placeholder « Rechercher des produits ». La recherche unifiee (point A)
+ * ignore deja ce post_type et cherche partout -> le champ est inoffensif ; reste
+ * le cosmetique : retirer le champ (URL ?s= propre) et corriger le libelle.
+ * En JS car le header est un fragment mis en cache (ESI) hors de portee d'un
+ * output-buffer PHP. Place ici (plugin) et non dans le theme : l'opcache LSAPI
+ * de LiteSpeed rafraichit les fichiers plugin de facon fiable au deploiement.
+ * Sur les pages en cache Varnish (accueil...), s'applique a l'expiration du TTL.
+ */
+add_action( 'wp_footer', 'sl_search_header_cosmetics', 99 );
+function sl_search_header_cosmetics() {
+    ?>
+    <script>
+    (function(){
+        function clean(){
+            document.querySelectorAll('input[name="post_type"]').forEach(function(i){
+                if ( i.value === 'product' && i.type === 'hidden' ) i.remove();
+            });
+            document.querySelectorAll('input[type="search"][name="s"]').forEach(function(i){
+                if ( i.placeholder === 'Rechercher des produits' ) i.placeholder = 'Rechercher sur le site';
+            });
+        }
+        if ( document.readyState !== 'loading' ) clean();
+        else document.addEventListener('DOMContentLoaded', clean);
+    })();
+    </script>
+    <?php
+}
+
+/**
  * C. Page de resultats : template dedie sur is_search().
  */
 add_filter( 'template_include', 'sl_search_template', 99 );

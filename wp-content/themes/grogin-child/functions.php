@@ -62,37 +62,6 @@ function sl_footer_app_images_replace( $html ) {
 }
 
 /**
- * Recherche site-wide — nettoyage cosmetique du champ de recherche du header.
- *
- * Le formulaire du header (theme Grogin) porte un champ cache post_type=product
- * et un placeholder « Rechercher des produits ». Cote serveur, la recherche
- * unifiee (plugin sl-agences-elementor, sl_search_broaden_query) ignore deja ce
- * post_type et cherche partout — le champ est donc inoffensif. Reste le cote
- * cosmetique : on retire le champ cache (URL ?s= propre) et on corrige le
- * libelle. Fait en JS car le header est servi comme fragment mis en cache
- * (ESI LiteSpeed) hors de portee d'un output-buffer PHP.
- */
-add_action( 'wp_footer', 'sl_search_header_cosmetics', 99 );
-function sl_search_header_cosmetics() {
-    ?>
-    <script>
-    (function(){
-        function clean(){
-            document.querySelectorAll('input[name="post_type"]').forEach(function(i){
-                if ( i.value === 'product' && i.type === 'hidden' ) i.remove();
-            });
-            document.querySelectorAll('input[type="search"][name="s"]').forEach(function(i){
-                if ( i.placeholder === 'Rechercher des produits' ) i.placeholder = 'Rechercher sur le site';
-            });
-        }
-        if ( document.readyState !== 'loading' ) clean();
-        else document.addEventListener('DOMContentLoaded', clean);
-    })();
-    </script>
-    <?php
-}
-
-/**
  * Ajoute une date de fin aux categories utilisees comme campagnes promotionnelles.
  */
 add_action( 'product_cat_add_form_fields', 'sl_campaign_end_add_field' );
