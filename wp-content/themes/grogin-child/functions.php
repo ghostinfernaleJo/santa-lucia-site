@@ -54,11 +54,27 @@ function sl_footer_app_images_replace( $html ) {
         'https://klbtheme.com/grogin/wp-content/uploads/2023/10/apple-store-button-dark.png'
             => 'https://complexesantalucia.com/wp-content/uploads/2026/06/apple-store-button-dark.png',
     );
-    return str_replace(
+    $html = str_replace(
         array_keys( $replacements ),
         array_values( $replacements ),
         $html
     );
+
+    // Recherche site-wide : le formulaire du header force post_type=product,
+    // ce qui limite la recherche aux produits WooCommerce. On retire ce champ
+    // cache pour que l'URL soit un ?s= propre (la recherche unifiee, cote
+    // plugin, prend le relais et cherche produits + bons plans + fast food +
+    // articles). On reetiquette aussi le placeholder produit-only.
+    // Lookaheads : matche l'input qui porte A LA FOIS name="post_type" ET
+    // value="product", quel que soit l'ordre des attributs.
+    $html = preg_replace(
+        '#<input(?=[^>]*\bname=(["\'])post_type\1)(?=[^>]*\bvalue=(["\'])product\2)[^>]*>#i',
+        '',
+        $html
+    );
+    $html = str_replace( 'Rechercher des produits', 'Rechercher sur le site', $html );
+
+    return $html;
 }
 
 /**
