@@ -133,6 +133,29 @@ function sl_bp_ajax_add_to_cart() {
     ] );
 }
 
+/**
+ * AJAX : vide le panier.
+ * Sert surtout au bouton « Vider le panier » propose quand le client tente
+ * d'ajouter un produit d'une AUTRE agence (regle 1 agence par commande) : le
+ * message l'invitait a vider son panier sans lui en donner le moyen.
+ * Pas de nonce : meme raison que sl_bp_add (pages servies par Varnish -> nonce
+ * perime pour la plupart des visiteurs). Action sans privilege, limitee au
+ * panier de la session courante.
+ */
+add_action( 'wc_ajax_sl_bp_clear_cart', 'sl_bp_ajax_clear_cart' );
+function sl_bp_ajax_clear_cart() {
+    if ( ! function_exists( 'WC' ) || ! WC()->cart ) {
+        wp_send_json( [ 'ok' => false, 'msg' => 'Panier indisponible.' ] );
+    }
+    WC()->cart->empty_cart();
+    if ( function_exists( 'wc_clear_notices' ) ) wc_clear_notices();
+    wp_send_json( [
+        'ok'        => true,
+        'fragments' => apply_filters( 'woocommerce_add_to_cart_fragments', [] ),
+        'cart_hash' => WC()->cart->get_cart_hash(),
+    ] );
+}
+
 /* ------------------------------------------------------------
    CHECKOUT : l'agence de retrait = celle des produits du panier.
    Le champ « Agence de retrait » (module sl-collect) est verrouillé
@@ -146,7 +169,10 @@ function sl_bp_lock_pickup_agency( $fields ) {
     $name = sl_bp_agency_name( $cart_ag );
     $fields['billing']['sl_collect_agence']['options']           = [ $cart_ag => $name ];
     $fields['billing']['sl_collect_agence']['default']           = $cart_ag;
-    $fields['billing']['sl_collect_agence']['description']       = 'Agence imposée par les produits de votre panier. Pour changer d\'agence, videz votre panier.';
+    // Le lien « videz votre panier » est actionnable (class slbp-clear-cart,
+    // gere par le JS de ce fichier) : avant, on demandait au client de vider son
+    // panier sans lui en donner le moyen depuis cet ecran.
+    $fields['billing']['sl_collect_agence']['description']       = 'Agence imposée par les produits de votre panier. Pour changer d\'agence, <a href="#" class="slbp-clear-cart" data-reload="1">videz votre panier</a>.';
     $fields['billing']['sl_collect_agence']['custom_attributes'] = [ 'data-locked' => '1' ];
     return $fields;
 }
@@ -178,7 +204,8 @@ function sl_bp_cart_assets() {
     if ( is_admin() ) return;
     if ( function_exists( 'slc_cart_enabled' ) && ! slc_cart_enabled() ) return;
     if ( ! class_exists( 'WC_AJAX' ) ) return;
-    $endpoint = WC_AJAX::get_endpoint( 'sl_bp_add' );
+    $endpoint       = WC_AJAX::get_endpoint( 'sl_bp_add' );
+    $clear_endpoint = WC_AJAX::get_endpoint( 'sl_bp_clear_cart' );
     ?>
     <style>
     .slbp-cart-wrap{margin-top:7px;position:relative;z-index:4;}
@@ -188,21 +215,30 @@ function sl_bp_cart_assets() {
     .slbp-add-cart.loading{opacity:.75;pointer-events:none;}
     .slbp-add-cart.done{background:#16a34a;}
     .slbp-add-cart.err{background:#e67e22;}
-    #slbp-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(18px);background:#1d2327;color:#fff;padding:13px 20px;border-radius:11px;font-size:13.5px;font-weight:500;line-height:1.4;max-width:min(460px,92vw);text-align:center;z-index:99999;opacity:0;pointer-events:none;transition:.25s;box-shadow:0 8px 28px rgba(0,0,0,.28);}
-    #slbp-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+    #slbp-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(18px);background:#1d2327;color:#fff;padding:13px 20px;border-radius:11px;font-size:13.5px;font-weight:500;line-height:1.4;max-width:min(460px,92vw);text-align:center;z-index:99999;opacity:0;pointer-events:none;transition:.25s;box-shadow:0 8px 28px rgba(0,0,0,.28);display:flex;flex-direction:column;align-items:center;gap:10px;}
+    #slbp-toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
     #slbp-toast.warn{background:#b45309;}
+    .slbp-toast-btn{border:none;border-radius:7px;background:#fff;color:#1d2327;font-weight:700;font-size:13px;font-family:inherit;padding:8px 14px;cursor:pointer;white-space:nowrap;}
+    .slbp-toast-btn:hover{background:#f0f0f0;}
     </style>
     <script>
     (function(){
         var ENDPOINT = '<?php echo esc_js( $endpoint ); ?>';
+        var CLEAR_ENDPOINT = '<?php echo esc_js( $clear_endpoint ); ?>';
+
         document.addEventListener('click', function(e){
             var btn = e.target && e.target.closest ? e.target.closest('.slbp-add-cart') : null;
             if ( ! btn ) return;
             e.preventDefault(); e.stopPropagation();
             if ( btn.classList.contains('loading') || btn.classList.contains('done') ) return;
+            slbpAdd(btn);
+        }, true);
+
+        function slbpAdd( btn ){
             var pid = btn.getAttribute('data-pid'); if ( ! pid ) return;
             var span = btn.querySelector('span');
             var label = btn.getAttribute('data-label') || 'Ajouter au panier';
+            btn.classList.remove('done','err');
             btn.classList.add('loading'); if ( span ) span.textContent = 'Ajout…';
             var body = 'product_id=' + encodeURIComponent(pid);
             fetch(ENDPOINT, { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body })
@@ -211,7 +247,14 @@ function sl_bp_cart_assets() {
                     btn.classList.remove('loading');
                     if ( ! res || ! res.ok ) {
                         btn.classList.add('err'); if ( span ) span.textContent = 'Impossible';
-                        slbpToast( res && res.msg ? res.msg : 'Impossible d\'ajouter au panier.', res && res.agency );
+                        // Conflit d'agence : on propose de vider le panier ET d'ajouter
+                        // le produit voulu, en un clic (le message seul laissait le
+                        // client sans solution).
+                        var action = ( res && res.agency ) ? {
+                            label: 'Vider le panier et ajouter',
+                            run: function(){ slbpClearThenAdd(btn); }
+                        } : null;
+                        slbpToast( res && res.msg ? res.msg : 'Impossible d\'ajouter au panier.', res && res.agency, action );
                         setTimeout(reset, 2400); return;
                     }
                     btn.classList.add('done'); if ( span ) span.textContent = '✓ Ajouté';
@@ -220,14 +263,62 @@ function sl_bp_cart_assets() {
                 })
                 .catch(function(){ btn.classList.remove('loading'); btn.classList.add('err'); if ( span ) span.textContent = 'Réessayer'; setTimeout(reset,1800); });
             function reset(){ btn.classList.remove('done','err'); if ( span ) span.textContent = label; }
+        }
+
+        function slbpClearCart( done ){
+            fetch(CLEAR_ENDPOINT, { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: '' })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if ( res && res.ok && window.jQuery && res.fragments ) {
+                        jQuery(document.body).trigger('added_to_cart', [res.fragments, res.cart_hash, jQuery('body')]);
+                    }
+                    if ( done ) done( !! ( res && res.ok ) );
+                })
+                .catch(function(){ if ( done ) done(false); });
+        }
+
+        function slbpClearThenAdd( btn ){
+            slbpHideToast();
+            slbpClearCart(function(ok){
+                if ( ! ok ) { slbpToast('Impossible de vider le panier. Réessayez.', true); return; }
+                slbpAdd(btn);
+            });
+        }
+
+        // Bouton generique « vider le panier » (utilisable n'importe ou sur le site).
+        document.addEventListener('click', function(e){
+            var el = e.target && e.target.closest ? e.target.closest('.slbp-clear-cart') : null;
+            if ( ! el ) return;
+            e.preventDefault(); e.stopPropagation();
+            if ( ! window.confirm('Vider entièrement votre panier ?') ) return;
+            slbpClearCart(function(ok){
+                slbpToast( ok ? 'Panier vidé.' : 'Impossible de vider le panier.', ! ok );
+                if ( ok && el.getAttribute('data-reload') === '1' ) location.reload();
+            });
         }, true);
 
-        function slbpToast( msg, warn ){
+        function slbpHideToast(){
+            var t = document.getElementById('slbp-toast');
+            if ( t ) t.className = t.className.replace('show','');
+            clearTimeout( window.__slbpToastT );
+        }
+
+        function slbpToast( msg, warn, action ){
             var t = document.getElementById('slbp-toast');
             if ( ! t ) { t = document.createElement('div'); t.id = 'slbp-toast'; document.body.appendChild(t); }
-            t.textContent = msg; t.className = 'show' + ( warn ? ' warn' : '' );
+            // textContent (pas innerHTML) pour le message : il vient du serveur
+            // mais peut contenir un nom d'agence libre.
+            t.innerHTML = '';
+            var m = document.createElement('span'); m.textContent = msg; t.appendChild(m);
+            if ( action ) {
+                var b = document.createElement('button');
+                b.type = 'button'; b.className = 'slbp-toast-btn'; b.textContent = action.label;
+                b.addEventListener('click', action.run);
+                t.appendChild(b);
+            }
+            t.className = 'show' + ( warn ? ' warn' : '' );
             clearTimeout( window.__slbpToastT );
-            window.__slbpToastT = setTimeout( function(){ t.className = t.className.replace('show',''); }, 5000 );
+            window.__slbpToastT = setTimeout( function(){ t.className = t.className.replace('show',''); }, action ? 12000 : 5000 );
         }
     })();
     </script>
