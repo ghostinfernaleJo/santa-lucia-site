@@ -285,6 +285,8 @@ function slc_admin_page() {
                             <h2>Ticket de préparation - commande n°<?php echo esc_html( $o->get_order_number() ); ?></h2>
                             <p><strong>Client :</strong> <?php echo esc_html( trim( $o->get_billing_first_name() . ' ' . $o->get_billing_last_name() ) ); ?><br>
                             <strong>Téléphone :</strong> <?php echo esc_html( $o->get_billing_phone() ); ?><br>
+                            <?php $payment_phone = (string) $o->get_meta( '_sl_collect_payment_phone' ); if ( $payment_phone === '' ) $payment_phone = (string) $o->get_meta( '_mmgate_msisdn' ); ?>
+                            <?php if ( $payment_phone !== '' ) : ?><strong>Numéro de paiement :</strong> <?php echo esc_html( $payment_phone ); ?><br><?php endif; ?>
                             <strong>Agence :</strong> <?php echo esc_html( slc_agence_name( $o->get_meta( '_sl_collect_agence' ) ) ); ?><br>
                             <strong>Date :</strong> <?php echo esc_html( $o->get_date_created() ? $o->get_date_created()->date_i18n( 'd/m/Y H:i' ) : '—' ); ?></p>
                             <table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;border-bottom:1px solid #333;padding:5px;">Article</th><th style="text-align:center;border-bottom:1px solid #333;padding:5px;">Qté</th><th style="text-align:right;border-bottom:1px solid #333;padding:5px;">Total</th></tr></thead><tbody>

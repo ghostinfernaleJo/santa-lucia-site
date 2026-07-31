@@ -24,6 +24,138 @@ function slc_facture_url( $order ) {
 }
 
 /**
+ * Jeton opaque utilise par le QR code de la facture.
+ * Le QR ne contient jamais directement le numero de commande, le telephone ou
+ * les articles. Il ne contient qu'une URL de scan qui sera resolue par le site.
+ */
+function slc_facture_scan_token( $order ) {
+    $token = (string) $order->get_meta( '_slc_facture_scan_token' );
+    if ( $token !== '' ) {
+        return $token;
+    }
+
+    try {
+        $token = bin2hex( random_bytes( 16 ) );
+    } catch ( Exception $e ) {
+        $token = wp_generate_password( 32, false, false );
+    }
+
+    $order->update_meta_data( '_slc_facture_scan_token', $token );
+    $order->save();
+    return $token;
+}
+
+/** URL mobile ouverte après lecture du QR code. */
+function slc_facture_scan_url( $order ) {
+    return add_query_arg(
+        [
+            'slc_scan' => '1',
+            'token'    => slc_facture_scan_token( $order ),
+        ],
+        home_url( '/' )
+    );
+}
+
+/**
+ * Génère temporairement l'image QR via un service spécialisé.
+ * Seul le jeton opaque est transmis au service, jamais les données client.
+ */
+function slc_facture_qr_file( $order ) {
+    $url = add_query_arg(
+        [
+            'size' => '300x300',
+            'data' => slc_facture_scan_url( $order ),
+        ],
+        'https://api.qrserver.com/v1/create-qr-code/'
+    );
+    $res = wp_remote_get( $url, [ 'timeout' => 8, 'sslverify' => true ] );
+    if ( is_wp_error( $res ) || 200 !== (int) wp_remote_retrieve_response_code( $res ) ) {
+        return '';
+    }
+
+    $body = wp_remote_retrieve_body( $res );
+    if ( $body === '' ) {
+        return '';
+    }
+    $file = wp_tempnam( 'slc-facture-qr' );
+    if ( ! $file || false === file_put_contents( $file, $body ) ) {
+        return '';
+    }
+    return $file;
+}
+
+/** Fiche mobile destinée au responsable qui scanne la facture au comptoir. */
+add_action( 'template_redirect', 'slc_facture_scan_route', 5 );
+function slc_facture_scan_route() {
+    if ( empty( $_GET['slc_scan'] ) ) {
+        return;
+    }
+
+    $token = isset( $_GET['token'] ) ? strtolower( sanitize_text_field( wp_unslash( $_GET['token'] ) ) ) : '';
+    if ( ! preg_match( '/^[a-f0-9]{32}$/', $token ) ) {
+        nocache_headers();
+        wp_die( 'QR code invalide.', 'Scan commande', [ 'response' => 400 ] );
+    }
+
+    $orders = wc_get_orders( [
+        'limit'      => 1,
+        'type'       => 'shop_order',
+        'meta_key'   => '_slc_facture_scan_token',
+        'meta_value' => $token,
+        'return'     => 'objects',
+    ] );
+    $order = ! empty( $orders ) ? $orders[0] : false;
+    if ( ! $order || ! $order->get_meta( '_sl_collect_agence' ) ) {
+        nocache_headers();
+        wp_die( 'Commande introuvable ou QR expiré.', 'Scan commande', [ 'response' => 404 ] );
+    }
+
+    nocache_headers();
+    status_header( 200 );
+    $items = [];
+    foreach ( $order->get_items( 'line_item' ) as $item ) {
+        $meta = [];
+        foreach ( $item->get_formatted_meta_data( '', true ) as $entry ) {
+            $meta[] = wp_strip_all_tags( $entry->display_key . ': ' . $entry->display_value );
+        }
+        $items[] = [
+            'name' => $item->get_name(),
+            'qty'  => (int) $item->get_quantity(),
+            'meta' => $meta,
+            'total' => wp_strip_all_tags( wc_price( $item->get_total(), [ 'currency' => $order->get_currency() ] ) ),
+        ];
+    }
+    $agence = function_exists( 'slc_agence_contact' )
+        ? slc_agence_contact( (string) $order->get_meta( '_sl_collect_agence' ) )
+        : [ 'nom' => (string) $order->get_meta( '_sl_collect_agence' ), 'adresse' => '', 'tel' => '' ];
+    $status = wc_get_order_status_name( $order->get_status() );
+    $name   = trim( $order->get_billing_first_name() . ' ' . $order->get_billing_last_name() );
+    ?>
+    <!doctype html>
+    <html <?php language_attributes(); ?>><head>
+        <meta charset="<?php bloginfo( 'charset' ); ?>">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title><?php echo esc_html( 'Commande ' . $order->get_order_number() ); ?></title>
+        <style>
+            body{margin:0;background:#f5f6f8;color:#202938;font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+            .wrap{max-width:620px;margin:0 auto;padding:20px 14px 36px}.head{background:#1d54a0;color:#fff;border-radius:14px 14px 0 0;padding:20px}.head h1{margin:0 0 5px;font-size:23px}.head p{margin:0;opacity:.9}.card{background:#fff;border:1px solid #e2e5ea;border-radius:14px;padding:17px;margin-top:12px;box-shadow:0 2px 8px rgba(20,35,60,.05)}.label{color:#687386;font-size:12px;text-transform:uppercase;font-weight:700;letter-spacing:.04em}.value{font-weight:700;margin-top:3px}.state{display:inline-block;background:#fff1f6;color:#d51f65;border-radius:999px;padding:5px 11px;font-weight:700}.item{border-top:1px solid #edf0f4;padding:12px 0}.item:first-child{border-top:0;padding-top:0}.line{display:flex;justify-content:space-between;gap:12px}.item-name{font-weight:700}.qty{color:#d51f65;font-weight:700}.meta{color:#687386;font-size:13px;margin-top:3px}.total{font-weight:800;color:#d51f65}.grand{display:flex;justify-content:space-between;border-top:2px solid #1d54a0;padding-top:12px;margin-top:4px;font-size:19px;font-weight:800}.hint{color:#687386;font-size:13px;margin:0}.ok{color:#16834b;font-weight:700}
+        </style>
+    </head><body><main class="wrap">
+        <header class="head"><h1>Commande n° <?php echo esc_html( $order->get_order_number() ); ?></h1><p>Fiche de contrôle Santa Lucia</p></header>
+        <section class="card"><div class="label">Statut</div><div class="value"><span class="state"><?php echo esc_html( $status ); ?></span></div><p class="hint" style="margin-top:10px">Vérifiez que cette commande correspond bien au code de retrait présenté par le client.</p></section>
+        <section class="card"><div class="label">Client</div><div class="value"><?php echo esc_html( $name ?: 'Client' ); ?></div><?php if ( $order->get_billing_phone() ) : ?><div><?php echo esc_html( $order->get_billing_phone() ); ?></div><?php endif; ?></section>
+        <section class="card"><div class="label">Agence de retrait</div><div class="value"><?php echo esc_html( 'Santa Lucia — ' . $agence['nom'] ); ?></div><?php if ( ! empty( $agence['adresse'] ) ) : ?><div><?php echo esc_html( $agence['adresse'] ); ?></div><?php endif; ?></section>
+        <section class="card"><div class="label">Articles commandés</div>
+            <?php foreach ( $items as $item ) : ?><div class="item"><div class="line"><div><span class="qty"><?php echo esc_html( $item['qty'] ); ?>×</span> <span class="item-name"><?php echo esc_html( $item['name'] ); ?></span></div><span class="total"><?php echo esc_html( $item['total'] ); ?></span></div><?php foreach ( $item['meta'] as $meta ) : ?><div class="meta"><?php echo esc_html( $meta ); ?></div><?php endforeach; ?></div><?php endforeach; ?>
+            <div class="grand"><span>Total</span><span><?php echo wp_kses_post( $order->get_formatted_order_total() ); ?></span></div>
+        </section>
+        <section class="card"><p class="hint"><span class="ok">✓ QR vérifié par le site</span><br>Cette fiche est générée à partir de la commande enregistrée en ligne.</p></section>
+    </main></body></html>
+    <?php
+    exit;
+}
+
+/**
  * Qui peut telecharger cette facture ?
  * La cle de commande suffit (meme principe que les liens WooCommerce envoyes
  * par email : elle est imprevisible et propre a la commande), sinon le client
@@ -181,6 +313,21 @@ function slc_facture_render( $order, $fpdf_path ) {
         $pdf->SetY( $y + 18 );
     }
     $pdf->Ln( 2 );
+
+    // ---- QR de contrôle en agence ----
+    $qr_file = slc_facture_qr_file( $order );
+    if ( $qr_file !== '' ) {
+        $qr_y = $pdf->GetY();
+        $pdf->SetFont( 'Helvetica', 'B', 9.5 );
+        $pdf->SetTextColor( 29, 84, 160 );
+        $pdf->Cell( 145, 6, $txt( 'SCAN QR — vérifier la commande en agence' ), 0, 1, 'L' );
+        $pdf->SetFont( 'Helvetica', '', 8.5 );
+        $pdf->SetTextColor( 90, 90, 90 );
+        $pdf->MultiCell( 140, 4.5, $txt( 'Scannez ce code pour afficher les articles, les options, le client et le statut enregistrés sur le site.' ), 0, 'L' );
+        $pdf->Image( $qr_file, 165, $qr_y, 30, 30, 'PNG' );
+        $pdf->SetY( max( $pdf->GetY(), $qr_y + 30 ) + 2 );
+        @unlink( $qr_file );
+    }
 
     // ---- Agence de retrait / Client, cote a cote ----
     $y0 = $pdf->GetY();

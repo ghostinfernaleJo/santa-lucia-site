@@ -25,7 +25,7 @@ add_filter( 'woocommerce_checkout_fields', 'slc_checkout_fields', 20 );
 function slc_checkout_fields( $fields ) {
     if ( isset( $fields['billing']['billing_phone'] ) ) {
         $fields['billing']['billing_phone']['required'] = true;
-        $fields['billing']['billing_phone']['label']    = 'Téléphone (obligatoire — utilisé au retrait)';
+        $fields['billing']['billing_phone']['label']    = 'Téléphone de contact (obligatoire — SMS et retrait)';
     }
 
     // Un seul champ « Nom complet » au lieu de Prénom + Nom : au comptoir on

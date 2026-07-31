@@ -235,15 +235,12 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 		return 'yes' === $this->enabled && $this->client()->is_configured();
 	}
 
-	/** Champ « numéro à débiter », pré-rempli avec le téléphone de facturation. */
+	/** Champ « numéro à débiter », distinct du téléphone de contact. */
 	public function payment_fields() {
 		if ( $this->description ) {
 			echo wpautop( wp_kses_post( $this->description ) );
 		}
 		$default = '';
-		if ( is_checkout() && WC()->customer ) {
-			$default = WC()->customer->get_billing_phone();
-		}
 
 		// Reprise apres echec (page order-pay) : la cause la plus frequente est
 		// un solde insuffisant sur le compte debite — le client doit pouvoir
@@ -262,7 +259,7 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 					. '<strong>' . esc_html__( 'La tentative précédente n\'a pas abouti', 'mmgate-woocommerce' ) . '</strong>'
 					. ( $raison !== '' ? '<br><span style="font-size:13px;">' . esc_html( $raison ) . '</span>' : '' )
 					. '<br><span style="font-size:13px;">'
-					. esc_html__( 'Si le solde de ce compte était insuffisant, vous pouvez payer avec un autre numéro Mobile Money : modifiez simplement le champ ci-dessous.', 'mmgate-woocommerce' )
+					. esc_html__( 'Saisissez le numéro Mobile Money qui sera débité. Il peut être différent du téléphone de contact de la commande.', 'mmgate-woocommerce' )
 					. '</span></div>';
 			}
 		}
@@ -272,17 +269,14 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 			<input type="tel" id="mmgate_msisdn" name="mmgate_msisdn" class="input-text" autocomplete="tel"
 			       value="' . esc_attr( $default ) . '" placeholder="6XX XX XX XX">
 			<span style="font-size:12px;opacity:.75;display:block;margin-top:4px;">'
-			. esc_html__( 'MTN ou Orange. Vous validerez le débit sur ce téléphone.', 'mmgate-woocommerce' )
+			. esc_html__( 'Ce numéro peut être différent du téléphone de contact. Vous validerez le débit sur ce téléphone.', 'mmgate-woocommerce' )
 			. '</span></p>';
 	}
 
 	public function validate_fields() {
 		$raw = isset( $_POST['mmgate_msisdn'] ) ? wp_unslash( $_POST['mmgate_msisdn'] ) : '';
-		// Le champ peut ne pas avoir ete rempli : on retombe alors sur le
-		// telephone de facturation, qui est obligatoire au checkout.
-		if ( MMGate_Client::normalize_msisdn( $raw ) === '' && isset( $_POST['billing_phone'] ) ) {
-			$raw = wp_unslash( $_POST['billing_phone'] );
-		}
+		// Le numéro de paiement est volontairement distinct du téléphone de
+		// contact : aucun repli silencieux vers billing_phone.
 		$err = MMGate_Client::msisdn_error( $raw );
 		if ( $err !== '' ) {
 			wc_add_notice( esc_html( $err ), 'error' );
@@ -301,7 +295,8 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 
 		$msisdn = MMGate_Client::normalize_msisdn( isset( $_POST['mmgate_msisdn'] ) ? wp_unslash( $_POST['mmgate_msisdn'] ) : '' );
 		if ( $msisdn === '' ) {
-			$msisdn = MMGate_Client::normalize_msisdn( $order->get_billing_phone() );
+			wc_add_notice( __( 'Veuillez saisir le numéro Mobile Money à débiter.', 'mmgate-woocommerce' ), 'error' );
+			return [ 'result' => 'failure' ];
 		}
 
 		// Idempotence : une commande deja initiee ne relance pas de debit —
@@ -372,6 +367,8 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 		// rapprochement support, et sans elle une transaction reussie serait
 		// orpheline si la suite echouait.
 		$order->update_meta_data( '_mmgate_idoper', $idoper );
+		// Numéro de paiement distinct du billing_phone (contact/SMS/retrait).
+		$order->update_meta_data( '_sl_collect_payment_phone', $msisdn );
 		$order->update_meta_data( '_mmgate_msisdn', $msisdn );
 		$order->update_meta_data( '_mmgate_started', time() );
 		$order->save();
