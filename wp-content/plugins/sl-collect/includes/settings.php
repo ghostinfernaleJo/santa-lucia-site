@@ -152,8 +152,7 @@ function slc_settings_page() {
                     <input type="checkbox" name="slc_sms" value="1" <?php checked( get_option( 'sl_collect_sms', 'yes' ), 'yes' ); ?> style="margin-top:3px;">
                     <span>
                         <strong>Envoyer un SMS au client (paiement confirmé, commande prête)</strong><br>
-                        <span style="color:#666;">Via le compte MMGate — <strong>5 FCFA par SMS</strong>, débités du solde partenaire.
-                        Si le solde est insuffisant, le SMS n'est pas envoyé et la raison est notée sur la commande.</span>
+                        <span style="color:#666;">Via le service SMS configuré pour Santa Lucia. Le résultat HTTP de chaque envoi est ajouté aux notes de la commande.</span>
                     </span>
                 </label>
             </div>

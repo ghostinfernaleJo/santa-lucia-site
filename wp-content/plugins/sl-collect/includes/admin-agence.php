@@ -134,6 +134,10 @@ function slc_admin_page() {
             <div class="notice notice-error is-dismissible"><p><strong>Code de retrait incorrect.</strong> Vérifiez la facture du client.</p></div>
         <?php elseif ( 'err' === $notice ) : ?>
             <div class="notice notice-error is-dismissible"><p>Action impossible (commande introuvable ou statut inattendu).</p></div>
+        <?php elseif ( 'removed' === $notice ) : ?>
+            <div class="notice notice-success is-dismissible"><p>La ligne a été supprimée de la commande. Le total a été recalculé.</p></div>
+        <?php elseif ( 'remove_err' === $notice ) : ?>
+            <div class="notice notice-error is-dismissible"><p>Impossible de supprimer cette ligne. Vérifiez le statut de la commande et les droits du compte.</p></div>
         <?php endif; ?>
 
         <form method="get" style="margin:14px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
@@ -174,14 +178,58 @@ function slc_admin_page() {
             <tbody>
             <?php foreach ( $orders as $o ) :
                 $st = $o->get_status();
+                $line_items = $o->get_items( 'line_item' );
                 $items = [];
-                foreach ( $o->get_items() as $it ) $items[] = $it->get_quantity() . '× ' . $it->get_name();
+                foreach ( $line_items as $it ) $items[] = $it->get_quantity() . '× ' . $it->get_name();
             ?>
                 <tr>
                     <td><strong>n°<?php echo esc_html( $o->get_order_number() ); ?></strong></td>
                     <td><?php echo esc_html( trim( $o->get_billing_first_name() . ' ' . $o->get_billing_last_name() ) ); ?></td>
                     <td><a href="tel:<?php echo esc_attr( $o->get_billing_phone() ); ?>"><?php echo esc_html( $o->get_billing_phone() ); ?></a></td>
-                    <td style="max-width:260px;"><?php echo esc_html( implode( ', ', array_slice( $items, 0, 3 ) ) . ( count( $items ) > 3 ? '…' : '' ) ); ?></td>
+                    <td style="max-width:300px;">
+                        <?php echo esc_html( implode( ', ', array_slice( $items, 0, 3 ) ) . ( count( $items ) > 3 ? '…' : '' ) ); ?>
+                        <details class="slc-order-details" style="margin-top:7px;">
+                            <summary style="cursor:pointer;color:#2271b1;font-weight:600;">Voir les <?php echo count( $line_items ); ?> ligne(s)</summary>
+                            <div class="slc-order-detail-box" style="margin-top:8px;min-width:520px;">
+                                <table class="widefat striped" style="margin:0;">
+                                    <thead><tr><th>Article</th><th>Options</th><th>Qté</th><th>Total ligne</th><th>Gestion</th></tr></thead>
+                                    <tbody>
+                                    <?php foreach ( $line_items as $item_id => $item ) :
+                                        $meta_rows = [];
+                                        foreach ( $item->get_formatted_meta_data( '', true ) as $meta ) {
+                                            $meta_rows[] = esc_html( wp_strip_all_tags( $meta->display_key ) . ': ' . wp_strip_all_tags( $meta->display_value ) );
+                                        }
+                                        $product = $item->get_product();
+                                        $sku = $product && $product->get_sku() ? 'SKU: ' . $product->get_sku() : '';
+                                        if ( $sku !== '' ) $meta_rows[] = esc_html( $sku );
+                                        $can_remove = in_array( $st, [ 'pending', 'processing', 'sl-prete' ], true ) && count( $line_items ) > 1;
+                                    ?>
+                                        <tr>
+                                            <td><strong><?php echo esc_html( $item->get_name() ); ?></strong></td>
+                                            <td><?php echo $meta_rows ? implode( '<br>', $meta_rows ) : '—'; ?></td>
+                                            <td><?php echo (int) $item->get_quantity(); ?></td>
+                                            <td><?php echo wp_kses_post( $o->get_formatted_line_subtotal( $item ) ); ?></td>
+                                            <td>
+                                                <?php if ( $can_remove ) : ?>
+                                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('Supprimer cette ligne de la commande ? Le total sera recalculé et aucun remboursement automatique ne sera effectué.');">
+                                                        <?php wp_nonce_field( 'slc_action_' . $o->get_id() ); ?>
+                                                        <input type="hidden" name="action" value="slc_remove_order_item">
+                                                        <input type="hidden" name="order_id" value="<?php echo (int) $o->get_id(); ?>">
+                                                        <input type="hidden" name="item_id" value="<?php echo (int) $item_id; ?>">
+                                                        <button type="submit" class="button-link-delete">Supprimer</button>
+                                                    </form>
+                                                <?php else : ?>
+                                                    <span style="color:#777;">Non disponible</span>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                                <p style="margin:8px 0 0;color:#666;font-size:12px;">La suppression est autorisée avant la remise de la commande. Pour une commande déjà payée, vérifiez séparément tout remboursement éventuel.</p>
+                            </div>
+                        </details>
+                    </td>
                     <td><?php echo wp_kses_post( $o->get_formatted_order_total() ); ?></td>
                     <?php if ( $is_admin && $agence_sel === '' ) : ?>
                         <td><?php echo esc_html( slc_agence_name( $o->get_meta( '_sl_collect_agence' ) ) ); ?></td>
@@ -205,6 +253,7 @@ function slc_admin_page() {
                     ?></td>
                     <td><?php echo esc_html( $o->get_date_created() ? $o->get_date_created()->date_i18n( 'd/m/Y H:i' ) : '—' ); ?></td>
                     <td>
+                        <button type="button" class="button" style="margin-bottom:6px;" onclick="slcPrintTicket(<?php echo (int) $o->get_id(); ?>);">Imprimer le ticket</button>
                         <?php if ( 'processing' === $st ) : ?>
                             <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('Marquer la commande n°<?php echo esc_js( $o->get_order_number() ); ?> comme PRÊTE ? Le client sera notifié.');">
                                 <?php wp_nonce_field( 'slc_action_' . $o->get_id() ); ?>
@@ -230,11 +279,47 @@ function slc_admin_page() {
                         <?php endif; ?>
                     </td>
                 </tr>
+                <tr id="slc-ticket-row-<?php echo (int) $o->get_id(); ?>" style="display:none;">
+                    <td colspan="<?php echo (int) ( 8 + ( $is_admin && $agence_sel === '' ? 1 : 0 ) ); ?>">
+                        <div id="slc-ticket-<?php echo (int) $o->get_id(); ?>" class="slc-ticket-content">
+                            <h2>Ticket de préparation - commande n°<?php echo esc_html( $o->get_order_number() ); ?></h2>
+                            <p><strong>Client :</strong> <?php echo esc_html( trim( $o->get_billing_first_name() . ' ' . $o->get_billing_last_name() ) ); ?><br>
+                            <strong>Téléphone :</strong> <?php echo esc_html( $o->get_billing_phone() ); ?><br>
+                            <strong>Agence :</strong> <?php echo esc_html( slc_agence_name( $o->get_meta( '_sl_collect_agence' ) ) ); ?><br>
+                            <strong>Date :</strong> <?php echo esc_html( $o->get_date_created() ? $o->get_date_created()->date_i18n( 'd/m/Y H:i' ) : '—' ); ?></p>
+                            <table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;border-bottom:1px solid #333;padding:5px;">Article</th><th style="text-align:center;border-bottom:1px solid #333;padding:5px;">Qté</th><th style="text-align:right;border-bottom:1px solid #333;padding:5px;">Total</th></tr></thead><tbody>
+                            <?php foreach ( $line_items as $ticket_item ) : ?>
+                                <tr><td style="padding:5px;border-bottom:1px solid #ddd;"><?php echo esc_html( $ticket_item->get_name() ); ?></td><td style="text-align:center;padding:5px;border-bottom:1px solid #ddd;"><?php echo (int) $ticket_item->get_quantity(); ?></td><td style="text-align:right;padding:5px;border-bottom:1px solid #ddd;"><?php echo wp_kses_post( $o->get_formatted_line_subtotal( $ticket_item ) ); ?></td></tr>
+                            <?php endforeach; ?>
+                            </tbody></table>
+                            <p style="text-align:right;font-size:16px;"><strong>Total commande : <?php echo wp_kses_post( $o->get_formatted_order_total() ); ?></strong></p>
+                        </div>
+                    </td>
+                </tr>
             <?php endforeach; ?>
             </tbody>
         </table>
         <?php endif; ?>
     </div>
+    <?php
+}
+
+add_action( 'admin_footer', 'slc_print_ticket_script' );
+function slc_print_ticket_script() {
+    if ( ! isset( $_GET['page'] ) || 'sl-collect' !== sanitize_key( wp_unslash( $_GET['page'] ) ) ) return;
+    ?>
+    <script>
+    function slcPrintTicket(orderId) {
+        var source = document.getElementById('slc-ticket-' + orderId);
+        if (!source) return;
+        var popup = window.open('', '_blank', 'width=760,height=800');
+        if (!popup) { window.alert('Autorisez les fenêtres popup pour imprimer le ticket.'); return; }
+        popup.document.write('<!doctype html><html><head><title>Ticket commande</title><style>body{font-family:Arial,sans-serif;color:#111;margin:30px;max-width:720px}h2{margin:0 0 18px}table{font-size:14px}p{line-height:1.5}@media print{body{margin:10mm}}</style></head><body>' + source.innerHTML + '</body></html>');
+        popup.document.close();
+        popup.focus();
+        popup.onload = function(){ popup.print(); };
+    }
+    </script>
     <?php
 }
 
@@ -286,4 +371,28 @@ add_action( 'admin_post_slc_handover', function () {
     $user = wp_get_current_user();
     $order->update_status( 'completed', 'Drop & Collect — remise effectuée (code vérifié) par ' . $user->user_login . '.' );
     slc_redirect_back( 'remis' );
+} );
+
+add_action( 'admin_post_slc_remove_order_item', function () {
+    $order = slc_check_action_order();
+    $item_id = isset( $_POST['item_id'] ) ? absint( $_POST['item_id'] ) : 0;
+    $allowed_statuses = [ 'pending', 'processing', 'sl-prete' ];
+
+    if ( ! $item_id || ! in_array( $order->get_status(), $allowed_statuses, true ) ) {
+        slc_redirect_back( 'remove_err' );
+    }
+
+    $items = $order->get_items( 'line_item' );
+    $item  = isset( $items[ $item_id ] ) ? $items[ $item_id ] : false;
+    if ( ! $item || count( $items ) <= 1 ) {
+        slc_redirect_back( 'remove_err' );
+    }
+
+    $name = $item->get_name();
+    $qty  = (int) $item->get_quantity();
+    $order->remove_item( $item_id );
+    $order->calculate_totals( true );
+    $order->add_order_note( sprintf( 'Drop & Collect — ligne supprimée du back-office : %s × %d. Total recalculé par %s. Aucun remboursement automatique.', $name, $qty, wp_get_current_user()->user_login ) );
+    $order->save();
+    slc_redirect_back( 'removed' );
 } );

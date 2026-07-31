@@ -1,15 +1,13 @@
 <?php
 /**
- * SMS automatiques au client via MMGate (5 FCFA/SMS, debites du solde
- * partenaire — le meme compte que l'encaissement, aucun contrat en plus).
+ * SMS automatiques au client via l'API Santa Lucia.
  *
  * Deux envois par commande retrait, aux moments qui comptent :
  *  1. paiement confirme  -> numero de commande + CODE DE RETRAIT ;
  *  2. commande PRETE     -> agence + rappel du code + delai 72 h.
  *
  * Concu pour les clients SANS compte : leur telephone (obligatoire au
- * checkout) est le seul canal garanti avec l'email. Corps en ASCII pur —
- * mmgate_send_sms() translitere, et le GSM 7 bits abime les accents.
+ * checkout) est le seul canal garanti avec l'email.
  *
  * Chaque envoi est trace en note de commande, y compris les echecs (ETAT 309
  * = solde MMGate insuffisant : la note le dit, personne ne cherche pourquoi
@@ -21,7 +19,60 @@
 defined( 'ABSPATH' ) || exit;
 
 function slc_sms_enabled() {
-    return get_option( 'sl_collect_sms', 'yes' ) === 'yes' && function_exists( 'mmgate_send_sms' );
+    return get_option( 'sl_collect_sms', 'yes' ) === 'yes';
+}
+
+/**
+ * Envoie un SMS via le service fourni par l'hebergeur.
+ *
+ * L'URL est construite avec add_query_arg afin que le message et le numero
+ * soient correctement encodes, y compris lorsqu'ils contiennent des espaces,
+ * un « + » ou des caracteres accentues.
+ *
+ * @param string $telephone Numero destinataire.
+ * @param string $message   Texte du SMS.
+ * @return array|WP_Error Reponse normalisee.
+ */
+function slc_send_sms( $telephone, $message ) {
+    $telephone = preg_replace( '/\s+/', '', (string) $telephone );
+    if ( '' === $telephone || '' === trim( (string) $message ) ) {
+        return new WP_Error( 'slc_sms_invalid', 'Numero ou message SMS invalide.' );
+    }
+
+    $url = add_query_arg(
+        [
+            'message'      => (string) $message,
+            'destinataire' => $telephone,
+        ],
+        'http://serveur-free.com/android/send_sms_OTP.php'
+    );
+
+    $response = wp_remote_get(
+        $url,
+        [
+            'timeout'   => 20,
+            'sslverify' => false,
+        ]
+    );
+
+    if ( is_wp_error( $response ) ) {
+        return $response;
+    }
+
+    $status = (int) wp_remote_retrieve_response_code( $response );
+    $body   = trim( (string) wp_remote_retrieve_body( $response ) );
+
+    if ( $status < 200 || $status >= 300 ) {
+        return new WP_Error(
+            'slc_sms_http',
+            sprintf( 'Le service SMS a repondu avec le code HTTP %d.', $status )
+        );
+    }
+
+    return [
+        'status' => $status,
+        'body'   => $body,
+    ];
 }
 
 /**
@@ -51,20 +102,13 @@ function slc_sms_order( $order, $etape, $message ) {
     $order->update_meta_data( $garde, current_time( 'mysql' ) );
     $order->save();
 
-    $res = mmgate_send_sms( $tel, $message );
+    $res = slc_send_sms( $tel, $message );
 
     if ( is_wp_error( $res ) ) {
         $order->add_order_note( 'SMS ' . $etape . ' non envoyé : ' . $res->get_error_message() );
         return;
     }
-    $etat = isset( $res['ETAT'] ) ? (int) $res['ETAT'] : 0;
-    if ( 300 === $etat ) {
-        $order->add_order_note( 'SMS ' . $etape . ' envoyé au ' . $tel . ' (IDOPER ' . ( $res['IDOPER'] ?? '?' ) . ').' );
-    } elseif ( 309 === $etat ) {
-        $order->add_order_note( 'SMS ' . $etape . ' NON envoyé : solde MMGate insuffisant (5 F/SMS — approvisionner le compte partenaire).' );
-    } else {
-        $order->add_order_note( 'SMS ' . $etape . ' NON envoyé (ETAT ' . $etat . ').' );
-    }
+    $order->add_order_note( 'SMS ' . $etape . ' envoyé au ' . $tel . ' via le service SMS (HTTP ' . (int) $res['status'] . ').' );
 }
 
 /** 1. Paiement confirme : numero de commande + code de retrait. */
