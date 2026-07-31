@@ -279,10 +279,12 @@ function slc_admin_page() {
                         <?php endif; ?>
                     </td>
                 </tr>
+                <?php $ticket_qr_url = function_exists( 'slc_facture_qr_url' ) ? slc_facture_qr_url( $o ) : ''; ?>
                 <tr id="slc-ticket-row-<?php echo (int) $o->get_id(); ?>" style="display:none;">
                     <td colspan="<?php echo (int) ( 8 + ( $is_admin && $agence_sel === '' ? 1 : 0 ) ); ?>">
-                        <div id="slc-ticket-<?php echo (int) $o->get_id(); ?>" class="slc-ticket-content">
+                         <div id="slc-ticket-<?php echo (int) $o->get_id(); ?>" class="slc-ticket-content">
                             <h2>Ticket de préparation - commande n°<?php echo esc_html( $o->get_order_number() ); ?></h2>
+                            <?php if ( $ticket_qr_url !== '' ) : ?><div style="float:right;text-align:center;margin:0 0 12px 18px;"><img src="<?php echo esc_url( $ticket_qr_url ); ?>" alt="QR commande <?php echo esc_attr( $o->get_order_number() ); ?>" width="120" height="120" style="display:block;width:120px;height:120px;"><small>Scanner pour vérifier</small></div><?php endif; ?>
                             <p><strong>Client :</strong> <?php echo esc_html( trim( $o->get_billing_first_name() . ' ' . $o->get_billing_last_name() ) ); ?><br>
                             <strong>Téléphone :</strong> <?php echo esc_html( $o->get_billing_phone() ); ?><br>
                             <?php $payment_phone = (string) $o->get_meta( '_sl_collect_payment_phone' ); if ( $payment_phone === '' ) $payment_phone = (string) $o->get_meta( '_mmgate_msisdn' ); ?>

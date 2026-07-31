@@ -56,18 +56,23 @@ function slc_facture_scan_url( $order ) {
     );
 }
 
-/**
- * Génère temporairement l'image QR via un service spécialisé.
- * Seul le jeton opaque est transmis au service, jamais les données client.
- */
-function slc_facture_qr_file( $order ) {
-    $url = add_query_arg(
+/** URL de l'image QR ; le service ne reçoit qu'un jeton opaque. */
+function slc_facture_qr_url( $order ) {
+    return add_query_arg(
         [
             'size' => '300x300',
             'data' => slc_facture_scan_url( $order ),
         ],
         'https://api.qrserver.com/v1/create-qr-code/'
     );
+}
+
+/**
+ * Génère temporairement l'image QR via un service spécialisé.
+ * Seul le jeton opaque est transmis au service, jamais les données client.
+ */
+function slc_facture_qr_file( $order ) {
+    $url = slc_facture_qr_url( $order );
     $res = wp_remote_get( $url, [ 'timeout' => 8, 'sslverify' => true ] );
     if ( is_wp_error( $res ) || 200 !== (int) wp_remote_retrieve_response_code( $res ) ) {
         return '';
