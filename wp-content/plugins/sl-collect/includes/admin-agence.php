@@ -17,6 +17,58 @@ function slc_admin_menu() {
     );
 }
 
+add_action( 'admin_head', 'slc_admin_styles' );
+function slc_admin_styles() {
+    if ( ! isset( $_GET['page'] ) || 'sl-collect' !== sanitize_key( wp_unslash( $_GET['page'] ) ) ) return;
+    ?>
+    <style id="slc-admin-styles">
+        .slc-admin-shell { max-width: 1680px; }
+        .slc-admin-shell h1 { display:flex; align-items:center; gap:8px; margin-bottom:18px; }
+        .slc-filter-bar { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin:0 0 18px; padding:16px; background:#fff; border:1px solid #dcdcde; border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+        .slc-filter-bar label { display:flex; flex-direction:column; gap:5px; color:#50575e; font-size:12px; font-weight:600; }
+        .slc-filter-bar select, .slc-filter-bar input[type="search"] { min-height:40px; }
+        .slc-filter-bar input[type="search"] { min-width:280px; }
+        .slc-filter-bar .button { min-height:40px; padding:0 16px; }
+        .slc-orders-wrap { overflow-x:auto; border:1px solid #dcdcde; border-radius:8px; background:#fff; }
+        .slc-orders-table { min-width:1080px; border:0; box-shadow:none; }
+        .slc-orders-table thead th { padding:12px 10px; color:#50575e; font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+        .slc-orders-table tbody td { padding:14px 10px; vertical-align:top; }
+        .slc-orders-table tbody tr:not(.slc-ticket-row):hover { background:#f6f7f7; }
+        .slc-order-number { color:#1d2327; font-size:14px; }
+        .slc-customer-name { font-weight:600; color:#1d2327; }
+        .slc-customer-phone { white-space:nowrap; }
+        .slc-items-summary { max-width:290px; line-height:1.45; }
+        .slc-order-details { margin-top:8px; }
+        .slc-order-details summary { display:inline-flex; align-items:center; gap:4px; cursor:pointer; color:#2271b1; font-weight:600; }
+        .slc-order-details summary:hover { color:#135e96; }
+        .slc-order-detail-box { min-width:560px; margin-top:10px; padding:10px; background:#f6f7f7; border:1px solid #dcdcde; border-radius:6px; }
+        .slc-order-detail-box table { background:#fff; }
+        .slc-order-detail-box th { font-size:11px; text-transform:uppercase; }
+        .slc-order-detail-box td, .slc-order-detail-box th { padding:8px; }
+        .slc-total { font-weight:700; white-space:nowrap; }
+        .slc-status { display:inline-flex; align-items:center; min-height:24px; padding:3px 9px; border-radius:999px; background:#eef0f2; color:#50575e; font-size:12px; font-weight:700; white-space:nowrap; }
+        .slc-status-processing { background:#e7f3ff; color:#075985; }
+        .slc-status-sl-prete { background:#fff4ce; color:#8a4b00; }
+        .slc-status-pending, .slc-status-on-hold { background:#fff4ce; color:#7a4d00; }
+        .slc-status-completed { background:#dff7e8; color:#116329; }
+        .slc-status-failed, .slc-status-cancelled, .slc-status-refunded { background:#fbeaea; color:#b32d2e; }
+        .slc-status-meta { display:block; margin-top:6px; color:#646970; font-size:11px; line-height:1.5; }
+        .slc-status-meta code { padding:2px 4px; background:#f0f0f1; }
+        .slc-actions { display:flex; flex-direction:column; align-items:flex-start; gap:7px; min-width:240px; }
+        .slc-actions .button { margin:0; }
+        .slc-actions form { display:flex; gap:7px; align-items:center; margin:0; }
+        .slc-actions input[name="code"] { width:120px; min-height:34px; text-transform:uppercase; }
+        .slc-ticket-row td { background:#f6f7f7; }
+        @media (max-width:782px) {
+            .slc-admin-shell h1 { font-size:22px; }
+            .slc-filter-bar { align-items:stretch; }
+            .slc-filter-bar label, .slc-filter-bar input[type="search"], .slc-filter-bar select, .slc-filter-bar .button { width:100%; box-sizing:border-box; }
+            .slc-filter-bar .button { text-align:center; }
+        }
+    </style>
+    <?php
+}
+
 /**
  * Statuts geres par l'ecran — TOUS les etats d'une commande, choisissables.
  * Un paiement echoue est une commande comme une autre : la masquer du listing
@@ -123,7 +175,7 @@ function slc_admin_page() {
 
     $notice = isset( $_GET['slc_msg'] ) ? sanitize_key( $_GET['slc_msg'] ) : '';
     ?>
-    <div class="wrap">
+    <div class="wrap slc-admin-shell">
         <h1>🏪 Commandes retrait <?php echo $agence_sel ? '— ' . esc_html( slc_agence_name( $agence_sel ) ) : ( $is_admin ? '— toutes les agences' : '' ); ?></h1>
 
         <?php if ( 'pret' === $notice ) : ?>
@@ -140,7 +192,7 @@ function slc_admin_page() {
             <div class="notice notice-error is-dismissible"><p>Impossible de supprimer cette ligne. Vérifiez le statut de la commande et les droits du compte.</p></div>
         <?php endif; ?>
 
-        <form method="get" style="margin:14px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <form method="get" class="slc-filter-bar">
             <input type="hidden" name="page" value="sl-collect">
             <label>Statut<br>
                 <select name="statut">
@@ -169,7 +221,8 @@ function slc_admin_page() {
         <?php if ( empty( $orders ) ) : ?>
             <p><em>Aucune commande pour ces critères.</em></p>
         <?php else : ?>
-        <table class="widefat striped">
+        <div class="slc-orders-wrap">
+        <table class="widefat striped slc-orders-table">
             <thead><tr>
                 <th>N°</th><th>Client</th><th>Téléphone</th><th>Articles</th><th>Total</th>
                 <?php if ( $is_admin && $agence_sel === '' ) : ?><th>Agence</th><?php endif; ?>
@@ -183,14 +236,14 @@ function slc_admin_page() {
                 foreach ( $line_items as $it ) $items[] = $it->get_quantity() . '× ' . $it->get_name();
             ?>
                 <tr>
-                    <td><strong>n°<?php echo esc_html( $o->get_order_number() ); ?></strong></td>
-                    <td><?php echo esc_html( trim( $o->get_billing_first_name() . ' ' . $o->get_billing_last_name() ) ); ?></td>
-                    <td><a href="tel:<?php echo esc_attr( $o->get_billing_phone() ); ?>"><?php echo esc_html( $o->get_billing_phone() ); ?></a></td>
-                    <td style="max-width:300px;">
+                    <td><strong class="slc-order-number">n°<?php echo esc_html( $o->get_order_number() ); ?></strong></td>
+                    <td><span class="slc-customer-name"><?php echo esc_html( trim( $o->get_billing_first_name() . ' ' . $o->get_billing_last_name() ) ); ?></span></td>
+                    <td><a class="slc-customer-phone" href="tel:<?php echo esc_attr( $o->get_billing_phone() ); ?>"><?php echo esc_html( $o->get_billing_phone() ); ?></a></td>
+                    <td class="slc-items-summary">
                         <?php echo esc_html( implode( ', ', array_slice( $items, 0, 3 ) ) . ( count( $items ) > 3 ? '…' : '' ) ); ?>
-                        <details class="slc-order-details" style="margin-top:7px;">
-                            <summary style="cursor:pointer;color:#2271b1;font-weight:600;">Voir les <?php echo count( $line_items ); ?> ligne(s)</summary>
-                            <div class="slc-order-detail-box" style="margin-top:8px;min-width:520px;">
+                        <details class="slc-order-details">
+                            <summary>Voir les <?php echo count( $line_items ); ?> ligne(s)</summary>
+                            <div class="slc-order-detail-box">
                                 <table class="widefat striped" style="margin:0;">
                                     <thead><tr><th>Article</th><th>Options</th><th>Qté</th><th>Total ligne</th><th>Gestion</th></tr></thead>
                                     <tbody>
@@ -230,30 +283,31 @@ function slc_admin_page() {
                             </div>
                         </details>
                     </td>
-                    <td><?php echo wp_kses_post( $o->get_formatted_order_total() ); ?></td>
+                    <td class="slc-total"><?php echo wp_kses_post( $o->get_formatted_order_total() ); ?></td>
                     <?php if ( $is_admin && $agence_sel === '' ) : ?>
                         <td><?php echo esc_html( slc_agence_name( $o->get_meta( '_sl_collect_agence' ) ) ); ?></td>
                     <?php endif; ?>
                     <td><?php
-                        echo esc_html( wc_get_order_status_name( $st ) );
+                        echo '<span class="slc-status slc-status-' . esc_attr( sanitize_html_class( $st ) ) . '">' . esc_html( wc_get_order_status_name( $st ) ) . '</span>';
                         // Un echec sans raison visible oblige a ouvrir la commande :
                         // la raison (posee par la passerelle) s'affiche directement.
                         if ( 'failed' === $st ) {
                             $raison = (string) $o->get_meta( '_mmgate_fail_reason' );
                             if ( $raison !== '' ) {
-                                echo '<br><small style="color:#b32d2e;">' . esc_html( $raison ) . '</small>';
+                                echo '<span class="slc-status-meta" style="color:#b32d2e;">' . esc_html( $raison ) . '</span>';
                             }
                         }
                         // Reference MMGate (IDOPER) : pour rapprocher la transaction avec
                         // MMGate (support, reconciliation), quel que soit le statut.
                         $idoper = (string) $o->get_meta( '_mmgate_idoper' );
                         if ( $idoper !== '' ) {
-                            echo '<br><small style="color:#666;">IDOPER&nbsp;: <code>' . esc_html( $idoper ) . '</code></small>';
+                            echo '<span class="slc-status-meta">IDOPER&nbsp;: <code>' . esc_html( $idoper ) . '</code></span>';
                         }
                     ?></td>
                     <td><?php echo esc_html( $o->get_date_created() ? $o->get_date_created()->date_i18n( 'd/m/Y H:i' ) : '—' ); ?></td>
                     <td>
-                        <button type="button" class="button" style="margin-bottom:6px;" onclick="slcPrintTicket(<?php echo (int) $o->get_id(); ?>);">Imprimer le ticket</button>
+                        <div class="slc-actions">
+                        <button type="button" class="button" onclick="slcPrintTicket(<?php echo (int) $o->get_id(); ?>);">🖨️ Imprimer le ticket</button>
                         <?php if ( 'processing' === $st ) : ?>
                             <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('Marquer la commande n°<?php echo esc_js( $o->get_order_number() ); ?> comme PRÊTE ? Le client sera notifié.');">
                                 <?php wp_nonce_field( 'slc_action_' . $o->get_id() ); ?>
@@ -262,7 +316,7 @@ function slc_admin_page() {
                                 <button class="button button-primary">✅ Marquer PRÊTE</button>
                             </form>
                         <?php elseif ( 'sl-prete' === $st ) : ?>
-                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:flex;gap:6px;align-items:center;">
+                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                                 <?php wp_nonce_field( 'slc_action_' . $o->get_id() ); ?>
                                 <input type="hidden" name="action" value="slc_handover">
                                 <input type="hidden" name="order_id" value="<?php echo (int) $o->get_id(); ?>">
@@ -277,6 +331,7 @@ function slc_admin_page() {
                         <?php else : ?>
                             —
                         <?php endif; ?>
+                        </div>
                     </td>
                 </tr>
                 <?php $ticket_qr_url = function_exists( 'slc_facture_qr_url' ) ? slc_facture_qr_url( $o ) : ''; ?>
@@ -303,6 +358,7 @@ function slc_admin_page() {
             <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
         <?php endif; ?>
     </div>
     <?php
