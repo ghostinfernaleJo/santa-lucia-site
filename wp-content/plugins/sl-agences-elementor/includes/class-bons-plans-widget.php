@@ -415,12 +415,8 @@ class SL_Bons_Plans_Widget extends Widget_Base {
                         </select>
                     </div>
 
-                    <!--
-                        Toutes les cartes restent disponibles pour les filtres JS, mais dans
-                        un <template> inerte. Le navigateur ne charge ainsi ni les images ni
-                        le sous-arbre DOM des centaines d'offres avant leur affichage.
-                    -->
-                    <template class="slbp-all-cards">
+                    <!-- Toutes les cartes source, compatibles avec les scripts mis en cache. -->
+                    <div class="slbp-all-cards" style="display:none !important;">
                         <?php foreach ( $posts as $p ) :
                             $stock_actif = get_post_meta( $p->ID, '_sl_bp_stock_actif', true );
                             $stock_qty   = get_post_meta( $p->ID, '_sl_bp_stock_qty', true );
@@ -531,7 +527,7 @@ class SL_Bons_Plans_Widget extends Widget_Base {
 
                             </a><!-- .slbp-card -->
                         <?php endforeach; ?>
-                    </template><!-- .slbp-all-cards -->
+                    </div><!-- .slbp-all-cards -->
 
                     <!-- Grille visible (JS injecte les cartes ici) -->
                     <div class="slbp-grid slbp-cols-<?php echo esc_attr( $colonnes ); ?>"
