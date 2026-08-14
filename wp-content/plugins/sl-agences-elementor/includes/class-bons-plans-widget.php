@@ -162,6 +162,12 @@ class SL_Bons_Plans_Widget extends Widget_Base {
             ],
         ] );
 
+        // Le bouton panier de chaque carte a besoin du produit WooCommerce lié.
+        // Précharger la correspondance évite une requête séparée pour chaque offre.
+        if ( function_exists( 'sl_bp_preload_product_ids' ) ) {
+            sl_bp_preload_product_ids( wp_list_pluck( $posts, 'ID' ) );
+        }
+
         /* Collecter les termes officiels + prix max */
         $cats_dispo    = [];
         $agences_dispo = [];
@@ -409,8 +415,12 @@ class SL_Bons_Plans_Widget extends Widget_Base {
                         </select>
                     </div>
 
-                    <!-- Toutes les cartes (masquées — JS gère l'affichage) -->
-                    <div class="slbp-all-cards" style="display:none !important;">
+                    <!--
+                        Toutes les cartes restent disponibles pour les filtres JS, mais dans
+                        un <template> inerte. Le navigateur ne charge ainsi ni les images ni
+                        le sous-arbre DOM des centaines d'offres avant leur affichage.
+                    -->
+                    <template class="slbp-all-cards">
                         <?php foreach ( $posts as $p ) :
                             $stock_actif = get_post_meta( $p->ID, '_sl_bp_stock_actif', true );
                             $stock_qty   = get_post_meta( $p->ID, '_sl_bp_stock_qty', true );
@@ -432,13 +442,15 @@ class SL_Bons_Plans_Widget extends Widget_Base {
                             $date_fin    = get_post_meta( $p->ID, '_sl_bp_date_fin', true );
                             $img_url     = get_the_post_thumbnail_url( $p->ID, 'medium' );
 
-                            $c_terms     = wp_get_object_terms( $p->ID, 'sl_categorie_promo' );
+                            $c_terms     = get_the_terms( $p->ID, 'sl_categorie_promo' );
                             if ( is_wp_error( $c_terms ) ) $c_terms = [];
+                            if ( ! is_array( $c_terms ) ) $c_terms = [];
                             $cat_ids     = implode( ',', wp_list_pluck( $c_terms, 'term_id' ) );
                             $cat_name    = ! empty( $c_terms ) ? $c_terms[0]->name : '';
 
-                            $a_terms     = wp_get_object_terms( $p->ID, 'sl_agence_promo' );
+                            $a_terms     = get_the_terms( $p->ID, 'sl_agence_promo' );
                             if ( is_wp_error( $a_terms ) ) $a_terms = [];
+                            if ( ! is_array( $a_terms ) ) $a_terms = [];
                             $agence_slug = ! empty( $a_terms ) ? $a_terms[0]->slug : '';
                             $agence_name = ! empty( $a_terms ) ? $a_terms[0]->name : '';
                         ?>
@@ -519,7 +531,7 @@ class SL_Bons_Plans_Widget extends Widget_Base {
 
                             </a><!-- .slbp-card -->
                         <?php endforeach; ?>
-                    </div><!-- .slbp-all-cards -->
+                    </template><!-- .slbp-all-cards -->
 
                     <!-- Grille visible (JS injecte les cartes ici) -->
                     <div class="slbp-grid slbp-cols-<?php echo esc_attr( $colonnes ); ?>"

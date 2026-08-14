@@ -7,22 +7,61 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+/** Cache partagé bon plan => produit WooCommerce pour la requête courante. */
+function &sl_bp_product_id_cache() {
+    static $cache = [];
+    return $cache;
+}
+
+/**
+ * Précharge en une seule requête les produits liés à une liste de bons plans.
+ * Évite une requête SQL par carte sur les grandes pages de promotions.
+ */
+function sl_bp_preload_product_ids( $bon_plan_ids ) {
+    $cache = &sl_bp_product_id_cache();
+    $ids   = array_values( array_unique( array_filter( array_map( 'intval', (array) $bon_plan_ids ) ) ) );
+    if ( ! $ids ) return;
+
+    $missing = array_values( array_diff( $ids, array_map( 'intval', array_keys( $cache ) ) ) );
+    if ( ! $missing ) return;
+
+    // Mémoriser aussi les absences afin de ne pas relancer une requête ensuite.
+    foreach ( $missing as $bon_plan_id ) {
+        $cache[ $bon_plan_id ] = 0;
+    }
+
+    $products = get_posts( [
+        'post_type'      => 'product',
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'orderby'        => 'date',
+        'order'          => 'DESC',
+        'no_found_rows'  => true,
+        'meta_query'     => [ [
+            'key'     => '_sl_bp_source_id',
+            'value'   => $missing,
+            'compare' => 'IN',
+            'type'    => 'NUMERIC',
+        ] ],
+    ] );
+
+    foreach ( $products as $product ) {
+        $source_id = (int) get_post_meta( $product->ID, '_sl_bp_source_id', true );
+        // En cas de doublon, conserver le produit publié le plus récent.
+        if ( $source_id && isset( $cache[ $source_id ] ) && ! $cache[ $source_id ] ) {
+            $cache[ $source_id ] = (int) $product->ID;
+        }
+    }
+}
+
 /** Produit WooCommerce publié lié à un bon plan (0 si aucun). */
 function sl_bp_product_id_for( $bon_plan_id ) {
-    static $cache = [];
+    $cache = &sl_bp_product_id_cache();
     $bon_plan_id = (int) $bon_plan_id;
     if ( $bon_plan_id <= 0 ) return 0;
     if ( isset( $cache[ $bon_plan_id ] ) ) return $cache[ $bon_plan_id ];
-    $ids = get_posts( [
-        'post_type'      => 'product',
-        'post_status'    => 'publish',
-        'posts_per_page' => 1,
-        'fields'         => 'ids',
-        'meta_key'       => '_sl_bp_source_id',
-        'meta_value'     => $bon_plan_id,
-        'no_found_rows'  => true,
-    ] );
-    return $cache[ $bon_plan_id ] = ( $ids ? (int) $ids[0] : 0 );
+    sl_bp_preload_product_ids( [ $bon_plan_id ] );
+    return isset( $cache[ $bon_plan_id ] ) ? (int) $cache[ $bon_plan_id ] : 0;
 }
 
 /**

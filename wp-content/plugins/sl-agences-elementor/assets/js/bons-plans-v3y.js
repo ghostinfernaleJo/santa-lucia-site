@@ -19,7 +19,9 @@
         var sortMode      = 'recent';
 
         // ── Éléments DOM
-        var allCards   = Array.from(wrap.querySelectorAll('.slbp-all-cards .slbp-card'));
+        var cardsSource = wrap.querySelector('.slbp-all-cards');
+        var cardsRoot   = cardsSource && cardsSource.content ? cardsSource.content : cardsSource;
+        var allCards    = cardsRoot ? Array.from(cardsRoot.querySelectorAll('.slbp-card')) : [];
         var grid       = wrap.querySelector('.slbp-grid');
         var emptyBox   = wrap.querySelector('.slbp-empty');
         var pagDiv     = wrap.querySelector('.slbp-pagination');

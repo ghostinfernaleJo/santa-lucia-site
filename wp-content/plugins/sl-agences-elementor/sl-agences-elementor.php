@@ -3,7 +3,7 @@
  * Plugin Name: Santa Lucia - Widgets Elementor
  * Plugin URI:  https://lecomplexesantalucia.com
  * Description: Widgets Elementor personnalisés + Système Bons Plans multi-agences (18 responsables).
- * Version:     3.0.3
+ * Version:     3.3.10
  * Author:      Santa Lucia
  * Author URI:  https://lecomplexesantalucia.com
  * Text Domain: sl-agences
@@ -12,7 +12,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'SL_AGENCES_VERSION', '3.3.9' );
+define( 'SL_AGENCES_VERSION', '3.3.10' );
 define( 'SL_AGENCES_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SL_AGENCES_URL', plugin_dir_url( __FILE__ ) );
 
