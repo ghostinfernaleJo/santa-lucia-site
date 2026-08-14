@@ -342,7 +342,28 @@
         };
 
         if (this.bpPage > 1) this.bpPag.appendChild(mk('‹', this.bpPage - 1, false));
-        for (var i = 1; i <= pages; i++) this.bpPag.appendChild(mk(i, i, i === this.bpPage));
+
+        // Sur mobile, ne pas afficher toutes les pages (ex. 1, 2, 3...20).
+        var visible = [1];
+        for (var i = this.bpPage - 1; i <= this.bpPage + 1; i++) {
+            if (i > 1 && i < pages && visible.indexOf(i) === -1) visible.push(i);
+        }
+        if (pages > 1 && visible.indexOf(pages) === -1) visible.push(pages);
+        visible.sort(function (a, b) { return a - b; });
+
+        var previous = 0;
+        for (var j = 0; j < visible.length; j++) {
+            var current = visible[j];
+            if (previous && current - previous > 1) {
+                var dots = document.createElement('span');
+                dots.className = 'dots';
+                dots.textContent = '…';
+                this.bpPag.appendChild(dots);
+            }
+            this.bpPag.appendChild(mk(current, current, current === this.bpPage));
+            previous = current;
+        }
+
         if (this.bpPage < pages) this.bpPag.appendChild(mk('›', this.bpPage + 1, false));
     };
 

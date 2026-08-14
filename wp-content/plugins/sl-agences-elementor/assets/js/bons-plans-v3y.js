@@ -146,11 +146,30 @@
             pagDiv.innerHTML = '';
             if (pages <= 1) return;
             if (page > 1) pagDiv.appendChild(mkPageBtn('‹', page - 1, false, true));
-            for (var i = 1; i <= pages; i++) pagDiv.appendChild(mkPageBtn(i, i, i === page, false));
+            // Ne pas afficher 1..20 boutons sur mobile : on garde la page
+            // courante, ses voisines et les bornes avec des ellipses.
+            var visible = [1];
+            for (var i = page - 1; i <= page + 1; i++) {
+                if (i > 1 && i < pages && visible.indexOf(i) === -1) visible.push(i);
+            }
+            if (pages > 1 && visible.indexOf(pages) === -1) visible.push(pages);
+            visible.sort(function(a, b) { return a - b; });
+            var previous = 0;
+            visible.forEach(function (i) {
+                if (previous && i - previous > 1) pagDiv.appendChild(mkPageBtn('…', i, false, false));
+                pagDiv.appendChild(mkPageBtn(i, i, i === page, false));
+                previous = i;
+            });
             if (page < pages) pagDiv.appendChild(mkPageBtn('›', page + 1, false, true));
         }
 
         function mkPageBtn(label, targetPage, isActive, isNav) {
+            if (label === '…') {
+                var dots = document.createElement('span');
+                dots.textContent = label;
+                dots.classList.add('dots');
+                return dots;
+            }
             var a = document.createElement('a');
             a.textContent = label;
             if (isActive) a.classList.add('active');
@@ -716,4 +735,3 @@
     });
 
 })();
-

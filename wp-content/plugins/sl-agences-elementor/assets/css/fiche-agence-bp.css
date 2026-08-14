@@ -936,6 +936,7 @@
 .slf-bp-pag a { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; padding: 0 10px; border: 1.5px solid #e0e0e0; border-radius: 999px; color: #555; font-size: 13px; text-decoration: none; transition: all .2s; }
 .slf-bp-pag a:hover:not(.active) { border-color: #e91e8c; color: #e91e8c; }
 .slf-bp-pag a.active { background: #e91e8c; border-color: #e91e8c; color: #fff; }
+.slf-bp-pag .dots { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 36px; color: #777; }
 
 @media (max-width: 599px) {
     .slf-bp-top-row { flex-direction: column; }

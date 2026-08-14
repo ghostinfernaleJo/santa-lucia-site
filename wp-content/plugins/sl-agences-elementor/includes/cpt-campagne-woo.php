@@ -1195,6 +1195,7 @@ function sl_cwoo_promo_boutique_shortcode( $atts ) {
     .sl-promo-pagination span.current{background:#E91E63;border-color:#E91E63;color:#fff;}
     .sl-promo-pagination a.page-numbers:hover{border-color:#E91E63;color:#E91E63;}
     .sl-promo-pagination .dots{border:none;background:transparent;}
+    @media(max-width:600px){.sl-promo-pagination .page-numbers{gap:4px;max-width:100%;}.sl-promo-pagination a.page-numbers,.sl-promo-pagination span.page-numbers{min-width:34px;width:34px;height:34px;padding:0;font-size:13px;}.sl-promo-pagination .dots{min-width:16px;width:auto;}}
     </style>';
     echo '<div class="sl-promo-boutique woocommerce" id="sl-promo-top">';
     if ( $heading ) {
@@ -1224,6 +1225,8 @@ function sl_cwoo_promo_boutique_shortcode( $atts ) {
             'total'        => $total_pages,
             'prev_text'    => '&lsaquo;',
             'next_text'    => '&rsaquo;',
+            'end_size'     => 1,
+            'mid_size'     => 1,
             'add_fragment' => '#sl-promo-top',
             'type'         => 'list',
         ] );
