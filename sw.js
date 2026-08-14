@@ -1,45 +1,21 @@
 /**
- * Service worker UNIQUE du site (racine, portee /) — PWA + notifications push.
+ * Service worker racine dédié aux notifications push.
  *
- * Remplace l'ancien sw-push.js (portee limitee au dossier du plugin) : un seul
- * worker racine couvre l'installation PWA ET le push, y compris le push iOS
- * en application installee.
- *
- * Strategie reseau VOLONTAIREMENT minimale : passage direct, aucune mise en
- * cache des pages ni des assets. Ce site a deja deux couches de cache
- * (Varnish, LiteSpeed) qui ont cause assez de bugs de fraicheur — un 3e cache
- * navigateur sur un site marchand (panier, stock, paiement) serait un piege.
- * Seule la page hors-ligne est pre-cachee.
+ * Il ne met aucune page ou ressource en cache et ne fournit pas de PWA.
+ * Le fichier doit rester à la racine pour conserver la portée nécessaire aux
+ * abonnements Web Push existants.
  */
 'use strict';
 
-var OFFLINE_CACHE = 'slpwa-v1';
-var OFFLINE_URL   = '/offline.html';
 var AJAX          = '/wp-admin/admin-ajax.php';
 var ICON          = '/wp-content/uploads/slpwa/icon-192.png';
 
 self.addEventListener('install', function (e) {
-    e.waitUntil(
-        caches.open(OFFLINE_CACHE)
-            .then(function (c) { return c.add(OFFLINE_URL); })
-            .then(function () { return self.skipWaiting(); })
-    );
+    e.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', function (e) {
     e.waitUntil(self.clients.claim());
-});
-
-// Navigations uniquement : reseau d'abord, page hors-ligne en secours.
-// Tout le reste (assets, AJAX, API) passe par le reseau sans interception.
-self.addEventListener('fetch', function (e) {
-    if (e.request.mode === 'navigate') {
-        e.respondWith(
-            fetch(e.request).catch(function () {
-                return caches.match(OFFLINE_URL);
-            })
-        );
-    }
 });
 
 /* ---- Push « sans contenu » : le serveur envoie un signal vide signe VAPID,

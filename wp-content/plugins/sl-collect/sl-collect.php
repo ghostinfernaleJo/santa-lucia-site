@@ -47,7 +47,6 @@ function sl_collect_boot() {
     require_once SL_COLLECT_PATH . 'includes/stats.php';
     require_once SL_COLLECT_PATH . 'includes/crm.php';
     require_once SL_COLLECT_PATH . 'includes/push.php';
-    require_once SL_COLLECT_PATH . 'includes/pwa.php';
     require_once SL_COLLECT_PATH . 'includes/sms-notify.php';
     require_once SL_COLLECT_PATH . 'includes/cron.php';
 }

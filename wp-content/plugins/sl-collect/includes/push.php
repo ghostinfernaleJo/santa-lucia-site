@@ -325,8 +325,7 @@ function slp_print_front_js() {
     if ( ! $k ) {
         return; // openssl EC indisponible : pas de push, pas de bouton
     }
-    // Worker UNIQUE a la racine (portee /) : sert la PWA ET le push — requis
-    // notamment pour le push iOS en application installee. L'ancien
+    // Worker unique a la racine (portee /) : sert uniquement le push. L'ancien
     // assets/sw-push.js (portee dossier plugin) est migre automatiquement
     // cote client (voir le nettoyage legacy dans le JS ci-dessous).
     $sw   = home_url( '/sw.js' );
