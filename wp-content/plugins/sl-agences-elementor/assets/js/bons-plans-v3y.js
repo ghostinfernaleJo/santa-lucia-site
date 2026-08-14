@@ -6,7 +6,13 @@
 (function () {
     'use strict';
 
+    function initBonsPlans() {
     document.querySelectorAll('.slbp-wrapper').forEach(function (wrap) {
+
+        // Certains optimiseurs exécutent le script avant que le contenu du
+        // <template> Elementor soit complètement disponible. Dans ce cas,
+        // laisser l'initialisation être retentée à DOMContentLoaded / load.
+        if (wrap.dataset.slbpInitialized === '1') return;
 
         // ── État global
         var parPage       = parseInt(wrap.dataset.parPage) || 20;
@@ -25,6 +31,8 @@
         var grid       = wrap.querySelector('.slbp-grid');
         var emptyBox   = wrap.querySelector('.slbp-empty');
         var pagDiv     = wrap.querySelector('.slbp-pagination');
+        if (!cardsSource || !grid || !emptyBox || !pagDiv || allCards.length === 0) return;
+        wrap.dataset.slbpInitialized = '1';
 
         // Sidebar checkboxes / multi-select agences
         var catCheckboxes  = wrap.querySelectorAll('[data-filter="cat"] li');
@@ -735,5 +743,13 @@
         render();
         updateChipCounts();
     });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBonsPlans);
+    } else {
+        window.setTimeout(initBonsPlans, 0);
+    }
+    window.addEventListener('load', initBonsPlans);
 
 })();
