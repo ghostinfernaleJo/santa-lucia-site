@@ -33,6 +33,7 @@ require_once SL_AGENCES_PATH . 'includes/ai-providers.php';
 require_once SL_AGENCES_PATH . 'includes/admin-settings-ai.php';
 require_once SL_AGENCES_PATH . 'includes/admin-magic-import.php';
 require_once SL_AGENCES_PATH . 'includes/rest-api-mobile.php';
+require_once SL_AGENCES_PATH . 'includes/menu-du-jour-carousel.php';
 require_once SL_AGENCES_PATH . 'includes/feedback-module.php';
 require_once SL_AGENCES_PATH . 'includes/disable-comments.php';
 require_once SL_AGENCES_PATH . 'includes/pdf-bons-plans.php';
@@ -280,6 +281,26 @@ function sl_agences_front_assets() {
         SL_AGENCES_VERSION,
         true
     );
+
+    // Widget "Menu du jour" (carrousel Fast Food + choix d'agence).
+    $menu_du_jour_css_ver = @filemtime( SL_AGENCES_PATH . 'assets/css/menu-du-jour-carousel.css' ) ?: SL_AGENCES_VERSION;
+    $menu_du_jour_js_ver  = @filemtime( SL_AGENCES_PATH . 'assets/js/menu-du-jour-carousel.js' ) ?: SL_AGENCES_VERSION;
+    wp_enqueue_style(
+        'sl-menu-du-jour-carousel',
+        SL_AGENCES_URL . 'assets/css/menu-du-jour-carousel.css',
+        [],
+        $menu_du_jour_css_ver
+    );
+    wp_enqueue_script(
+        'sl-menu-du-jour-carousel',
+        SL_AGENCES_URL . 'assets/js/menu-du-jour-carousel.js',
+        [],
+        $menu_du_jour_js_ver,
+        true
+    );
+    wp_localize_script( 'sl-menu-du-jour-carousel', 'slMenuDuJour', [
+        'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+    ] );
 }
 
 
@@ -379,6 +400,12 @@ function sl_agences_editor_css() {
         [],
         SL_AGENCES_VERSION
     );
+    wp_enqueue_style(
+        'sl-menu-du-jour-carousel',
+        SL_AGENCES_URL . 'assets/css/menu-du-jour-carousel.css',
+        [],
+        @filemtime( SL_AGENCES_PATH . 'assets/css/menu-du-jour-carousel.css' ) ?: SL_AGENCES_VERSION
+    );
 }
 
 /* ============================================================
@@ -414,6 +441,16 @@ function sl_agences_preview_js() {
         SL_AGENCES_VERSION,
         true
     );
+    wp_enqueue_script(
+        'sl-menu-du-jour-carousel',
+        SL_AGENCES_URL . 'assets/js/menu-du-jour-carousel.js',
+        [],
+        @filemtime( SL_AGENCES_PATH . 'assets/js/menu-du-jour-carousel.js' ) ?: SL_AGENCES_VERSION,
+        true
+    );
+    wp_localize_script( 'sl-menu-du-jour-carousel', 'slMenuDuJour', [
+        'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+    ] );
 }
 
 /* ============================================================
@@ -456,6 +493,10 @@ function sl_agences_register_widgets( $widgets_manager ) {
     // Widget 4b : Bons Plans — Carrousel (swipe + fleches + autoplay)
     require_once SL_AGENCES_PATH . 'includes/class-bons-plans-carousel-widget.php';
     $widgets_manager->register( new SL_Bons_Plans_Carousel_Widget() );
+
+    // Widget 4c : Menu du jour Fast Food (carrousel + sélection d'agence)
+    require_once SL_AGENCES_PATH . 'includes/class-menu-du-jour-carousel-widget.php';
+    $widgets_manager->register( new SL_Menu_Du_Jour_Carousel_Widget() );
 
     // Widget 5 : Gestion des images des produits maison
     require_once SL_AGENCES_PATH . 'includes/class-produits-images-widget.php';
