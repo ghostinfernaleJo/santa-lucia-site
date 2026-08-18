@@ -5,6 +5,28 @@
         return root.querySelector('.sl-mdt-track');
     }
 
+    function stopAutoplay(root) {
+        if (root._slMdtAutoplayTimer) {
+            window.clearInterval(root._slMdtAutoplayTimer);
+            root._slMdtAutoplayTimer = null;
+        }
+    }
+
+    function startAutoplay(root) {
+        stopAutoplay(root);
+        if (root.dataset.autoplay !== '1' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        var delay = Math.max(2000, parseInt(root.dataset.autoplayDelay, 10) || 5000);
+        root._slMdtAutoplayTimer = window.setInterval(function () {
+            var track = getTrack(root);
+            if (!track || document.hidden || root.matches(':hover') || root.dataset.slMdtInteracting === '1') return;
+
+            var step = Math.max(220, track.clientWidth * 0.86);
+            var atEnd = track.scrollLeft >= track.scrollWidth - track.clientWidth - 2;
+            track.scrollTo({ left: atEnd ? 0 : track.scrollLeft + step, behavior: 'smooth' });
+        }, delay);
+    }
+
     function updateArrows(root) {
         var track = getTrack(root);
         var prev = root.querySelector('.sl-mdt-prev');
@@ -34,6 +56,14 @@
         track.addEventListener('scroll', function () {
             window.requestAnimationFrame(function () { updateArrows(root); });
         }, { passive: true });
+        ['pointerdown', 'touchstart', 'focusin'].forEach(function (eventName) {
+            track.addEventListener(eventName, function () {
+                root.dataset.slMdtInteracting = '1';
+            }, { passive: true });
+        });
+        track.addEventListener('focusout', function () {
+            window.setTimeout(function () { root.dataset.slMdtInteracting = '0'; }, 800);
+        });
         updateArrows(root);
     }
 
@@ -74,6 +104,7 @@
                         : 'Aucun repas disponible aujourd’hui à ' + agencyName;
                 }
                 bindTrack(root);
+                startAutoplay(root);
             })
             .catch(function () {
                 if (status) status.textContent = 'Le menu ne peut pas être chargé pour le moment.';
@@ -105,7 +136,14 @@
             track.scrollBy({ left: direction * Math.max(220, track.clientWidth * 0.86), behavior: 'smooth' });
         });
 
+        root.addEventListener('mouseenter', function () { root.dataset.slMdtInteracting = '1'; });
+        root.addEventListener('mouseleave', function () { root.dataset.slMdtInteracting = '0'; });
+        root.addEventListener('touchend', function () {
+            window.setTimeout(function () { root.dataset.slMdtInteracting = '0'; }, 1200);
+        }, { passive: true });
+
         bindTrack(root);
+        startAutoplay(root);
     }
 
     function boot(scope) {

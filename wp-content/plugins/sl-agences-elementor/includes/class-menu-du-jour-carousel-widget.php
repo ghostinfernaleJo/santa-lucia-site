@@ -87,6 +87,22 @@ class SL_Menu_Du_Jour_Carousel_Widget extends Widget_Base {
             'return_value' => 'yes',
             'default'      => 'yes',
         ] );
+        $this->add_control( 'autoplay', [
+            'label'        => __( 'Défilement automatique', 'sl-agences' ),
+            'type'         => Controls_Manager::SWITCHER,
+            'return_value' => 'yes',
+            'default'      => 'yes',
+            'description'  => __( 'Fait défiler les repas automatiquement. La lecture est mise en pause pendant une interaction.', 'sl-agences' ),
+        ] );
+        $this->add_control( 'autoplay_delay', [
+            'label'      => __( 'Délai entre les défilements (secondes)', 'sl-agences' ),
+            'type'       => Controls_Manager::NUMBER,
+            'min'        => 2,
+            'max'        => 15,
+            'step'       => 1,
+            'default'    => 5,
+            'condition'  => [ 'autoplay' => 'yes' ],
+        ] );
         $this->end_controls_section();
 
         $this->start_controls_section( 'style_section', [
@@ -132,6 +148,8 @@ class SL_Menu_Du_Jour_Carousel_Widget extends Widget_Base {
         $limit       = max( 2, min( 24, (int) ( $settings['limit'] ?? 12 ) ) );
         $show_order  = ( $settings['show_order_button'] ?? 'yes' ) === 'yes';
         $show_arrows = ( $settings['show_arrows'] ?? 'yes' ) === 'yes';
+        $autoplay    = ( $settings['autoplay'] ?? 'yes' ) === 'yes';
+        $autoplay_delay = max( 2, min( 15, (int) ( $settings['autoplay_delay'] ?? 5 ) ) ) * 1000;
         $payload     = sl_mdt_menu_payload( $agency, $limit, $show_order );
         $agency_name = sl_mdt_agency_name( $agency );
         $uid         = 'sl-mdt-' . $this->get_id();
@@ -160,7 +178,9 @@ class SL_Menu_Du_Jour_Carousel_Widget extends Widget_Base {
                  data-ajax-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>"
                  data-nonce="<?php echo esc_attr( wp_create_nonce( 'sl_mdt_load_menu' ) ); ?>"
                  data-limit="<?php echo (int) $limit; ?>"
-                 data-show-order-button="<?php echo $show_order ? '1' : '0'; ?>">
+                 data-show-order-button="<?php echo $show_order ? '1' : '0'; ?>"
+                 data-autoplay="<?php echo $autoplay ? '1' : '0'; ?>"
+                 data-autoplay-delay="<?php echo (int) $autoplay_delay; ?>">
             <div class="sl-mdt-header">
                 <div class="sl-mdt-heading">
                     <p class="sl-mdt-eyebrow">Fast Food · <?php echo esc_html( ucfirst( $date ) ); ?></p>
