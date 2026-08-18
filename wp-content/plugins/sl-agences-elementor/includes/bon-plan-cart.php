@@ -245,6 +245,7 @@ function sl_bp_cart_assets() {
     if ( ! class_exists( 'WC_AJAX' ) ) return;
     $endpoint       = WC_AJAX::get_endpoint( 'sl_bp_add' );
     $clear_endpoint = WC_AJAX::get_endpoint( 'sl_bp_clear_cart' );
+    $cart_url       = wc_get_cart_url();
     ?>
     <style>
     .slbp-cart-wrap{margin-top:7px;position:relative;z-index:4;}
@@ -252,8 +253,11 @@ function sl_bp_cart_assets() {
     .slbp-add-cart:hover{background:#c2185b;}
     .slbp-add-cart svg{flex:0 0 auto;width:14px;height:14px;}
     .slbp-add-cart.loading{opacity:.75;pointer-events:none;}
-    .slbp-add-cart.done{background:#16a34a;}
     .slbp-add-cart.err{background:#e67e22;}
+    /* Le theme Grogin injecte parfois un lien WooCommerce « added_to_cart »
+       sous le bouton. La confirmation est geree par le toast ci-dessous, sans
+       laisser une coche verte permanente dans la mise en page. */
+    .slbp-cart-wrap > .added_to_cart{display:none!important;}
     #slbp-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(18px);background:#1d2327;color:#fff;padding:13px 20px;border-radius:11px;font-size:13.5px;font-weight:500;line-height:1.4;max-width:min(460px,92vw);text-align:center;z-index:99999;opacity:0;pointer-events:none;transition:.25s;box-shadow:0 8px 28px rgba(0,0,0,.28);display:flex;flex-direction:column;align-items:center;gap:10px;}
     #slbp-toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
     #slbp-toast.warn{background:#b45309;}
@@ -264,12 +268,13 @@ function sl_bp_cart_assets() {
     (function(){
         var ENDPOINT = '<?php echo esc_js( $endpoint ); ?>';
         var CLEAR_ENDPOINT = '<?php echo esc_js( $clear_endpoint ); ?>';
+        var CART_URL = '<?php echo esc_url( $cart_url ); ?>';
 
         document.addEventListener('click', function(e){
             var btn = e.target && e.target.closest ? e.target.closest('.slbp-add-cart') : null;
             if ( ! btn ) return;
             e.preventDefault(); e.stopPropagation();
-            if ( btn.classList.contains('loading') || btn.classList.contains('done') ) return;
+            if ( btn.classList.contains('loading') ) return;
             slbpAdd(btn);
         }, true);
 
@@ -296,12 +301,15 @@ function sl_bp_cart_assets() {
                         slbpToast( res && res.msg ? res.msg : 'Impossible d\'ajouter au panier.', res && res.agency, action );
                         setTimeout(reset, 2400); return;
                     }
-                    btn.classList.add('done'); if ( span ) span.textContent = '✓ Ajouté';
                     if ( window.jQuery && res.fragments ) { jQuery(document.body).trigger('added_to_cart', [res.fragments, res.cart_hash, jQuery(btn)]); }
-                    setTimeout(reset, 1800);
+                    if ( span ) span.textContent = label;
+                    slbpToast('Produit ajouté au panier.', false, {
+                        label: 'Voir le panier',
+                        run: function(){ window.location.href = CART_URL; }
+                    });
                 })
                 .catch(function(){ btn.classList.remove('loading'); btn.classList.add('err'); if ( span ) span.textContent = 'Réessayer'; setTimeout(reset,1800); });
-            function reset(){ btn.classList.remove('done','err'); if ( span ) span.textContent = label; }
+            function reset(){ btn.classList.remove('err'); if ( span ) span.textContent = label; }
         }
 
         function slbpClearCart( done ){
@@ -344,7 +352,13 @@ function sl_bp_cart_assets() {
 
         function slbpToast( msg, warn, action ){
             var t = document.getElementById('slbp-toast');
-            if ( ! t ) { t = document.createElement('div'); t.id = 'slbp-toast'; document.body.appendChild(t); }
+            if ( ! t ) {
+                t = document.createElement('div');
+                t.id = 'slbp-toast';
+                t.setAttribute('role', 'status');
+                t.setAttribute('aria-live', 'polite');
+                document.body.appendChild(t);
+            }
             // textContent (pas innerHTML) pour le message : il vient du serveur
             // mais peut contenir un nom d'agence libre.
             t.innerHTML = '';
