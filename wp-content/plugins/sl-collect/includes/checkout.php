@@ -11,6 +11,122 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 add_filter( 'woocommerce_checkout_registration_enabled', '__return_true', 99 );
 
 /**
+ * Refonte visuelle du checkout.
+ *
+ * Les regles de commande, de retrait, de SMS et de paiement restent dans les
+ * passerelles existantes. Cette couche ne fait qu'ordonner l'information et
+ * franciser les messages visibles au client.
+ */
+add_action( 'wp_enqueue_scripts', 'slc_checkout_enqueue_refonte_assets', 30 );
+function slc_checkout_enqueue_refonte_assets() {
+    if ( ! function_exists( 'is_checkout' ) || ! is_checkout() || ( function_exists( 'is_order_received_page' ) && is_order_received_page() ) ) {
+        return;
+    }
+
+    $css_file = SL_COLLECT_PATH . 'assets/checkout-refonte-v1.css';
+    $js_file  = SL_COLLECT_PATH . 'assets/checkout-refonte-v1.js';
+
+    wp_enqueue_style(
+        'slc-checkout-refonte',
+        SL_COLLECT_URL . 'assets/checkout-refonte-v1.css',
+        [],
+        file_exists( $css_file ) ? (string) filemtime( $css_file ) : SL_COLLECT_VERSION
+    );
+    wp_enqueue_script(
+        'slc-checkout-refonte',
+        SL_COLLECT_URL . 'assets/checkout-refonte-v1.js',
+        [ 'jquery' ],
+        file_exists( $js_file ) ? (string) filemtime( $js_file ) : SL_COLLECT_VERSION,
+        true
+    );
+}
+
+/** Etape 1 : informations necessaires au retrait. */
+add_action( 'woocommerce_checkout_before_customer_details', 'slc_checkout_customer_intro', 5 );
+function slc_checkout_customer_intro() {
+    echo '<section class="slc-checkout-intro" aria-labelledby="slc-checkout-title">'
+        . '<span class="slc-checkout-intro__eyebrow">Commande en ligne</span>'
+        . '<h1 id="slc-checkout-title">Finalisez votre commande</h1>'
+        . '<p>Renseignez vos coordonnées, choisissez votre agence et recevez votre code de retrait par SMS ou e-mail.</p>'
+        . '<ul class="slc-checkout-reassurance" aria-label="Vos garanties">'
+        . '<li>Retrait en agence</li><li>Confirmation par SMS</li><li>Paiement sécurisé</li>'
+        . '</ul></section>';
+}
+
+add_action( 'woocommerce_before_checkout_billing_form', 'slc_checkout_billing_heading', 5 );
+function slc_checkout_billing_heading() {
+    echo '<div class="slc-checkout-section-heading">'
+        . '<span class="slc-checkout-step" aria-hidden="true">1</span>'
+        . '<div><h2>Vos coordonnées et votre retrait</h2><p>Nous les utilisons uniquement pour préparer votre commande et vous prévenir.</p></div>'
+        . '</div>';
+}
+
+/** Etape 2 : le recapitulatif et le moyen de paiement. */
+add_action( 'woocommerce_checkout_order_review', 'slc_checkout_review_heading', 1 );
+function slc_checkout_review_heading() {
+    echo '<div class="slc-checkout-review-heading">'
+        . '<span class="slc-checkout-step" aria-hidden="true">2</span>'
+        . '<div><h2>Récapitulatif et paiement</h2><p>Vérifiez votre commande, puis choisissez comment la régler.</p></div>'
+        . '</div>';
+}
+
+add_action( 'woocommerce_review_order_before_payment', 'slc_checkout_payment_heading', 5 );
+function slc_checkout_payment_heading() {
+    echo '<div class="slc-payment-heading"><strong>Choisissez un moyen de paiement</strong>'
+        . '<span>Vous pourrez vérifier les détails avant la validation finale.</span></div>';
+}
+
+/**
+ * Texte de confirmation juste au-dessus du bouton. La classe est volontaire :
+ * le CSS de checkout habille ce rappel sans modifier la logique de retrait.
+ */
+add_action( 'woocommerce_review_order_before_submit', 'slc_checkout_process_notice' );
+function slc_checkout_process_notice() {
+    echo '<div class="slc-checkout-process-notice">'
+        . '<strong>Après validation :</strong> vous recevrez votre numéro de commande. '
+        . 'Dès que la commande est prête, votre <strong>code de retrait</strong> vous est envoyé par SMS ou e-mail. '
+        . 'Le retrait est possible pendant <strong>72 h</strong> ; au-delà, la commande est automatiquement annulée.'
+        . '</div>';
+}
+
+/** Libelles coherents, sans modifier le comportement des passerelles. */
+add_filter( 'woocommerce_available_payment_gateways', 'slc_checkout_payment_copy', 30 );
+function slc_checkout_payment_copy( $gateways ) {
+    if ( is_admin() || ! function_exists( 'is_checkout' ) || ! is_checkout() || ( function_exists( 'is_order_received_page' ) && is_order_received_page() ) ) {
+        return $gateways;
+    }
+
+    if ( isset( $gateways['mmgate'] ) ) {
+        $gateways['mmgate']->title       = 'Mobile Money (MTN MoMo / Orange Money)';
+        $gateways['mmgate']->description = 'Validez la demande de paiement sur le numéro Mobile Money indiqué ci-dessous.';
+    }
+    if ( isset( $gateways['slc_call'] ) ) {
+        $gateways['slc_call']->title       = 'Réserver puis payer après confirmation';
+        $gateways['slc_call']->description = 'Votre commande est enregistrée en attente. Appelez l’agence pour confirmer la disponibilité, puis payez en ligne depuis votre compte.';
+    }
+    return $gateways;
+}
+
+add_filter( 'woocommerce_order_button_text', function () {
+    return 'Confirmer ma commande';
+} );
+
+add_filter( 'woocommerce_get_privacy_policy_text', 'slc_checkout_privacy_copy', 20, 2 );
+function slc_checkout_privacy_copy( $text, $type = '' ) {
+    if ( 'checkout' !== $type ) {
+        return $text;
+    }
+
+    $url  = function_exists( 'get_privacy_policy_url' ) ? get_privacy_policy_url() : '';
+    $link = $url ? '<a href="' . esc_url( $url ) . '">politique de confidentialité</a>' : 'politique de confidentialité';
+    return 'Vos données servent à préparer et suivre votre commande, conformément à notre ' . $link . '.';
+}
+
+add_filter( 'woocommerce_get_terms_and_conditions_checkbox_text', function () {
+    return 'J’ai lu et j’accepte les [terms].';
+} );
+
+/**
  * Commande SANS compte (invite), pilotee par l'option sl_collect_guest.
  * L'activation du plugin avait force woocommerce_enable_guest_checkout=no ;
  * plutot que de retoucher la base, ce filtre fait foi. Garde-fou metier :
@@ -86,20 +202,6 @@ add_action( 'woocommerce_checkout_create_order', function ( $order, $data ) {
         $order->update_meta_data( '_sl_collect_agence', $slug );
     }
 }, 10, 2 );
-
-/* ============================================================
-   RAPPEL DU PROCESSUS avant validation (juste au-dessus du bouton
-   « Commander ») : le client doit savoir AVANT de cliquer qu'il va
-   recevoir un code de retrait et sous quel delai, pas seulement
-   apres coup sur l'ecran de confirmation.
-   ============================================================ */
-add_action( 'woocommerce_review_order_before_submit', 'slc_checkout_process_notice' );
-function slc_checkout_process_notice() {
-    echo '<div style="margin:0 0 16px;padding:14px 16px;border-radius:8px;background:#fff9e6;border:1px solid #ffe4a1;font-size:13.5px;line-height:1.5;color:#7a5b00;">'
-        . '<strong>Après votre commande :</strong> vous recevrez un <strong>code de retrait</strong> par SMS/e-mail dès qu\'elle sera prête en agence. '
-        . 'Retrait à effectuer sous <strong>72h</strong> (au-delà, la commande est automatiquement annulée).'
-        . '</div>';
-}
 
 /* ============================================================
    PAGE DE CONFIRMATION (« merci ») : numero bien visible +
