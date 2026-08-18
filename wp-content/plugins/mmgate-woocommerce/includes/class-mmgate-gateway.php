@@ -235,7 +235,14 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 		return 'yes' === $this->enabled && $this->client()->is_configured();
 	}
 
-	/** Champ « numéro à débiter », distinct du téléphone de contact. */
+	/**
+	 * Champ « numéro à débiter », distinct du téléphone de contact.
+	 *
+	 * Avec JavaScript, le champ est présenté dans une confirmation déclenchée
+	 * au clic sur « Confirmer ma commande ». Le champ reste dans le formulaire
+	 * (masqué seulement après le chargement du script) : le paiement conserve
+	 * ainsi un repli fonctionnel si JavaScript est désactivé.
+	 */
 	public function payment_fields() {
 		if ( $this->description ) {
 			echo wpautop( wp_kses_post( $this->description ) );
@@ -259,17 +266,17 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 					. '<strong>' . esc_html__( 'La tentative précédente n\'a pas abouti', 'mmgate-woocommerce' ) . '</strong>'
 					. ( $raison !== '' ? '<br><span style="font-size:13px;">' . esc_html( $raison ) . '</span>' : '' )
 					. '<br><span style="font-size:13px;">'
-					. esc_html__( 'Saisissez le numéro Mobile Money qui sera débité. Il peut être différent du téléphone de contact de la commande.', 'mmgate-woocommerce' )
+					. esc_html__( 'Le numéro Mobile Money à débiter vous sera demandé lors de la validation de la commande. Il peut être différent du téléphone de contact.', 'mmgate-woocommerce' )
 					. '</span></div>';
 			}
 		}
 
-		echo '<p class="form-row form-row-wide">
+		echo '<p class="form-row form-row-wide mmgate-payment-phone-field">
 			<label for="mmgate_msisdn">' . esc_html__( 'Numéro Mobile Money à débiter', 'mmgate-woocommerce' ) . ' <abbr class="required">*</abbr></label>
 			<input type="tel" id="mmgate_msisdn" name="mmgate_msisdn" class="input-text" autocomplete="tel"
 			       value="' . esc_attr( $default ) . '" placeholder="6XX XX XX XX">
 			<span style="font-size:12px;opacity:.75;display:block;margin-top:4px;">'
-			. esc_html__( 'Ce numéro peut être différent du téléphone de contact. Vous validerez le débit sur ce téléphone.', 'mmgate-woocommerce' )
+			. esc_html__( 'Ce numéro peut être différent du téléphone de contact. Il est demandé après la validation de la commande.', 'mmgate-woocommerce' )
 			. '</span></p>';
 	}
 

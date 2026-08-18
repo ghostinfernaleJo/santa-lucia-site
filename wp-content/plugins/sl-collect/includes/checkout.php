@@ -98,7 +98,7 @@ function slc_checkout_payment_copy( $gateways ) {
 
     if ( isset( $gateways['mmgate'] ) ) {
         $gateways['mmgate']->title       = 'Mobile Money (MTN MoMo / Orange Money)';
-        $gateways['mmgate']->description = 'Validez la demande de paiement sur le numéro Mobile Money indiqué ci-dessous.';
+        $gateways['mmgate']->description = 'Le numéro Mobile Money à débiter vous sera demandé lorsque vous confirmerez votre commande.';
     }
     if ( isset( $gateways['slc_call'] ) ) {
         $gateways['slc_call']->title       = 'Réserver puis payer après confirmation';

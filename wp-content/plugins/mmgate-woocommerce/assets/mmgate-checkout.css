@@ -1,0 +1,22 @@
+/* Paiement MMGate : le champ reste disponible sans JavaScript. */
+.mmgate-checkout--js .mmgate-payment-phone-field { display:none; }
+.mmgate-modal-open { overflow:hidden; }
+.mmgate-confirmation-modal[hidden] { display:none; }
+.mmgate-confirmation-modal { position:fixed; z-index:100000; inset:0; display:grid; place-items:center; padding:18px; }
+.mmgate-confirmation-modal__backdrop { position:absolute; inset:0; background:rgba(23,32,51,.62); }
+.mmgate-confirmation-modal__dialog { position:relative; width:min(100%,480px); padding:29px; border-radius:18px; background:#fff; box-shadow:0 24px 64px rgba(16,24,40,.28); }
+.mmgate-confirmation-modal__close { position:absolute; top:12px; right:13px; width:34px; height:34px; padding:0; border:0; border-radius:50%; color:#475467; background:#f2f4f7; font-size:25px; line-height:1; cursor:pointer; }
+.mmgate-confirmation-modal__eyebrow { margin:0 0 8px; color:#c9145c; font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.mmgate-confirmation-modal__dialog h2 { margin:0; color:#172033; font-size:25px; line-height:1.22; }
+.mmgate-confirmation-modal__dialog > p:not(.mmgate-confirmation-modal__eyebrow):not(.mmgate-confirmation-modal__error) { margin:10px 0 20px; color:#667085; font-size:14px; line-height:1.55; }
+.mmgate-confirmation-modal__dialog label { display:block; margin-bottom:7px; color:#172033; font-size:14px; font-weight:700; }
+.mmgate-confirmation-modal__dialog input { box-sizing:border-box; width:100%; min-height:52px; padding:10px 13px; border:1px solid #d0d5dd; border-radius:10px; color:#172033; background:#fff; font-size:16px; }
+.mmgate-confirmation-modal__dialog input:focus { border-color:#e91e72; outline:3px solid rgba(233,30,114,.14); }
+.mmgate-confirmation-modal__hint { margin:7px 0 0; color:#667085; font-size:12px; line-height:1.45; }
+.mmgate-confirmation-modal__error { min-height:20px; margin:9px 0 0; color:#b42318; font-size:13px; font-weight:600; line-height:1.4; }
+.mmgate-confirmation-modal__actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+.mmgate-confirmation-modal__actions button { min-height:45px; padding:10px 14px; border-radius:9px; font-weight:800; cursor:pointer; }
+.mmgate-confirmation-modal__cancel { border:1px solid #d0d5dd; color:#344054; background:#fff; }
+.mmgate-confirmation-modal__confirm { border:1px solid #e91e72; color:#fff; background:#e91e72; }
+.mmgate-confirmation-modal__confirm:hover { border-color:#c9145c; background:#c9145c; }
+@media (max-width:575px) { .mmgate-confirmation-modal { align-items:end; padding:0; } .mmgate-confirmation-modal__dialog { width:100%; padding:25px 20px 20px; border-radius:18px 18px 0 0; } .mmgate-confirmation-modal__dialog h2 { padding-right:28px; font-size:22px; } .mmgate-confirmation-modal__actions { flex-direction:column-reverse; } .mmgate-confirmation-modal__actions button { width:100%; } }

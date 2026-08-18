@@ -57,6 +57,11 @@ function mmgate_wc_boot() {
 	MMGate_Poller::init();
 	MMGate_Waiting::init();
 
+	// Le numéro à débiter est demandé dans une confirmation dédiée au moment
+	// de valider le checkout. Les assets vivent dans ce plugin afin que ce
+	// parcours reste fonctionnel indépendamment du thème ou des autres plugins.
+	add_action( 'wp_enqueue_scripts', 'mmgate_wc_enqueue_checkout_assets', 20 );
+
 	add_filter( 'woocommerce_payment_gateways', function ( $gateways ) {
 		$gateways[] = 'MMGate_Gateway';
 		return $gateways;
@@ -72,6 +77,30 @@ function mmgate_wc_boot() {
 	}, 20 );
 
 	load_plugin_textdomain( 'mmgate-woocommerce', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+}
+
+/** Charge l'interface de confirmation Mobile Money sur le checkout uniquement. */
+function mmgate_wc_enqueue_checkout_assets() {
+	if ( ! function_exists( 'is_checkout' ) || ! is_checkout() || ( function_exists( 'is_order_received_page' ) && is_order_received_page() ) ) {
+		return;
+	}
+
+	$js_file  = MMGATE_WC_PATH . 'assets/mmgate-checkout.js';
+	$css_file = MMGATE_WC_PATH . 'assets/mmgate-checkout.css';
+
+	wp_enqueue_style(
+		'mmgate-checkout',
+		plugins_url( 'assets/mmgate-checkout.css', MMGATE_WC_FILE ),
+		[],
+		file_exists( $css_file ) ? (string) filemtime( $css_file ) : MMGATE_WC_VERSION
+	);
+	wp_enqueue_script(
+		'mmgate-checkout',
+		plugins_url( 'assets/mmgate-checkout.js', MMGATE_WC_FILE ),
+		[],
+		file_exists( $js_file ) ? (string) filemtime( $js_file ) : MMGATE_WC_VERSION,
+		true
+	);
 }
 
 /** Lien « Réglages » depuis la liste des extensions. */
