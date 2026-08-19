@@ -15,6 +15,8 @@ if ( ! is_user_logged_in() ) {
     echo slfd_render_supply_form(); // phpcs:ignore WordPress.Security.EscapeOutput
 } elseif ( 'supply' === $screen ) {
     echo slfd_render_access_denied(); // phpcs:ignore WordPress.Security.EscapeOutput
+} elseif ( 'dashboard' === $screen && ! slfd_can_view_dashboard() ) {
+    echo slfd_render_access_denied(); // phpcs:ignore WordPress.Security.EscapeOutput
 } else {
     echo slfd_render_dashboard(); // phpcs:ignore WordPress.Security.EscapeOutput
 }

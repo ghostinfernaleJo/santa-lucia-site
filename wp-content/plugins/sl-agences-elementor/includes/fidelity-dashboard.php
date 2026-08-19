@@ -12,6 +12,35 @@ defined( 'ABSPATH' ) || exit;
 const SLFD_POST_TYPE = 'sl_fidelity_report';
 const SLFD_SUPPLY_POST_TYPE = 'sl_fidelity_supply';
 
+/**
+ * Roles dedicated to the loyalty programme. They are deliberately independent
+ * from the existing agency and Bons Plans roles, so their login flow and
+ * permissions cannot change the other back-office modules.
+ */
+add_action( 'init', 'slfd_register_roles', 5 );
+function slfd_register_roles() {
+    $roles = [
+        'sl_agent_fidelite' => [
+            'label' => 'Agent fidélité',
+            'caps'  => [ 'read' => true ],
+        ],
+        'sl_responsable_fidelite' => [
+            'label' => 'Responsable fidélité',
+            'caps'  => [ 'read' => true ],
+        ],
+    ];
+
+    foreach ( $roles as $slug => $role ) {
+        if ( ! get_role( $slug ) ) {
+            add_role( $slug, __( $role['label'], 'sl-agences' ), $role['caps'] );
+        }
+        $wp_role = get_role( $slug );
+        if ( $wp_role && ! $wp_role->has_cap( 'read' ) ) {
+            $wp_role->add_cap( 'read' );
+        }
+    }
+}
+
 add_action( 'init', 'slfd_register_report_type', 20 );
 function slfd_register_report_type() {
     register_post_type( SLFD_POST_TYPE, [
@@ -123,18 +152,22 @@ function slfd_exclude_from_sitemap( $args, $post_type ) {
     return $args;
 }
 
-/** Acces : administrateurs, gestionnaires et responsables d'agence existants. */
+/** Acces : roles fidelite dedies, avec conservation des acces historiques. */
 function slfd_user_has_role( $roles ) {
     $user = wp_get_current_user();
     return $user && (bool) array_intersect( (array) $roles, (array) $user->roles );
 }
 
 function slfd_can_access() {
-    return is_user_logged_in() && ( current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' ) || slfd_user_has_role( [ 'sl_responsable_agence', 'sl_gestionnaire_bons_plans' ] ) );
+    return is_user_logged_in() && ( current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' ) || slfd_user_has_role( [ 'sl_agent_fidelite', 'sl_responsable_fidelite', 'sl_responsable_agence', 'sl_gestionnaire_bons_plans' ] ) );
+}
+
+function slfd_can_view_dashboard() {
+    return current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' ) || slfd_user_has_role( [ 'sl_responsable_fidelite', 'sl_responsable_agence', 'sl_gestionnaire_bons_plans' ] );
 }
 
 function slfd_can_validate() {
-    return current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' ) || slfd_user_has_role( [ 'sl_gestionnaire_bons_plans' ] );
+    return current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' ) || slfd_user_has_role( [ 'sl_responsable_fidelite', 'sl_gestionnaire_bons_plans' ] );
 }
 
 /** Seuls les responsables du programme fidelite peuvent enregistrer une dotation. */
@@ -173,6 +206,28 @@ function slfd_supply_url() {
     $id = slfd_page_id( 'supply' );
     return $id ? get_permalink( $id ) : home_url( '/approvisionner-cartes-fidelite/' );
 }
+
+function slfd_login_redirect( $redirect_to, $requested_redirect_to, $user ) {
+    if ( ! ( $user instanceof WP_User ) ) {
+        return $redirect_to;
+    }
+
+    if ( in_array( 'sl_agent_fidelite', (array) $user->roles, true ) ) {
+        return slfd_report_url();
+    }
+
+    if ( in_array( 'sl_responsable_fidelite', (array) $user->roles, true ) ) {
+        return slfd_dashboard_url();
+    }
+
+    return $redirect_to;
+}
+add_filter( 'login_redirect', 'slfd_login_redirect', 30, 3 );
+
+function slfd_woocommerce_login_redirect( $redirect, $user ) {
+    return slfd_login_redirect( $redirect, '', $user );
+}
+add_filter( 'woocommerce_login_redirect', 'slfd_woocommerce_login_redirect', 30, 2 );
 
 add_action( 'wp_enqueue_scripts', 'slfd_enqueue_assets', 110 );
 function slfd_enqueue_assets() {
@@ -368,7 +423,7 @@ function slfd_submit_report() {
         ? 'Rapport enregistré et transmis pour validation.'
         : 'Rapport enregistré. L’écart de stock sera signalé au gestionnaire lors de la validation.'
     );
-    wp_safe_redirect( slfd_dashboard_url() );
+    wp_safe_redirect( slfd_can_view_dashboard() ? slfd_dashboard_url() : slfd_report_url() );
     exit;
 }
 
