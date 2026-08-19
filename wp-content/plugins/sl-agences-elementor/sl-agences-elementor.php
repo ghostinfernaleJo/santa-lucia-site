@@ -41,6 +41,7 @@ require_once SL_AGENCES_PATH . 'includes/bon-plan-cart.php';
 require_once SL_AGENCES_PATH . 'includes/search-unified.php';
 require_once SL_AGENCES_PATH . 'includes/supervision-agences.php';
 require_once SL_AGENCES_PATH . 'includes/rapport-performance-pdf.php';
+require_once SL_AGENCES_PATH . 'includes/fidelity-dashboard.php';
 
 // Force single template for Bons Plans
 add_filter( 'template_include', 'sl_bp_single_template' );
