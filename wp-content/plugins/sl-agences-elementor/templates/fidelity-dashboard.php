@@ -17,6 +17,10 @@ if ( ! is_user_logged_in() ) {
     echo slfd_render_access_denied(); // phpcs:ignore WordPress.Security.EscapeOutput
 } elseif ( 'dashboard' === $screen && ! slfd_can_view_dashboard() ) {
     echo slfd_render_access_denied(); // phpcs:ignore WordPress.Security.EscapeOutput
+} elseif ( 'dashboard' === $screen && isset( $_GET['rapport'] ) && slfd_can_validate() ) {
+    echo slfd_render_report_print( absint( $_GET['rapport'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput
+} elseif ( 'dashboard' === $screen && isset( $_GET['rapport'] ) ) {
+    echo slfd_render_access_denied(); // phpcs:ignore WordPress.Security.EscapeOutput
 } else {
     echo slfd_render_dashboard(); // phpcs:ignore WordPress.Security.EscapeOutput
 }
