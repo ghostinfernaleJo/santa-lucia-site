@@ -256,6 +256,21 @@ function slfd_enqueue_assets() {
         [ 'sl-fidelity-dashboard' ],
         file_exists( $print_file ) ? (string) filemtime( $print_file ) : SL_AGENCES_VERSION
     );
+    $report_v2_file = SL_AGENCES_PATH . 'assets/css/fidelity-report-v2.css';
+    wp_enqueue_style(
+        'sl-fidelity-report-v2',
+        SL_AGENCES_URL . 'assets/css/fidelity-report-v2.css',
+        [ 'sl-fidelity-dashboard', 'sl-fidelity-supply' ],
+        file_exists( $report_v2_file ) ? (string) filemtime( $report_v2_file ) : SL_AGENCES_VERSION
+    );
+    $report_js_file = SL_AGENCES_PATH . 'assets/js/fidelity-report.js';
+    wp_enqueue_script(
+        'sl-fidelity-report',
+        SL_AGENCES_URL . 'assets/js/fidelity-report.js',
+        [],
+        file_exists( $report_js_file ) ? (string) filemtime( $report_js_file ) : SL_AGENCES_VERSION,
+        true
+    );
 }
 
 /** Utilise un template autonome : aucune navigation publique autour des donnees internes. */
@@ -688,24 +703,91 @@ function slfd_render_dashboard() {
 }
 
 function slfd_render_report_form() {
-    $agency = slfd_current_agency();
-    $flash  = slfd_flash( 'read' );
-    $terms  = slfd_can_validate() ? get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] ) : [];
-    $today_supply = $agency ? slfd_supplies_total( $agency->slug, current_time( 'Y-m-d' ) ) : 0;
+    $agency             = slfd_current_agency();
+    $flash              = slfd_flash( 'read' );
+    $terms              = slfd_can_validate() ? get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] ) : [];
+    $today_supply       = $agency ? slfd_supplies_total( $agency->slug, current_time( 'Y-m-d' ) ) : 0;
     $can_view_dashboard = slfd_can_view_dashboard();
-    $back_url = $can_view_dashboard ? slfd_dashboard_url() : slfd_report_url();
+    $back_url           = $can_view_dashboard ? slfd_dashboard_url() : slfd_report_url();
     ob_start(); ?>
-    <main class="slfd-shell"><header class="slfd-topbar"><a class="slfd-brand" href="<?php echo esc_url( $back_url ); ?>"><span class="dashicons dashicons-cart"></span><span><small>Complexe</small>Santa Lucia</span></a><span class="slfd-internal"><span class="dashicons dashicons-lock"></span> Espace interne</span><?php if ( $can_view_dashboard ) : ?><a class="slfd-top-link" href="<?php echo esc_url( slfd_dashboard_url() ); ?>">Voir le classement</a><?php endif; ?></header>
-    <section class="slfd-content slfd-report-page"><?php if ( $flash ) : ?><div class="slfd-flash slfd-flash--<?php echo esc_attr( $flash[0] ); ?>"><?php echo esc_html( $flash[1] ); ?></div><?php endif; ?>
-        <div class="slfd-heading"><div><p class="slfd-eyebrow">Programme cartes de fidélité</p><h1>Déclarer le rapport du jour</h1><p>Le classement est actualisé uniquement après validation par un gestionnaire.</p></div></div>
-        <?php if ( ! $agency && ! slfd_can_validate() ) : ?><div class="slfd-notice">Votre compte n’est rattaché à aucune agence. Demandez à un administrateur de compléter votre profil.</div><?php else : ?>
-        <form class="slfd-report-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_submit_report"><?php wp_nonce_field( 'slfd_submit_report' ); ?>
-            <section><h2>Identification</h2><div class="slfd-form-grid"><p><label for="slfd_date">Date du rapport</label><input id="slfd_date" type="date" name="slfd_date" max="<?php echo esc_attr( current_time( 'Y-m-d' ) ); ?>" value="<?php echo esc_attr( current_time( 'Y-m-d' ) ); ?>" required></p>
-            <?php if ( slfd_can_validate() ) : ?><p><label for="slfd_agency">Agence</label><select id="slfd_agency" name="slfd_agency" required><?php foreach ( $terms as $term ) : ?><option value="<?php echo esc_attr( $term->slug ); ?>" <?php selected( $agency && $agency->slug, $term->slug ); ?>><?php echo esc_html( $term->name ); ?></option><?php endforeach; ?></select></p><?php else : ?><p><label>Agence</label><input value="<?php echo esc_attr( $agency->name ); ?>" readonly></p><?php endif; ?></div></section>
-            <section><h2>Mouvement des cartes</h2><p class="slfd-form-help">Saisissez uniquement les mouvements de la journée. Les cartes historiques déjà attribuées ne doivent pas être ajoutées ici.</p><div class="slfd-form-grid slfd-form-grid--four"><p><label for="slfd_opening">Stock utilisable au début</label><input id="slfd_opening" type="number" name="slfd_opening" min="0" required></p><p class="slfd-auto-field"><label>Cartes approvisionnées</label><output>+<?php echo (int) $today_supply; ?> carte(s)</output><small>Enregistrées par le responsable fidélité. Le total est recalculé selon la date choisie lors de l’envoi.</small></p><p><label for="slfd_enrollments">Enrôlements validés</label><input id="slfd_enrollments" type="number" name="slfd_enrollments" min="0" required></p><p><label for="slfd_damaged">Cartes endommagées aujourd’hui</label><input id="slfd_damaged" type="number" name="slfd_damaged" min="0" value="0" required></p></div><p><label for="slfd_closing">Stock réel en fin de journée</label><input id="slfd_closing" type="number" name="slfd_closing" min="0" required><small>Contrôle automatique : début + approvisionnements − enrôlements − endommagées.</small></p></section>
-            <section><h2>Difficultés et besoins</h2><div class="slfd-checks"><label><input type="checkbox" name="slfd_issues[]" value="network"> Réseau instable</label><label><input type="checkbox" name="slfd_issues[]" value="defective_cards"> Cartes défectueuses</label><label><input type="checkbox" name="slfd_issues[]" value="stock"> Risque de rupture de stock</label><label><input type="checkbox" name="slfd_issues[]" value="other"> Autre difficulté</label></div><p><label for="slfd_notes">Détails des difficultés</label><textarea id="slfd_notes" name="slfd_notes" rows="4" placeholder="Ex. réseau instable, série CF21000 non fonctionnelle…"></textarea></p><p><label for="slfd_request">Demande ou recommandation</label><textarea id="slfd_request" name="slfd_request" rows="4" placeholder="Ex. besoin de réapprovisionnement avant le week-end…"></textarea></p></section>
-            <div class="slfd-form-actions"><a href="<?php echo esc_url( $back_url ); ?>">Annuler</a><button type="submit">Transmettre pour validation</button></div>
-        </form><?php endif; ?></section></main>
+    <main class="slfd-shell">
+        <header class="slfd-topbar slfd-report-topbar">
+            <a class="slfd-brand" href="<?php echo esc_url( $back_url ); ?>"><span class="dashicons dashicons-cart"></span><span><small>Complexe</small>Santa Lucia</span></a>
+            <span class="slfd-report-module"><span class="dashicons dashicons-clipboard"></span> Rapport quotidien</span>
+            <?php if ( $can_view_dashboard ) : ?><a class="slfd-top-link" href="<?php echo esc_url( slfd_dashboard_url() ); ?>">Voir le classement</a><?php endif; ?>
+        </header>
+        <section class="slfd-content slfd-report-page">
+            <?php if ( $flash ) : ?><div class="slfd-flash slfd-flash--<?php echo esc_attr( $flash[0] ); ?>"><?php echo esc_html( $flash[1] ); ?></div><?php endif; ?>
+            <div class="slfd-heading slfd-report-heading"><div><p class="slfd-eyebrow">Programme cartes de fidélité</p><h1>Déclarer le rapport du jour</h1><p>Le classement est actualisé uniquement après validation par un Responsable fidélité.</p></div></div>
+            <?php if ( ! $agency && ! slfd_can_validate() ) : ?>
+                <div class="slfd-notice">Votre compte n’est rattaché à aucune agence. Demandez à un administrateur de compléter votre profil.</div>
+            <?php else : ?>
+                <form class="slfd-report-form slfd-report-form--v2" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                    <input type="hidden" name="action" value="slfd_submit_report"><?php wp_nonce_field( 'slfd_submit_report' ); ?>
+                    <div class="slfd-report-layout">
+                        <div class="slfd-report-main">
+                            <section class="slfd-report-identification" aria-labelledby="slfd-section-information">
+                                <h2 id="slfd-section-information" class="screen-reader-text">Identification du rapport</h2>
+                                <div class="slfd-form-grid">
+                                    <p><label for="slfd_date">Date du rapport</label><input id="slfd_date" type="date" name="slfd_date" max="<?php echo esc_attr( current_time( 'Y-m-d' ) ); ?>" value="<?php echo esc_attr( current_time( 'Y-m-d' ) ); ?>" required></p>
+                                    <?php if ( slfd_can_validate() ) : ?>
+                                        <p><label for="slfd_agency">Agence</label><select id="slfd_agency" name="slfd_agency" required><?php foreach ( $terms as $term ) : ?><option value="<?php echo esc_attr( $term->slug ); ?>" <?php selected( $agency && $agency->slug, $term->slug ); ?>><?php echo esc_html( $term->name ); ?></option><?php endforeach; ?></select></p>
+                                    <?php else : ?>
+                                        <p><label for="slfd_agency_readonly">Agence</label><input id="slfd_agency_readonly" value="<?php echo esc_attr( $agency->name ); ?>" readonly></p>
+                                    <?php endif; ?>
+                                </div>
+                            </section>
+                            <section aria-labelledby="slfd-section-cards">
+                                <h2 id="slfd-section-cards">Mouvement des cartes</h2>
+                                <p class="slfd-form-help">Saisissez uniquement les mouvements de cette journée. Ne comptez pas les cartes déjà attribuées aux clients.</p>
+                                <div class="slfd-stock-equation">
+                                    <p><label for="slfd_opening">Cartes disponibles au début</label><input id="slfd_opening" type="number" inputmode="numeric" name="slfd_opening" min="0" value="0" required></p>
+                                    <span class="slfd-equation-sign" aria-hidden="true">+</span>
+                                    <p class="slfd-auto-field"><label for="slfd_received">Cartes approvisionnées</label><output id="slfd_received" data-value="<?php echo (int) $today_supply; ?>">+<?php echo (int) $today_supply; ?> carte(s)</output><small>Enregistrées par le Responsable fidélité.</small></p>
+                                    <span class="slfd-equation-sign" aria-hidden="true">−</span>
+                                    <p><label for="slfd_enrollments">Enrôlements validés</label><input id="slfd_enrollments" type="number" inputmode="numeric" name="slfd_enrollments" min="0" value="0" required></p>
+                                    <span class="slfd-equation-sign" aria-hidden="true">−</span>
+                                    <p><label for="slfd_damaged">Cartes endommagées</label><input id="slfd_damaged" type="number" inputmode="numeric" name="slfd_damaged" min="0" value="0" required></p>
+                                </div>
+                                <p class="slfd-closing-field"><label for="slfd_closing">Cartes disponibles à la fin de la journée</label><input id="slfd_closing" type="number" inputmode="numeric" name="slfd_closing" min="0" value="0" required><small>Comptage physique réel effectué en fin de journée.</small></p>
+                                <p class="slfd-equation-help"><span class="dashicons dashicons-info-outline"></span> Calcul automatique : début + approvisionnements − enrôlements − cartes endommagées.</p>
+                            </section>
+                            <section aria-labelledby="slfd-section-issues">
+                                <h2 id="slfd-section-issues">Difficultés et besoins</h2>
+                                <div class="slfd-checks slfd-checks--rows">
+                                    <label><input type="checkbox" name="slfd_issues[]" value="network"><span class="slfd-issue-icon"><span class="dashicons dashicons-rss"></span></span><span>Réseau instable</span></label>
+                                    <label><input type="checkbox" name="slfd_issues[]" value="defective_cards"><span class="slfd-issue-icon"><span class="dashicons dashicons-id"></span></span><span>Cartes défectueuses</span></label>
+                                    <label><input type="checkbox" name="slfd_issues[]" value="stock"><span class="slfd-issue-icon"><span class="dashicons dashicons-warning"></span></span><span>Risque de rupture de stock</span></label>
+                                    <label><input type="checkbox" name="slfd_issues[]" value="other"><span class="slfd-issue-icon"><span class="dashicons dashicons-format-chat"></span></span><span>Autre difficulté</span></label>
+                                </div>
+                                <div class="slfd-text-fields">
+                                    <p><label for="slfd_notes">Détails des difficultés</label><textarea id="slfd_notes" name="slfd_notes" rows="4" placeholder="Ex. réseau instable, série CF21000 non fonctionnelle…"></textarea></p>
+                                    <p><label for="slfd_request">Demande ou recommandation</label><textarea id="slfd_request" name="slfd_request" rows="4" placeholder="Ex. besoin de réapprovisionnement avant le week-end…"></textarea></p>
+                                </div>
+                            </section>
+                        </div>
+                        <aside class="slfd-day-summary" aria-live="polite">
+                            <h2><span class="dashicons dashicons-clipboard"></span>Résumé du jour</h2>
+                            <p class="slfd-summary-agency"><span>Agence</span><strong id="slfd_summary_agency"><?php echo esc_html( $agency ? $agency->name : '' ); ?></strong></p>
+                            <div class="slfd-summary-list">
+                                <div><span class="slfd-summary-icon slfd-summary-icon--pink"><span class="dashicons dashicons-id"></span></span><span>Cartes approvisionnées</span><strong id="slfd_summary_received">+<?php echo (int) $today_supply; ?></strong></div>
+                                <div><span class="slfd-summary-icon"><span class="dashicons dashicons-archive"></span></span><span>Cartes disponibles au début</span><strong id="slfd_summary_opening">0</strong></div>
+                                <div><span class="slfd-summary-icon"><span class="dashicons dashicons-groups"></span></span><span>Enrôlements validés</span><strong id="slfd_summary_enrollments">0</strong></div>
+                                <div><span class="slfd-summary-icon"><span class="dashicons dashicons-warning"></span></span><span>Cartes endommagées</span><strong id="slfd_summary_damaged">0</strong></div>
+                            </div>
+                            <div class="slfd-summary-totals">
+                                <div><span>Stock théorique en fin de journée<small>Début + approvisionnements − enrôlements − endommagées</small></span><strong id="slfd_expected_output">0</strong></div>
+                                <div><span><span class="dashicons dashicons-clipboard"></span> Stock réel déclaré</span><strong id="slfd_declared_output">0</strong></div>
+                                <div id="slfd_delta_box"><span>Écart<small>Stock réel − stock théorique</small></span><strong id="slfd_delta_output">0</strong></div>
+                            </div>
+                            <div id="slfd_summary_status" class="slfd-summary-status slfd-summary-status--ok"><span class="dashicons dashicons-yes-alt"></span><span><small>Statut</small><strong id="slfd_status_text">Écart conforme</strong></span></div>
+                        </aside>
+                    </div>
+                    <div class="slfd-submit-panel"><p><span class="dashicons dashicons-shield"></span><span>Veuillez vérifier attentivement les informations saisies.<small>Après transmission, le rapport devra être validé par un Responsable fidélité.</small></span></p><button type="submit"><span class="dashicons dashicons-email-alt"></span>Transmettre pour validation</button></div>
+                </form>
+            <?php endif; ?>
+        </section>
+    </main>
     <?php return ob_get_clean();
 }
 
