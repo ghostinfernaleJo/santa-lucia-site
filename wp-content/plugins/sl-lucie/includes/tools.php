@@ -1,8 +1,9 @@
 <?php
 /**
- * Outils de Lucie (function calling). Lecture seule, donnees publiques.
- * Chaque outil appelle un endpoint EXISTANT de l'API santa-lucia/v1 en interne
- * (rest_do_request, sans requete HTTP externe).
+ * Outils de Lucie (function calling).
+ * Les outils d'information lisent uniquement des donnees publiques. Les rares
+ * outils d'ecriture sont limites au panier WooCommerce de la session courante
+ * et controles une seconde fois cote serveur.
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -51,7 +52,7 @@ function sl_lucie_tools_defs() {
         ],
         [
             'name' => 'rechercher_contenu',
-            'description' => 'Recherche en direct dans TOUT le contenu publie du site (pages, articles, produits) par mots-cles. A appeler des qu\'on demande une information qui n\'est PAS couverte par les autres outils : services, livraison, a-propos, horaires ou contact d\'une agence, une page precise, recrutement, ou tout sujet general sur Santa Lucia.',
+            'description' => 'Recherche dans l\'index complet et actualise du site : pages, articles, produits, contenus Elementor et liens publics. A appeler des qu\'on demande une information qui n\'est pas couverte par un outil specialise.',
             'input_schema' => [
                 'type' => 'object',
                 'properties' => [
@@ -61,8 +62,19 @@ function sl_lucie_tools_defs() {
             ],
         ],
         [
+            'name' => 'rechercher_site_complet',
+            'description' => 'Outil principal de connaissance du site. Recherche les pages, articles, produits, contenus Elementor et liens exacts publies par Santa Lucia. Utilise-le pour retrouver une information, une page ou un lien sans rien inventer.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'requete' => [ 'type' => 'string', 'description' => 'Question ou mots-cles a rechercher dans tout le site.' ],
+                ],
+                'required' => [ 'requete' ],
+            ],
+        ],
+        [
             'name' => 'infos_produits',
-            'description' => 'Recherche des produits de la boutique en direct (nom, prix, disponibilite/stock, categorie, lien). A appeler des qu\'on demande un produit, un prix, la disponibilite d\'un article ou les nouveautes.',
+            'description' => 'Recherche des produits reels de la boutique (identifiant, nom, prix, stock, agence, categorie et lien). Les produits retournes peuvent ensuite etre ajoutes au panier sur demande explicite du client.',
             'input_schema' => [
                 'type' => 'object',
                 'properties' => [
@@ -70,6 +82,60 @@ function sl_lucie_tools_defs() {
                     'categorie' => [ 'type' => 'string', 'description' => 'Categorie de produit (optionnel).' ],
                 ],
             ],
+        ],
+        [
+            'name' => 'proposer_panier_budget',
+            'description' => 'Construit une proposition optimale SANS modifier le panier, selon le budget, la ville/agence et le besoin du client. Compare les disponibilites agence par agence, n\'utilise que des prix et stocks WooCommerce reels, puis affiche des cartes que le client peut choisir.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'budget'      => [ 'type' => 'number', 'description' => 'Budget maximal en FCFA.' ],
+                    'agence'      => [ 'type' => 'string', 'description' => 'Agence souhaitee, si le client en donne une.' ],
+                    'ville'       => [ 'type' => 'string', 'description' => 'Ville souhaitee, par exemple Douala ou Yaounde.' ],
+                    'besoin'      => [ 'type' => 'string', 'description' => 'Ce que le client cherche : repas, courses, produits, occasion, etc.' ],
+                    'personnes'   => [ 'type' => 'integer', 'description' => 'Nombre de personnes, si pertinent.' ],
+                    'preferences' => [ 'type' => 'string', 'description' => 'Preferences ou exclusions exprimees par le client.' ],
+                ],
+                'required' => [ 'budget' ],
+            ],
+        ],
+        [
+            'name' => 'voir_panier',
+            'description' => 'Affiche le panier WooCommerce actuel de ce visiteur, avec articles, quantites, agence et total reels.',
+            'input_schema' => [ 'type' => 'object', 'properties' => new stdClass() ],
+        ],
+        [
+            'name' => 'ajouter_au_panier',
+            'description' => 'Ajoute un produit reel au panier UNIQUEMENT si le dernier message du client demande explicitement cet ajout. Ne jamais appeler cet outil pour une simple proposition, une question ou une demande de budget.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'product_id' => [ 'type' => 'integer', 'description' => 'Identifiant exact renvoye par infos_produits, menu_du_jour, promotions, bons_plans ou proposer_panier_budget.' ],
+                    'quantite'   => [ 'type' => 'integer', 'description' => 'Quantite demandee, 1 par defaut.' ],
+                ],
+                'required' => [ 'product_id' ],
+            ],
+        ],
+        [
+            'name' => 'retirer_du_panier',
+            'description' => 'Retire un article du panier UNIQUEMENT si le client le demande explicitement.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'product_id'    => [ 'type' => 'integer', 'description' => 'Identifiant du produit a retirer.' ],
+                    'cart_item_key' => [ 'type' => 'string', 'description' => 'Cle de ligne renvoyee par voir_panier, si connue.' ],
+                ],
+            ],
+        ],
+        [
+            'name' => 'vider_panier',
+            'description' => 'Vide entierement le panier UNIQUEMENT apres une demande explicite du client.',
+            'input_schema' => [ 'type' => 'object', 'properties' => new stdClass() ],
+        ],
+        [
+            'name' => 'finaliser_commande',
+            'description' => 'Retourne le lien du checkout securise lorsque le client demande explicitement de valider ou payer. Cet outil ne cree aucune commande et ne declenche aucun paiement.',
+            'input_schema' => [ 'type' => 'object', 'properties' => new stdClass() ],
         ],
         [
             'name' => 'lister_pages',
@@ -99,7 +165,7 @@ function sl_lucie_tools_defs() {
         ],
         [
             'name' => 'enregistrer_contact',
-            'description' => 'Enregistre les coordonnees du visiteur (nom, telephone, quartier/ville) recueillies en debut de conversation, pour le suivi. A appeler DES que tu as obtenu un ou plusieurs de ces elements. Tu peux la rappeler pour completer une info donnee plus tard dans l\'echange.',
+            'description' => 'Enregistre une coordonnee uniquement lorsque le visiteur l\'a donnee volontairement pour etre recontacte ou a accepte ce suivi. Ne jamais interrompre une demande pour exiger ces informations.',
             'input_schema' => [
                 'type' => 'object',
                 'properties' => [
@@ -175,14 +241,27 @@ function sl_lucie_tool_menu( $agence, $jour = '' ) {
     }
 
     $par_cat = [];
+    $cards   = [];
     foreach ( (array) $repas as $r ) {
         $cats = wp_get_post_terms( $r->ID, 'sl_repas_cat' );
         $cat  = ( ! empty( $cats ) && ! is_wp_error( $cats ) && function_exists( 'sl_ff_cat_display' ) )
                 ? sl_ff_cat_display( $cats[0]->name ) : 'Menu du jour';
-        $plat = [ 'plat' => get_the_title( $r ) ];
+        $plat = [ 'repas_id' => (int) $r->ID, 'plat' => get_the_title( $r ) ];
         if ( function_exists( 'sl_ff_get_promo_info' ) ) {
-            $promo = sl_ff_get_promo_info( $r->ID );
+            $promo = sl_ff_get_promo_info( $r->ID, $agence );
             if ( ! empty( $promo['est_promo'] ) ) $plat['promo'] = true;
+            $current_price = ! empty( $promo['est_promo'] ) && ! empty( $promo['prix_promo'] ) ? (float) $promo['prix_promo'] : (float) ( $promo['prix'] ?? 0 );
+            if ( $current_price > 0 ) $plat['prix'] = function_exists( 'sl_lucie_price_text' ) ? sl_lucie_price_text( $current_price ) : $current_price . ' FCFA';
+        }
+        $today = function_exists( 'sl_ff_today_jour' ) ? sl_ff_today_jour() : $jour;
+        if ( $jour === $today && function_exists( 'sl_ff_product_id_for' ) && function_exists( 'sl_lucie_product_card' ) ) {
+            $product_id = sl_ff_product_id_for( $r->ID, $agence );
+            $card = $product_id ? sl_lucie_product_card( $product_id ) : null;
+            if ( $card ) {
+                $plat['product_id'] = $product_id;
+                $plat['lien']       = $card['url'];
+                $cards[]            = $card;
+            }
         }
         $par_cat[ $cat ][] = $plat;
     }
@@ -191,6 +270,7 @@ function sl_lucie_tool_menu( $agence, $jour = '' ) {
     foreach ( $par_cat as $cat => $plats ) {
         $menu[] = [ 'categorie' => $cat, 'plats' => $plats ];
     }
+    if ( $cards && function_exists( 'sl_lucie_set_ui_cards' ) ) sl_lucie_set_ui_cards( $cards );
 
     return [
         'agence'    => $agence,
@@ -205,6 +285,9 @@ function sl_lucie_tool_menu( $agence, $jour = '' ) {
 function sl_lucie_tool_search_content( $requete ) {
     $requete = sanitize_text_field( (string) $requete );
     if ( $requete === '' ) return [ 'erreur' => 'Requete vide.' ];
+    if ( function_exists( 'sl_lucie_search_site_index' ) ) {
+        return sl_lucie_search_site_index( $requete, 8 );
+    }
     $types = [ 'page', 'post' ];
     if ( post_type_exists( 'product' ) ) $types[] = 'product';
     $q = new WP_Query( [
@@ -250,19 +333,26 @@ function sl_lucie_tool_products( $recherche, $categorie ) {
     }
     $q = new WP_Query( $args );
     $items = [];
+    $cards = [];
     foreach ( $q->posts as $p ) {
         $prod = wc_get_product( $p->ID );
         if ( ! $prod ) continue;
+        $card = function_exists( 'sl_lucie_product_card' ) ? sl_lucie_product_card( $p->ID ) : null;
+        $current = function_exists( 'sl_lucie_product_is_current' ) ? sl_lucie_product_is_current( $p->ID ) : true;
         $items[] = [
+            'product_id' => (int) $p->ID,
             'nom'        => $prod->get_name(),
             'prix'       => trim( html_entity_decode( wp_strip_all_tags( wc_price( $prod->get_price() ) ), ENT_QUOTES, 'UTF-8' ) ),
-            'disponible' => $prod->is_in_stock() ? 'oui' : 'non',
+            'disponible' => ( $prod->is_in_stock() && $prod->is_purchasable() && $current ) ? 'oui' : 'non',
             'stock'      => $prod->managing_stock() ? $prod->get_stock_quantity() : null,
             'categories' => wp_get_post_terms( $p->ID, 'product_cat', [ 'fields' => 'names' ] ),
             'url'        => get_permalink( $p->ID ),
+            'agence'     => $card['agency'] ?? '',
         ];
+        if ( $card ) $cards[] = $card;
     }
     wp_reset_postdata();
+    if ( $cards && function_exists( 'sl_lucie_set_ui_cards' ) ) sl_lucie_set_ui_cards( $cards );
     return [ 'produits' => $items ];
 }
 
@@ -341,6 +431,7 @@ function sl_lucie_tool_list_pages() {
     ] );
     $items = [];
     foreach ( $pages as $p ) {
+        if ( $p->post_password !== '' || get_post_meta( $p->ID, '_slfd_internal_page', true ) !== '' ) continue;
         $items[] = [ 'titre' => get_the_title( $p ), 'slug' => $p->post_name, 'url' => get_permalink( $p ) ];
     }
     return [ 'pages' => $items ];
@@ -352,6 +443,7 @@ function sl_lucie_tool_read_page( $recherche ) {
     if ( $recherche === '' ) return [ 'erreur' => 'Precise le nom de la page.' ];
     // 1) slug exact
     $p = get_page_by_path( sanitize_title( $recherche ) );
+    if ( $p && ( $p->post_password !== '' || get_post_meta( $p->ID, '_slfd_internal_page', true ) !== '' ) ) $p = null;
     // 2) titre / contenu (recherche WordPress)
     if ( ! $p ) {
         $q = new WP_Query( [
@@ -361,6 +453,10 @@ function sl_lucie_tool_read_page( $recherche ) {
             'posts_per_page' => 1,
             'no_found_rows'  => true,
             'ignore_sticky_posts' => true,
+            'has_password'   => false,
+            'meta_query'     => [
+                [ 'key' => '_slfd_internal_page', 'compare' => 'NOT EXISTS' ],
+            ],
         ] );
         if ( ! empty( $q->posts ) ) $p = $q->posts[0];
         wp_reset_postdata();
@@ -392,6 +488,7 @@ function sl_lucie_run_tool( $name, $input ) {
                 'agence'   => sanitize_text_field( $input['agence'] ?? '' ),
                 'category' => sanitize_text_field( $input['categorie'] ?? '' ),
             ] );
+            if ( function_exists( 'sl_lucie_capture_product_cards' ) ) sl_lucie_capture_product_cards( $d, 'products' );
             break;
         case 'bons_plans':
             $d = sl_lucie_rest_get( '/santa-lucia/v1/bons-plans', [
@@ -413,12 +510,44 @@ function sl_lucie_run_tool( $name, $input ) {
                 }
                 $d['items'] = $vivants;
             }
+            if ( function_exists( 'sl_lucie_capture_product_cards' ) ) sl_lucie_capture_product_cards( $d, 'bons_plans' );
             break;
         case 'rechercher_contenu':
+        case 'rechercher_site_complet':
             $d = sl_lucie_tool_search_content( $input['requete'] ?? '' );
             break;
         case 'infos_produits':
             $d = sl_lucie_tool_products( $input['recherche'] ?? '', $input['categorie'] ?? '' );
+            break;
+        case 'proposer_panier_budget':
+            $d = function_exists( 'sl_lucie_recommend_budget' )
+                ? sl_lucie_recommend_budget( $input )
+                : [ 'ok' => false, 'message' => 'Le moteur de recommandation est indisponible.' ];
+            break;
+        case 'voir_panier':
+            $cart = function_exists( 'sl_lucie_cart_snapshot' ) ? sl_lucie_cart_snapshot() : [ 'available' => false ];
+            if ( function_exists( 'sl_lucie_set_ui_cart' ) ) sl_lucie_set_ui_cart( $cart );
+            $d = [ 'ok' => ! empty( $cart['available'] ), 'panier' => $cart ];
+            break;
+        case 'ajouter_au_panier':
+            $d = function_exists( 'sl_lucie_tool_add_to_cart' )
+                ? sl_lucie_tool_add_to_cart( $input['product_id'] ?? 0, $input['quantite'] ?? 1 )
+                : [ 'ok' => false, 'message' => 'Le panier est indisponible.' ];
+            break;
+        case 'retirer_du_panier':
+            $d = function_exists( 'sl_lucie_tool_remove_from_cart' )
+                ? sl_lucie_tool_remove_from_cart( $input['product_id'] ?? 0, $input['cart_item_key'] ?? '' )
+                : [ 'ok' => false, 'message' => 'Le panier est indisponible.' ];
+            break;
+        case 'vider_panier':
+            $d = function_exists( 'sl_lucie_tool_clear_cart' )
+                ? sl_lucie_tool_clear_cart()
+                : [ 'ok' => false, 'message' => 'Le panier est indisponible.' ];
+            break;
+        case 'finaliser_commande':
+            $d = function_exists( 'sl_lucie_tool_checkout' )
+                ? sl_lucie_tool_checkout()
+                : [ 'ok' => false, 'message' => 'Le checkout est indisponible.' ];
             break;
         case 'infos_agence':
             $d = sl_lucie_tool_agence_infos( $input['recherche'] ?? '' );

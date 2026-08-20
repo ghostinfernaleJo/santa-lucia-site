@@ -25,8 +25,8 @@ function sl_lucie_system_prompt() {
     $p  = "Tu es {$nom}, l'assistante virtuelle officielle du Complexe Santa Lucia (Cameroun).\n";
     $p .= "Date du jour : {$today}.\n\n";
     $p .= "REGLES STRICTES :\n";
-    $p .= "0. ACCUEIL ET COORDONNEES — au tout debut de la conversation, presente-toi en une phrase puis demande POLIMENT au visiteur son prenom/nom, son numero de telephone (WhatsApp de preference) et son quartier/ville, en precisant brievement que c'est pour mieux l'accompagner et pouvoir le recontacter si besoin. Tu peux repondre a sa question en parallele. DES que tu obtiens une ou plusieurs de ces infos, appelle l'outil enregistrer_contact pour les sauvegarder (rappelle-le si une info arrive plus tard dans l'echange). Reste naturelle et legere : ne le demande pas plus de deux fois ; si le visiteur ne souhaite pas les donner, continue a l'aider normalement. Ne redemande jamais une info deja fournie.\n";
-    $p .= "1. Tu reponds UNIQUEMENT aux questions concernant Santa Lucia : produits, agences, menus du jour (Fast Food), promotions, bons plans, recrutement, horaires, informations pratiques. Pour TOUT autre sujet (culture generale, calculs, actualite, autres marques, code, etc.), tu refuses poliment et tu rappelles ton role.\n";
+    $p .= "0. ACCUEIL ET COORDONNEES — apporte d'abord une reponse utile. Ne demande jamais le nom ou le telephone au debut par automatisme. Si un suivi humain est reellement utile, propose ensuite et de facon facultative de laisser un nom, un telephone et une ville, en expliquant que c'est pour etre recontacte. Appelle enregistrer_contact uniquement si le visiteur donne volontairement ces informations ou accepte ce suivi. Un refus ne doit jamais reduire la qualite de ton aide.\n";
+    $p .= "1. Tu reponds UNIQUEMENT aux questions concernant Santa Lucia : produits, agences, menus du jour, promotions, bons plans, commande, panier, budget, recrutement, horaires et informations pratiques. Pour tout autre sujet, refuse poliment et rappelle ton role.\n";
     $p .= "2. Pour les promotions, bons plans, menus, agences et produits : utilise TOUJOURS les outils fournis pour obtenir les donnees reelles. Base-toi STRICTEMENT sur ce que renvoient les outils : n'invente JAMAIS une agence, un plat, un prix, une date ni un quartier, et ne complete jamais une liste avec des elements imaginaires (par ex. ne genere pas 'PK1, PK2, ...'). Si une donnee n'est pas dans le resultat de l'outil, elle n'existe pas pour toi.\n";
     $p .= "2a. REGLE ABSOLUE sur les noms : quand tu cites des agences, des plats ou des quartiers, tu DOIS recopier EXACTEMENT, mot pour mot, les noms presents dans le resultat de l'outil. Il est interdit d'ajouter, deviner ou 'completer' avec un nom qui ne figure pas litteralement dans ce resultat, meme s'il te semble plausible (ex: un quartier connu de Douala). Si tu hesites sur un nom, ne le mentionne pas.\n";
     $p .= "2b. Si une liste est longue, ne la deroule pas entierement : regroupe par ville (Douala / Yaounde) en n'utilisant QUE les noms exacts renvoyes par l'outil, puis invite l'utilisateur a preciser son quartier ou sa ville. Ne fabrique jamais d'exemple.\n";
@@ -37,11 +37,16 @@ function sl_lucie_system_prompt() {
     $wa_raw  = preg_replace( '/\D/', '', (string) get_option( 'sl_lucie_whatsapp', '' ) );
     $wa_link = $wa_raw !== '' ? 'https://wa.me/' . $wa_raw : '';
     if ( $wa_link !== '' ) {
-        $p .= "7. Si la question necessite une intervention humaine (reclamation, commande precise, reservation, litige, demande hors du perimetre des outils), oriente poliment l'utilisateur vers le call center sur WhatsApp et donne ce lien tel quel : {$wa_link}\n";
+        $p .= "7. Si la question necessite une intervention humaine (reclamation, reservation, litige ou cas non gere par les outils), oriente poliment l'utilisateur vers le call center sur WhatsApp et donne ce lien tel quel : {$wa_link}\n";
     } else {
-        $p .= "7. Si la question necessite une intervention humaine (reclamation, commande precise, litige...), invite l'utilisateur a contacter une agence Santa Lucia.\n";
+        $p .= "7. Si la question necessite une intervention humaine (reclamation, reservation, litige ou cas non gere par les outils), invite l'utilisateur a contacter une agence Santa Lucia.\n";
     }
-    $p .= "8. Pour toute question sur l'entreprise (qui sommes-nous, histoire, valeurs, services, livraison, recrutement, informations generales presentees sur le site) : appelle d'abord lister_pages pour reperer la bonne page, puis lire_page pour repondre A PARTIR de son contenu reel. Ne resume jamais de memoire un contenu que tu n'as pas lu via l'outil.\n";
+    $p .= "8. CONNAISSANCE DU SITE — pour toute information generale, page, article, service, actualite ou lien, appelle rechercher_site_complet. Cet index contient aussi le contenu Elementor et les liens de navigation. Cite uniquement les URL exactes renvoyees. Tu peux utiliser lister_pages puis lire_page en complement, mais jamais repondre de memoire quand le site peut etre consulte.\n";
+    $p .= "9. RECOMMANDATION BUDGET — si le visiteur donne un budget, demande seulement les informations manquantes qui changent vraiment la proposition : agence ou ville, besoin et eventuellement nombre de personnes/preferences. Appelle proposer_panier_budget. Presente son total, le reste et l'agence retenue. Une proposition ne modifie JAMAIS le panier.\n";
+    $p .= "10. PANIER — appelle ajouter_au_panier, retirer_du_panier ou vider_panier uniquement lorsque le DERNIER message du client exprime clairement cette action. 'Que me proposes-tu ?', 'je regarde', 'combien coute ceci ?' ou une demande de budget ne sont jamais des confirmations. Avant un ajout, utilise dans cette meme demande un outil produit/menu/promotion/budget pour obtenir le product_id exact ; ne devine jamais un identifiant. En cas de doute, demande confirmation. Respecte le verrou une seule agence par commande renvoye par WooCommerce.\n";
+    $p .= "11. VALIDATION — quand le client demande de payer, valider ou finaliser, appelle finaliser_commande et fournis le lien exact du checkout. Ne dis jamais que la commande est passee avant la validation reelle du formulaire de checkout. Ne demande jamais dans le chat un numero Mobile Money, une carte bancaire, un mot de passe ou un code OTP.\n";
+    $p .= "12. CARTES PRODUITS — les outils peuvent afficher automatiquement des cartes avec image, prix et bouton d'ajout. Dans ton texte, resume les meilleurs choix sans recopier une longue liste. Les prix et stocks de l'outil priment toujours sur toute autre information.\n";
+    $p .= "13. Si une agence ou un produit n'a pas une disponibilite verifiable, dis clairement 'disponibilite a confirmer' et ne le presente jamais comme commandable.\n";
 
     if ( trim( $kb ) !== '' ) {
         $p .= "\n===== BASE DE CONNAISSANCES SANTA LUCIA =====\n" . $kb . "\n===== FIN DE LA BASE DE CONNAISSANCES =====\n";
@@ -51,6 +56,11 @@ function sl_lucie_system_prompt() {
 
 /** Garde de perimetre : la question concerne-t-elle Santa Lucia ? (fournisseur actif) */
 function sl_lucie_in_scope( $message ) {
+    $local = function_exists( 'sl_lucie_normalize_text' ) ? sl_lucie_normalize_text( $message ) : mb_strtolower( (string) $message );
+    // Les confirmations courtes dependent souvent du contexte precedent et ne
+    // doivent pas etre rejetees par un classifieur qui ne voit que ce message.
+    if ( preg_match( '/\b(panier|commande|commander|ajoute|ajouter|mets|mettre|retire|supprime|vider|budget|agence|produit|promo|menu|payer|paiement|valider|finaliser)\b/u', $local ) ) return true;
+    if ( mb_strlen( $local ) <= 35 && preg_match( '/^(oui|ok|d accord|vas y|je confirme|le premier|le deuxieme|celui ci|celle ci)[.! ]*$/u', $local ) ) return true;
     if ( get_option( 'sl_lucie_scope_guard', '1' ) !== '1' ) return true;
     return sl_lucie_llm_classify( $message );
 }
@@ -66,6 +76,9 @@ function sl_lucie_rate_ok() {
 }
 
 function sl_lucie_chat_handler( WP_REST_Request $req ) {
+    $GLOBALS['sl_lucie_ui_cards'] = [];
+    $GLOBALS['sl_lucie_ui_cart']  = null;
+    $GLOBALS['sl_lucie_allowed_product_ids'] = [];
     if ( function_exists( 'sl_lucie_is_active_now' ) && ! sl_lucie_is_active_now() ) {
         $h = get_option( 'sl_lucie_offline_message', '' );
         if ( trim( $h ) === '' ) $h = 'Je ne suis pas disponible pour le moment. Merci de revenir pendant nos horaires de service 🙂';
@@ -99,6 +112,8 @@ function sl_lucie_chat_handler( WP_REST_Request $req ) {
     $provider   = function_exists( 'sl_lucie_provider' ) ? sl_lucie_provider() : '';
     $GLOBALS['sl_lucie_tools_called'] = [];
     $GLOBALS['sl_lucie_session_id']  = $session_id; // pour l'outil enregistrer_contact
+    $GLOBALS['sl_lucie_current_message'] = $message; // garde des mutations de panier
+    $GLOBALS['sl_lucie_conversation_messages'] = $messages;
     $t0 = microtime( true );
 
     // 1) Garde de perimetre
@@ -140,10 +155,18 @@ function sl_lucie_chat_handler( WP_REST_Request $req ) {
     ] );
 
     if ( $is_error ) {
-        return new WP_REST_Response( [ 'reply' => 'Desole, je rencontre un souci technique. Reessayez dans un instant 🙏' ], 200 );
+        $error_payload = [ 'reply' => 'Desole, je rencontre un souci technique. Reessayez dans un instant 🙏' ];
+        $error_cart = function_exists( 'sl_lucie_get_ui_cart' ) ? sl_lucie_get_ui_cart() : null;
+        if ( is_array( $error_cart ) ) $error_payload['cart'] = $error_cart;
+        return new WP_REST_Response( $error_payload, 200 );
     }
     if ( trim( $reply ) === '' ) {
         $reply = 'Je n\'ai pas trouve d\'information sur ce point. N\'hesitez pas a contacter une agence Santa Lucia.';
     }
-    return new WP_REST_Response( [ 'reply' => $reply ], 200 );
+    $payload = [ 'reply' => $reply ];
+    $cards = function_exists( 'sl_lucie_get_ui_cards' ) ? sl_lucie_get_ui_cards() : [];
+    $cart  = function_exists( 'sl_lucie_get_ui_cart' ) ? sl_lucie_get_ui_cart() : null;
+    if ( $cards ) $payload['cards'] = $cards;
+    if ( is_array( $cart ) ) $payload['cart'] = $cart;
+    return new WP_REST_Response( $payload, 200 );
 }

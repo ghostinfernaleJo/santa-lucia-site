@@ -113,7 +113,7 @@ function sl_lucie_anthropic_classify( $message ) {
     $res = sl_lucie_call_claude( [
         'model'      => 'claude-haiku-4-5',
         'max_tokens' => 5,
-        'system'     => 'Le complexe Santa Lucia est une enseigne camerounaise (supermarches, boulangerie, patisserie, fast food, services). Reponds OUI si la question peut raisonnablement concerner Santa Lucia : produits, prix, agences ou magasins, villes/quartiers, menus, fast food, promotions, bons plans, recrutement, horaires, contact, services, livraison. Reponds NON UNIQUEMENT si la question n a clairement AUCUN rapport (meteo, politique, calculs, autre marque, code informatique, culture generale). En cas de doute, reponds OUI. Reponds uniquement par OUI ou NON.',
+        'system'     => 'Le complexe Santa Lucia est une enseigne camerounaise (supermarches, boulangerie, patisserie, fast food, services). Reponds OUI si la question peut raisonnablement concerner Santa Lucia : produits, prix, agences ou magasins, villes/quartiers, menus, fast food, promotions, bons plans, commande, panier, paiement, budget, recrutement, horaires, contact, services, livraison. Reponds NON UNIQUEMENT si la question n a clairement AUCUN rapport (meteo, politique, calculs, autre marque, code informatique, culture generale). En cas de doute, reponds OUI. Reponds uniquement par OUI ou NON.',
         'messages'   => [ [ 'role' => 'user', 'content' => mb_substr( (string) $message, 0, 1000 ) ] ],
     ] );
     if ( ! $res['ok'] ) return true; // panne du garde -> on laisse passer (le prompt principal cadre aussi)
