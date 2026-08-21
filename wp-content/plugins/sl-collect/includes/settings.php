@@ -94,6 +94,9 @@ function slc_settings_page() {
         update_option( 'sl_collect_sms', empty( $_POST['slc_sms'] ) ? 'no' : 'yes' );
         $phone = sanitize_text_field( wp_unslash( $_POST['slc_phone'] ?? '' ) );
         if ( $phone !== '' ) update_option( 'sl_collect_phone', $phone );
+        update_option( 'sl_collect_reservation_minutes', max( 15, min( 240, absint( $_POST['slc_reservation_minutes'] ?? 60 ) ) ) );
+        update_option( 'sl_collect_ack_minutes', max( 5, min( 120, absint( $_POST['slc_ack_minutes'] ?? 15 ) ) ) );
+        update_option( 'sl_collect_claim_days', max( 1, min( 30, absint( $_POST['slc_claim_days'] ?? 7 ) ) ) );
         $message = 'Réglages enregistrés.';
 
         // Purger le cache front (Varnish + LiteSpeed) : l'affichage des
@@ -161,6 +164,25 @@ function slc_settings_page() {
                 <h2 style="margin-top:0;">📞 Téléphone de contact</h2>
                 <p style="color:#666;margin-top:0;">Affiché aux clients pour la confirmation téléphonique des commandes (page de confirmation, emails).</p>
                 <input type="text" name="slc_phone" value="<?php echo esc_attr( $phone ); ?>" class="regular-text" placeholder="+237 6XX XXX XXX">
+            </div>
+
+            <div style="background:#fff;border:1px solid #dcdcde;border-radius:10px;padding:20px 24px;margin:18px 0;">
+                <h2 style="margin-top:0;">⏱️ Délais opérationnels</h2>
+                <p style="color:#666;margin-top:0;">Ces délais pilotent la réservation de stock, l'alerte agence et les réclamations client.</p>
+                <table class="form-table" role="presentation" style="margin:0;">
+                    <tr>
+                        <th scope="row"><label for="slc_reservation_minutes">Réservation avant paiement</label></th>
+                        <td><input id="slc_reservation_minutes" type="number" min="15" max="240" step="5" name="slc_reservation_minutes" value="<?php echo esc_attr( get_option( 'sl_collect_reservation_minutes', 60 ) ); ?>" class="small-text"> minutes</td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="slc_ack_minutes">Prise en charge agence</label></th>
+                        <td><input id="slc_ack_minutes" type="number" min="5" max="120" step="5" name="slc_ack_minutes" value="<?php echo esc_attr( get_option( 'sl_collect_ack_minutes', 15 ) ); ?>" class="small-text"> minutes avant alerte</td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="slc_claim_days">Réclamation après retrait</label></th>
+                        <td><input id="slc_claim_days" type="number" min="1" max="30" name="slc_claim_days" value="<?php echo esc_attr( get_option( 'sl_collect_claim_days', 7 ) ); ?>" class="small-text"> jours</td>
+                    </tr>
+                </table>
             </div>
 
             <p><button type="submit" name="slc_save_settings" class="button button-primary button-hero">Enregistrer les réglages</button></p>

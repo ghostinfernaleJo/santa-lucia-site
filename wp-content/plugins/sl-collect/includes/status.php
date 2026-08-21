@@ -91,6 +91,7 @@ function slc_mail_commande_prete( WC_Order $order ) {
         . "  - votre téléphone (%s)\n"
         . "  - une pièce d'identité\n\n"
         . "⏰ Votre commande vous est réservée pendant 72 heures.\n\n"
+        . "Suivre la commande : %s\n\n"
         . "Merci de votre confiance,\nComplexe Santa Lucia",
         $order->get_billing_first_name() ?: 'cher client',
         $order->get_order_number(),
@@ -98,7 +99,8 @@ function slc_mail_commande_prete( WC_Order $order ) {
         $code ?: '(sera vérifié au comptoir)',
         $code ?: '—',
         $order->get_order_number(),
-        $order->get_billing_phone() ?: '—'
+        $order->get_billing_phone() ?: '—',
+        function_exists( 'slc_order_tracking_url' ) ? slc_order_tracking_url( $order ) : home_url( '/' )
     );
     wp_mail( $to, $sujet, $corps );
     $order->add_order_note( 'Drop & Collect — email « commande prête » envoyé à ' . $to );
@@ -116,7 +118,17 @@ function slc_bloc_retrait_html( WC_Order $order ) {
     if ( $code ) {
         $out .= '<p style="margin:0 0 8px;">Code de retrait : <strong style="font-size:20px;letter-spacing:2px;color:#e91e8c;">' . esc_html( $code ) . '</strong></p>';
     }
+    if ( function_exists( 'slc_pickup_slot_label' ) ) {
+        $out .= '<p style="margin:0 0 8px;">Retrait souhaité : <strong>' . esc_html( slc_pickup_slot_label( $order ) ) . '</strong></p>';
+    }
+    $collector = (string) $order->get_meta( '_slc_collector_name' );
+    if ( $collector !== '' ) {
+        $out .= '<p style="margin:0 0 8px;">Personne autorisée : <strong>' . esc_html( $collector ) . '</strong></p>';
+    }
     $out .= '<p style="margin:0;font-size:13px;color:#555;">Au comptoir, présentez : le code de retrait, le numéro de commande, votre téléphone et une pièce d\'identité.</p>';
+    if ( function_exists( 'slc_order_tracking_url' ) ) {
+        $out .= '<p style="margin:12px 0 0;"><a href="' . esc_url( slc_order_tracking_url( $order ) ) . '"><strong>Suivre ou gérer la commande</strong></a></p>';
+    }
     $out .= '</div>';
     return $out;
 }
@@ -129,6 +141,8 @@ add_action( 'woocommerce_email_after_order_table', function ( $order, $sent_to_a
         echo "\nRETRAIT EN AGENCE : Santa Lucia — " . slc_agence_name( $agence ) . "\n";
         $code = $order->get_meta( '_sl_collect_code' );
         if ( $code ) echo 'CODE DE RETRAIT : ' . $code . "\n";
+        if ( function_exists( 'slc_pickup_slot_label' ) ) echo 'CRENEAU : ' . slc_pickup_slot_label( $order ) . "\n";
+        if ( function_exists( 'slc_order_tracking_url' ) ) echo 'SUIVI : ' . esc_url_raw( slc_order_tracking_url( $order ) ) . "\n";
         echo "Au comptoir : code de retrait + numéro de commande + téléphone + pièce d'identité.\n";
     } else {
         echo wp_kses_post( slc_bloc_retrait_html( $order ) );
@@ -147,4 +161,7 @@ add_action( 'woocommerce_admin_order_data_after_billing_address', function ( $or
     echo '<p><strong>Agence de retrait :</strong> ' . esc_html( slc_agence_name( $agence ) ) . '</p>';
     $code = $order->get_meta( '_sl_collect_code' );
     if ( $code ) echo '<p><strong>Code de retrait :</strong> <code>' . esc_html( $code ) . '</code></p>';
+    if ( function_exists( 'slc_pickup_slot_label' ) ) echo '<p><strong>Créneau :</strong> ' . esc_html( slc_pickup_slot_label( $order ) ) . '</p>';
+    $collector = (string) $order->get_meta( '_slc_collector_name' );
+    if ( $collector !== '' ) echo '<p><strong>Mandataire :</strong> ' . esc_html( $collector . ' · ' . $order->get_meta( '_slc_collector_phone' ) ) . '</p>';
 } );

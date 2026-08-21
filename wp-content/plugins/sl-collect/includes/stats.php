@@ -181,7 +181,7 @@ function slst_add_menu() {
 
 /** Statuts consideres comme « payes » (l'argent est acquis). */
 function slst_paid_statuses() {
-    return [ 'processing', 'sl-prete', 'completed' ];
+    return [ 'processing', 'slc-acceptee', 'slc-prep', 'slc-attente', 'sl-prete', 'completed' ];
 }
 
 /**

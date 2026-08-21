@@ -27,6 +27,16 @@ function slc_agence_add_fields() {
         <input type="text" name="slc_agence_tel" id="slc_agence_tel" value="">
         <p>Numéro que le client appelle pour cette agence.</p>
     </div>
+    <div class="form-field">
+        <label for="slc_slot_capacity">Capacité par créneau</label>
+        <input type="number" min="1" max="100" name="slc_slot_capacity" id="slc_slot_capacity" value="12">
+        <p>Nombre maximal de commandes acceptées sur un même créneau de retrait.</p>
+    </div>
+    <div class="form-field">
+        <label for="slc_prep_minutes">Temps de préparation estimé</label>
+        <input type="number" min="15" max="480" step="15" name="slc_prep_minutes" id="slc_prep_minutes" value="90">
+        <p>Durée moyenne, en minutes, affichée au client.</p>
+    </div>
     <?php
 }
 
@@ -35,6 +45,8 @@ add_action( 'sl_agence_promo_edit_form_fields', 'slc_agence_edit_fields', 10, 1 
 function slc_agence_edit_fields( $term ) {
     $adresse = get_term_meta( $term->term_id, '_slc_agence_adresse', true );
     $tel     = get_term_meta( $term->term_id, '_slc_agence_tel', true );
+    $capacity = absint( get_term_meta( $term->term_id, '_slc_slot_capacity', true ) ) ?: 12;
+    $prep     = absint( get_term_meta( $term->term_id, '_slc_prep_minutes', true ) ) ?: 90;
     ?>
     <tr class="form-field">
         <th scope="row"><label for="slc_agence_adresse">Adresse de retrait</label></th>
@@ -48,6 +60,20 @@ function slc_agence_edit_fields( $term ) {
         <td>
             <input type="text" name="slc_agence_tel" id="slc_agence_tel" value="<?php echo esc_attr( $tel ); ?>" size="30">
             <p class="description">À défaut, le numéro de contact général des réglages Drop &amp; Collect est utilisé.</p>
+        </td>
+    </tr>
+    <tr class="form-field">
+        <th scope="row"><label for="slc_slot_capacity">Capacité par créneau</label></th>
+        <td>
+            <input type="number" min="1" max="100" name="slc_slot_capacity" id="slc_slot_capacity" value="<?php echo esc_attr( $capacity ); ?>" class="small-text"> commande(s)
+            <p class="description">Limite appliquée séparément à chaque date et créneau de retrait.</p>
+        </td>
+    </tr>
+    <tr class="form-field">
+        <th scope="row"><label for="slc_prep_minutes">Temps de préparation estimé</label></th>
+        <td>
+            <input type="number" min="15" max="480" step="15" name="slc_prep_minutes" id="slc_prep_minutes" value="<?php echo esc_attr( $prep ); ?>" class="small-text"> minutes
+            <p class="description">Indication affichée au client avant que la commande soit prête.</p>
         </td>
     </tr>
     <?php
@@ -65,14 +91,26 @@ function slc_agence_save_fields( $term_id ) {
     if ( isset( $_POST['slc_agence_tel'] ) ) {
         update_term_meta( $term_id, '_slc_agence_tel', sanitize_text_field( wp_unslash( $_POST['slc_agence_tel'] ) ) );
     }
+    if ( isset( $_POST['slc_slot_capacity'] ) ) {
+        update_term_meta( $term_id, '_slc_slot_capacity', max( 1, min( 100, absint( $_POST['slc_slot_capacity'] ) ) ) );
+    }
+    if ( isset( $_POST['slc_prep_minutes'] ) ) {
+        update_term_meta( $term_id, '_slc_prep_minutes', max( 15, min( 480, absint( $_POST['slc_prep_minutes'] ) ) ) );
+    }
 }
 
 /** Colonne « Adresse » dans la liste des agences : voir d'un coup ce qui manque. */
 add_filter( 'manage_edit-sl_agence_promo_columns', function ( $cols ) {
     $cols['slc_adresse'] = 'Adresse de retrait';
+    $cols['slc_capacity'] = 'Capacité / créneau';
     return $cols;
 } );
 add_filter( 'manage_sl_agence_promo_custom_column', function ( $out, $col, $term_id ) {
+    if ( 'slc_capacity' === $col ) {
+        $capacity = absint( get_term_meta( $term_id, '_slc_slot_capacity', true ) ) ?: 12;
+        $prep     = absint( get_term_meta( $term_id, '_slc_prep_minutes', true ) ) ?: 90;
+        return esc_html( $capacity . ' commande(s) · ' . $prep . ' min' );
+    }
     if ( 'slc_adresse' !== $col ) {
         return $out;
     }

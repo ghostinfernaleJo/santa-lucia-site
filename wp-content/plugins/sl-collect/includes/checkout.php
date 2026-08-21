@@ -102,7 +102,7 @@ function slc_checkout_payment_copy( $gateways ) {
     }
     if ( isset( $gateways['slc_call'] ) ) {
         $gateways['slc_call']->title       = 'Réserver puis payer après confirmation';
-        $gateways['slc_call']->description = 'Votre commande est enregistrée en attente. Appelez l’agence pour confirmer la disponibilité, puis payez en ligne depuis votre compte.';
+        $gateways['slc_call']->description = sprintf( 'Votre stock est réservé pendant %d minutes. Appelez l’agence pour confirmer, puis payez en ligne depuis votre compte.', function_exists( 'slc_reservation_minutes' ) ? slc_reservation_minutes() : 60 );
     }
     return $gateways;
 }
@@ -183,6 +183,43 @@ function slc_checkout_fields( $fields ) {
         'priority' => 120,
         'class'    => [ 'form-row-wide', 'sl-collect-agence-field' ],
     ];
+
+    $today = current_time( 'Y-m-d' );
+    $last  = date_i18n( 'Y-m-d', current_time( 'timestamp' ) + 7 * DAY_IN_SECONDS );
+    $fields['billing']['sl_collect_pickup_date'] = [
+        'type'              => 'date',
+        'label'             => 'Jour de retrait souhaité',
+        'required'          => true,
+        'default'           => $today,
+        'priority'          => 130,
+        'class'             => [ 'form-row-first', 'sl-collect-pickup-date' ],
+        'custom_attributes' => [ 'min' => $today, 'max' => $last ],
+    ];
+    $fields['billing']['sl_collect_pickup_slot'] = [
+        'type'        => 'select',
+        'label'       => 'Créneau de retrait',
+        'required'    => true,
+        'options'     => function_exists( 'slc_pickup_slots' ) ? slc_pickup_slots() : [ 'asap' => 'Dès que possible' ],
+        'priority'    => 140,
+        'class'       => [ 'form-row-last', 'sl-collect-pickup-slot' ],
+        'description' => 'Nous vous prévenons dès que la commande est réellement prête.',
+    ];
+    $fields['billing']['sl_collect_collector_name'] = [
+        'type'        => 'text',
+        'label'       => 'Autre personne autorisée à retirer (facultatif)',
+        'placeholder' => 'Nom complet du mandataire',
+        'required'    => false,
+        'priority'    => 150,
+        'class'       => [ 'form-row-first', 'sl-collect-collector-name' ],
+    ];
+    $fields['billing']['sl_collect_collector_phone'] = [
+        'type'        => 'tel',
+        'label'       => 'Téléphone de cette personne (facultatif)',
+        'placeholder' => '6XX XXX XXX',
+        'required'    => false,
+        'priority'    => 160,
+        'class'       => [ 'form-row-last', 'sl-collect-collector-phone' ],
+    ];
     return $fields;
 }
 
@@ -193,6 +230,27 @@ add_action( 'woocommerce_checkout_process', function () {
     $slug = isset( $_POST['sl_collect_agence'] ) ? sanitize_title( wp_unslash( $_POST['sl_collect_agence'] ) ) : '';
     if ( $slug === '' || ! get_term_by( 'slug', $slug, 'sl_agence_promo' ) ) {
         wc_add_notice( 'Veuillez choisir votre <strong>agence de retrait</strong>.', 'error' );
+        return;
+    }
+
+    $date = isset( $_POST['sl_collect_pickup_date'] ) ? sanitize_text_field( wp_unslash( $_POST['sl_collect_pickup_date'] ) ) : '';
+    $slot = isset( $_POST['sl_collect_pickup_slot'] ) ? sanitize_key( wp_unslash( $_POST['sl_collect_pickup_slot'] ) ) : '';
+    if ( ! function_exists( 'slc_pickup_date_is_valid' ) || ! slc_pickup_date_is_valid( $date ) ) {
+        wc_add_notice( 'Choisissez un <strong>jour de retrait valide</strong> dans les 7 prochains jours.', 'error' );
+    } elseif ( ! isset( slc_pickup_slots()[ $slot ] ) ) {
+        wc_add_notice( 'Choisissez un <strong>créneau de retrait valide</strong>.', 'error' );
+    } elseif ( ! slc_pickup_slot_available( $slug, $date, $slot ) ) {
+        wc_add_notice( 'Ce créneau n’est plus disponible ou est complet dans cette agence. Veuillez choisir un autre horaire ou un autre jour.', 'error' );
+    }
+
+    $collector_name  = isset( $_POST['sl_collect_collector_name'] ) ? sanitize_text_field( wp_unslash( $_POST['sl_collect_collector_name'] ) ) : '';
+    $collector_phone = isset( $_POST['sl_collect_collector_phone'] ) ? sanitize_text_field( wp_unslash( $_POST['sl_collect_collector_phone'] ) ) : '';
+    if ( ( $collector_name === '' ) xor ( $collector_phone === '' ) ) {
+        wc_add_notice( 'Pour autoriser une autre personne, renseignez son <strong>nom et son téléphone</strong>.', 'error' );
+    }
+    $collector_digits = preg_replace( '/\D+/', '', $collector_phone );
+    if ( $collector_phone !== '' && ( strlen( $collector_digits ) < 8 || strlen( $collector_digits ) > 15 ) ) {
+        wc_add_notice( 'Le téléphone de la personne autorisée semble invalide.', 'error' );
     }
 } );
 
@@ -200,6 +258,20 @@ add_action( 'woocommerce_checkout_create_order', function ( $order, $data ) {
     $slug = isset( $_POST['sl_collect_agence'] ) ? sanitize_title( wp_unslash( $_POST['sl_collect_agence'] ) ) : '';
     if ( $slug !== '' && get_term_by( 'slug', $slug, 'sl_agence_promo' ) ) {
         $order->update_meta_data( '_sl_collect_agence', $slug );
+    }
+    $date = isset( $_POST['sl_collect_pickup_date'] ) ? sanitize_text_field( wp_unslash( $_POST['sl_collect_pickup_date'] ) ) : '';
+    $slot = isset( $_POST['sl_collect_pickup_slot'] ) ? sanitize_key( wp_unslash( $_POST['sl_collect_pickup_slot'] ) ) : '';
+    if ( function_exists( 'slc_pickup_date_is_valid' ) && slc_pickup_date_is_valid( $date ) ) {
+        $order->update_meta_data( '_slc_pickup_date', $date );
+    }
+    if ( function_exists( 'slc_pickup_slots' ) && isset( slc_pickup_slots()[ $slot ] ) ) {
+        $order->update_meta_data( '_slc_pickup_slot', $slot );
+    }
+    $collector_name  = isset( $_POST['sl_collect_collector_name'] ) ? sanitize_text_field( wp_unslash( $_POST['sl_collect_collector_name'] ) ) : '';
+    $collector_phone = isset( $_POST['sl_collect_collector_phone'] ) ? sanitize_text_field( wp_unslash( $_POST['sl_collect_collector_phone'] ) ) : '';
+    if ( $collector_name !== '' && $collector_phone !== '' ) {
+        $order->update_meta_data( '_slc_collector_name', $collector_name );
+        $order->update_meta_data( '_slc_collector_phone', $collector_phone );
     }
 }, 10, 2 );
 
@@ -217,6 +289,13 @@ function slc_thankyou_bloc( $order_id ) {
     echo '<p style="margin:0 0 6px;font-size:15px;">Numéro de commande</p>';
     echo '<p style="margin:0 0 14px;font-size:30px;font-weight:800;letter-spacing:1px;">n°' . esc_html( $order->get_order_number() ) . '</p>';
     echo '<p style="margin:0 0 10px;">Agence de retrait : <strong>Santa Lucia — ' . esc_html( $agence ) . '</strong></p>';
+    if ( function_exists( 'slc_pickup_slot_label' ) ) {
+        echo '<p style="margin:0 0 10px;">Retrait souhaité : <strong>' . esc_html( slc_pickup_slot_label( $order ) ) . '</strong></p>';
+    }
+    $collector = (string) $order->get_meta( '_slc_collector_name' );
+    if ( $collector !== '' ) {
+        echo '<p style="margin:0 0 10px;">Personne autorisée : <strong>' . esc_html( $collector ) . '</strong></p>';
+    }
 
     if ( $order->has_status( 'pending' ) ) {
         echo '<p style="margin:0 0 8px;">📞 <strong>Confirmez la disponibilité de vos produits</strong> en appelant le '
@@ -224,7 +303,8 @@ function slc_thankyou_bloc( $order_id ) {
             . ' en indiquant votre numéro de commande.</p>';
         echo '<p style="margin:0;font-size:13px;color:#555;">Après confirmation, réglez votre commande en ligne depuis '
             . '<a href="' . esc_url( wc_get_page_permalink( 'myaccount' ) ) . '">votre compte</a> (rubrique Commandes → Payer). '
-            . 'Votre code de retrait vous sera envoyé dès le paiement.</p>';
+            . 'Votre code de retrait vous sera envoyé dès le paiement. Le stock est réservé pendant <strong>'
+            . (int) ( function_exists( 'slc_reservation_minutes' ) ? slc_reservation_minutes() : 60 ) . ' minutes</strong>.</p>';
     } else {
         $code = $order->get_meta( '_sl_collect_code' );
         if ( $code ) {
@@ -232,6 +312,9 @@ function slc_thankyou_bloc( $order_id ) {
         }
         echo '<p style="margin:0;font-size:13px;color:#555;">Vous recevrez un message dès que votre commande sera prête. '
             . 'Au comptoir : code de retrait + numéro de commande + téléphone + pièce d\'identité.</p>';
+    }
+    if ( function_exists( 'slc_order_tracking_url' ) ) {
+        echo '<p style="margin:12px 0 0;"><a href="' . esc_url( slc_order_tracking_url( $order ) ) . '"><strong>Suivre ou gérer cette commande</strong></a></p>';
     }
     echo '</div>';
 }

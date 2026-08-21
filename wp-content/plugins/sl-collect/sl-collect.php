@@ -1,13 +1,13 @@
 <?php
 /**
  * Plugin Name: Santa Lucia Drop & Collect
- * Description: Click & Collect multi-agences — commande en ligne avec ou sans compte, retrait en agence (choix d'agence au checkout, code de retrait, facture PDF, SMS, ecran responsable, statistiques de vente, CRM clients, notifications push, expiration automatique).
- * Version:     0.8.0
+ * Description: Click & Collect multi-agences — stock réservé, créneaux, préparation, substitutions, suivi client sécurisé, QR de remise, remboursements assistés, SMS et pilotage agence.
+ * Version:     0.9.1
  * Author:      Santa Lucia
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'SL_COLLECT_VERSION', '0.8.0' );
+define( 'SL_COLLECT_VERSION', '0.9.1' );
 define( 'SL_COLLECT_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SL_COLLECT_URL',  plugin_dir_url( __FILE__ ) );
 
@@ -37,13 +37,16 @@ function sl_collect_boot() {
     require_once SL_COLLECT_PATH . 'includes/helpers.php';
     require_once SL_COLLECT_PATH . 'includes/settings.php';
     require_once SL_COLLECT_PATH . 'includes/status.php';
+    require_once SL_COLLECT_PATH . 'includes/operations.php';
     require_once SL_COLLECT_PATH . 'includes/checkout.php';
     require_once SL_COLLECT_PATH . 'includes/gateway-call.php';
     require_once SL_COLLECT_PATH . 'includes/admin-agence.php';
+    require_once SL_COLLECT_PATH . 'includes/admin-operations.php';
     require_once SL_COLLECT_PATH . 'includes/notify-agence.php';
     require_once SL_COLLECT_PATH . 'includes/agence-fields.php';
     require_once SL_COLLECT_PATH . 'includes/facture.php';
     require_once SL_COLLECT_PATH . 'includes/facture-links.php';
+    require_once SL_COLLECT_PATH . 'includes/customer-tracking.php';
     require_once SL_COLLECT_PATH . 'includes/stats.php';
     require_once SL_COLLECT_PATH . 'includes/crm.php';
     require_once SL_COLLECT_PATH . 'includes/push.php';

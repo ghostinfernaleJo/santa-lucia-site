@@ -70,7 +70,8 @@ if ( class_exists( 'WC_Payment_Gateway' ) ) {
             // Reste « pending » = en attente de paiement ; le client garde le
             // bouton « Payer » dans Mon compte (order-pay natif WooCommerce).
             $order->update_status( 'pending', 'Drop & Collect — en attente : confirmation téléphonique puis paiement en ligne par le client.' );
-            // Pas de reduction de stock ici : la commande n'est pas payee.
+            // Le module operationnel reserve ensuite le stock pour une duree
+            // limitee, afin d'eviter une double vente pendant la confirmation.
 
             if ( function_exists( 'WC' ) && WC()->cart ) {
                 WC()->cart->empty_cart();

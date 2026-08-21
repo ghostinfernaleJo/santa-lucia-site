@@ -26,6 +26,9 @@ function slc_cron_expiration() {
 
         // 72 h : annulation
         if ( $age >= 72 * HOUR_IN_SECONDS ) {
+            if ( $order->is_paid() && (float) $order->get_total() > 0 && function_exists( 'slc_add_refund_due' ) ) {
+                slc_add_refund_due( $order, (float) $order->get_total(), 'Commande prête non retirée sous 72 h' );
+            }
             $order->update_status( 'cancelled', 'Drop & Collect — annulée automatiquement : non retirée sous 72 h.' );
             $to = $order->get_billing_email();
             if ( $to ) {
@@ -34,7 +37,7 @@ function slc_cron_expiration() {
                     sprintf( 'Commande n°%s annulée — non retirée sous 72 h', $order->get_order_number() ),
                     sprintf(
                         "Bonjour %s,\n\nVotre commande n°%s, prête depuis plus de 72 heures à l'agence Santa Lucia — %s, "
-                        . "n'a pas été retirée et a été annulée.\n\n"
+                        . "n'a pas été retirée et a été annulée. Si elle était payée, son remboursement est transmis à notre équipe.\n\n"
                         . "Pour toute question ou nouveau retrait, contactez-nous au %s.\n\nComplexe Santa Lucia",
                         $order->get_billing_first_name() ?: 'cher client',
                         $order->get_order_number(),
@@ -58,11 +61,13 @@ function slc_cron_expiration() {
                     sprintf(
                         "Bonjour %s,\n\nPetit rappel : votre commande n°%s est prête à l'agence Santa Lucia — %s "
                         . "depuis 2 jours.\n\nCode de retrait : %s\n\n"
-                        . "⚠️ Sans retrait sous 24 h, elle sera automatiquement annulée.\n\nComplexe Santa Lucia",
+                        . "⚠️ Sans retrait sous 24 h, elle sera automatiquement annulée.\n\n"
+                        . "Suivre la commande : %s\n\nComplexe Santa Lucia",
                         $order->get_billing_first_name() ?: 'cher client',
                         $order->get_order_number(),
                         slc_agence_name( $order->get_meta( '_sl_collect_agence' ) ),
-                        $order->get_meta( '_sl_collect_code' ) ?: '—'
+                        $order->get_meta( '_sl_collect_code' ) ?: '—',
+                        function_exists( 'slc_order_tracking_url' ) ? slc_order_tracking_url( $order ) : home_url( '/' )
                     )
                 );
             }

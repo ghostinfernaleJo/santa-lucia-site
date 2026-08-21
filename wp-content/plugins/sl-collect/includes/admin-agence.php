@@ -48,6 +48,9 @@ function slc_admin_styles() {
         .slc-total { font-weight:700; white-space:nowrap; }
         .slc-status { display:inline-flex; align-items:center; min-height:24px; padding:3px 9px; border-radius:999px; background:#eef0f2; color:#50575e; font-size:12px; font-weight:700; white-space:nowrap; }
         .slc-status-processing { background:#e7f3ff; color:#075985; }
+        .slc-status-slc-acceptee { background:#e8f2ff; color:#174ea6; }
+        .slc-status-slc-prep { background:#eee8ff; color:#5b35a8; }
+        .slc-status-slc-attente { background:#fff4ce; color:#8a4b00; }
         .slc-status-sl-prete { background:#fff4ce; color:#8a4b00; }
         .slc-status-pending, .slc-status-on-hold { background:#fff4ce; color:#7a4d00; }
         .slc-status-completed { background:#dff7e8; color:#116329; }
@@ -81,7 +84,10 @@ function slc_screen_statuses() {
         'toutes'     => 'Toutes les commandes (tout statut, y compris échouées)',
         'actives'    => 'Commandes actives seulement (en attente/payées/prêtes)',
         'pending'    => 'En attente (à confirmer/payer)',
-        'processing' => 'Payées — à préparer',
+        'processing' => 'Payées — à accepter par l’agence',
+        'slc-acceptee'=> 'Acceptées — préparation à démarrer',
+        'slc-prep'   => 'En préparation',
+        'slc-attente'=> 'Attente du choix client',
         'sl-prete'   => 'Prêtes — à remettre',
         'failed'     => '❌ Paiement échoué',
         'on-hold'    => 'En pause (on-hold)',
@@ -105,7 +111,9 @@ function slc_screen_statuses() {
 
 /** Statuts couverts par la vue « actives ». */
 function slc_active_statuses() {
-    return [ 'pending', 'processing', 'sl-prete' ];
+    return function_exists( 'slc_active_pipeline_statuses' )
+        ? slc_active_pipeline_statuses()
+        : [ 'pending', 'processing', 'sl-prete' ];
 }
 
 /** Tous les statuts REELS geres par l'ecran (exclut les pseudo-filtres « toutes »/« actives »). */
@@ -187,9 +195,23 @@ function slc_admin_page() {
         <?php elseif ( 'err' === $notice ) : ?>
             <div class="notice notice-error is-dismissible"><p>Action impossible (commande introuvable ou statut inattendu).</p></div>
         <?php elseif ( 'removed' === $notice ) : ?>
-            <div class="notice notice-success is-dismissible"><p>La ligne a été supprimée de la commande. Le total a été recalculé.</p></div>
+            <div class="notice notice-success is-dismissible"><p>La ligne a été supprimée, le stock libéré et le total recalculé. Si la commande était payée, le remboursement apparaît dans son détail.</p></div>
         <?php elseif ( 'remove_err' === $notice ) : ?>
             <div class="notice notice-error is-dismissible"><p>Impossible de supprimer cette ligne. Vérifiez le statut de la commande et les droits du compte.</p></div>
+        <?php elseif ( 'accepted' === $notice ) : ?>
+            <div class="notice notice-success is-dismissible"><p>Commande acceptée par l’agence.</p></div>
+        <?php elseif ( 'preparing' === $notice ) : ?>
+            <div class="notice notice-success is-dismissible"><p>La préparation a démarré.</p></div>
+        <?php elseif ( 'substitution_sent' === $notice ) : ?>
+            <div class="notice notice-success is-dismissible"><p>La proposition a été envoyée au client. La commande attend sa réponse.</p></div>
+        <?php elseif ( 'substitution_err' === $notice ) : ?>
+            <div class="notice notice-error is-dismissible"><p>Impossible d’envoyer cette proposition. Vérifiez le produit, le prix et le stock.</p></div>
+        <?php elseif ( 'refund_done' === $notice ) : ?>
+            <div class="notice notice-success is-dismissible"><p>Le remboursement a été marqué comme traité.</p></div>
+        <?php elseif ( in_array( $notice, [ 'refund_err', 'claim_err' ], true ) ) : ?>
+            <div class="notice notice-error is-dismissible"><p>Cette opération n’a pas pu être enregistrée.</p></div>
+        <?php elseif ( 'claim_done' === $notice ) : ?>
+            <div class="notice notice-success is-dismissible"><p>La réclamation est clôturée et le client a été informé.</p></div>
         <?php endif; ?>
 
         <form method="get" class="slc-filter-bar">
@@ -255,7 +277,8 @@ function slc_admin_page() {
                                         $product = $item->get_product();
                                         $sku = $product && $product->get_sku() ? 'SKU: ' . $product->get_sku() : '';
                                         if ( $sku !== '' ) $meta_rows[] = esc_html( $sku );
-                                        $can_remove = in_array( $st, [ 'pending', 'processing', 'sl-prete' ], true ) && count( $line_items ) > 1;
+                                        $can_remove = in_array( $st, [ 'pending', 'processing', 'slc-acceptee', 'slc-prep', 'slc-attente', 'sl-prete' ], true )
+                                            && ( ! function_exists( 'slc_pending_substitution_for_item' ) || ! slc_pending_substitution_for_item( $o, $item_id ) );
                                     ?>
                                         <tr>
                                             <td><strong><?php echo esc_html( $item->get_name() ); ?></strong></td>
@@ -264,7 +287,7 @@ function slc_admin_page() {
                                             <td><?php echo wp_kses_post( $o->get_formatted_line_subtotal( $item ) ); ?></td>
                                             <td>
                                                 <?php if ( $can_remove ) : ?>
-                                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('Supprimer cette ligne de la commande ? Le total sera recalculé et aucun remboursement automatique ne sera effectué.');">
+                                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('Supprimer cette ligne ? Le stock sera libéré et, si la commande est payée, un remboursement à traiter sera créé.');">
                                                         <?php wp_nonce_field( 'slc_action_' . $o->get_id() ); ?>
                                                         <input type="hidden" name="action" value="slc_remove_order_item">
                                                         <input type="hidden" name="order_id" value="<?php echo (int) $o->get_id(); ?>">
@@ -272,14 +295,16 @@ function slc_admin_page() {
                                                         <button type="submit" class="button-link-delete">Supprimer</button>
                                                     </form>
                                                 <?php else : ?>
-                                                    <span style="color:#777;">Non disponible</span>
+                                                    <span style="color:#777;">—</span>
                                                 <?php endif; ?>
+                                                <?php if ( function_exists( 'slc_admin_substitution_control' ) ) slc_admin_substitution_control( $o, $item_id, $item ); ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
                                     </tbody>
                                 </table>
-                                <p style="margin:8px 0 0;color:#666;font-size:12px;">La suppression est autorisée avant la remise de la commande. Pour une commande déjà payée, vérifiez séparément tout remboursement éventuel.</p>
+                                <p style="margin:8px 0 0;color:#666;font-size:12px;">Une suppression libère le stock. Sur une commande payée, le montant à rembourser est suivi jusqu'à sa confirmation.</p>
+                                <?php if ( function_exists( 'slc_admin_order_operations_panel' ) ) slc_admin_order_operations_panel( $o ); ?>
                             </div>
                         </details>
                     </td>
@@ -303,18 +328,37 @@ function slc_admin_page() {
                         if ( $idoper !== '' ) {
                             echo '<span class="slc-status-meta">IDOPER&nbsp;: <code>' . esc_html( $idoper ) . '</code></span>';
                         }
+                        if ( function_exists( 'slc_pickup_slot_label' ) ) {
+                            echo '<span class="slc-status-meta">Retrait : ' . esc_html( slc_pickup_slot_label( $o ) ) . '</span>';
+                        }
                     ?></td>
                     <td><?php echo esc_html( $o->get_date_created() ? $o->get_date_created()->date_i18n( 'd/m/Y H:i' ) : '—' ); ?></td>
                     <td>
                         <div class="slc-actions">
                         <button type="button" class="button" onclick="slcPrintTicket(<?php echo (int) $o->get_id(); ?>);">🖨️ Imprimer le ticket</button>
                         <?php if ( 'processing' === $st ) : ?>
+                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                                <?php wp_nonce_field( 'slc_action_' . $o->get_id() ); ?>
+                                <input type="hidden" name="action" value="slc_accept_order">
+                                <input type="hidden" name="order_id" value="<?php echo (int) $o->get_id(); ?>">
+                                <button class="button button-primary">Accepter la commande</button>
+                            </form>
+                        <?php elseif ( 'slc-acceptee' === $st ) : ?>
+                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                                <?php wp_nonce_field( 'slc_action_' . $o->get_id() ); ?>
+                                <input type="hidden" name="action" value="slc_start_preparation">
+                                <input type="hidden" name="order_id" value="<?php echo (int) $o->get_id(); ?>">
+                                <button class="button button-primary">Commencer la préparation</button>
+                            </form>
+                        <?php elseif ( 'slc-prep' === $st ) : ?>
                             <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('Marquer la commande n°<?php echo esc_js( $o->get_order_number() ); ?> comme PRÊTE ? Le client sera notifié.');">
                                 <?php wp_nonce_field( 'slc_action_' . $o->get_id() ); ?>
                                 <input type="hidden" name="action" value="slc_mark_ready">
                                 <input type="hidden" name="order_id" value="<?php echo (int) $o->get_id(); ?>">
                                 <button class="button button-primary">✅ Marquer PRÊTE</button>
                             </form>
+                        <?php elseif ( 'slc-attente' === $st ) : ?>
+                            <span style="color:#8a4b00;">⏳ Attente du choix du client</span>
                         <?php elseif ( 'sl-prete' === $st ) : ?>
                             <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                                 <?php wp_nonce_field( 'slc_action_' . $o->get_id() ); ?>
@@ -334,17 +378,23 @@ function slc_admin_page() {
                         </div>
                     </td>
                 </tr>
-                <?php $ticket_qr_url = function_exists( 'slc_facture_qr_url' ) ? slc_facture_qr_url( $o ) : ''; ?>
+                <?php
+                $ticket_qr_url      = function_exists( 'slc_facture_qr_url' ) ? slc_facture_qr_url( $o ) : '';
+                $ticket_package_code = function_exists( 'slc_package_code' ) ? slc_package_code( $o ) : 'CMD-' . $o->get_order_number();
+                ?>
                 <tr id="slc-ticket-row-<?php echo (int) $o->get_id(); ?>" style="display:none;">
                     <td colspan="<?php echo (int) ( 8 + ( $is_admin && $agence_sel === '' ? 1 : 0 ) ); ?>">
                          <div id="slc-ticket-<?php echo (int) $o->get_id(); ?>" class="slc-ticket-content">
-                            <h2>Ticket de préparation - commande n°<?php echo esc_html( $o->get_order_number() ); ?></h2>
-                            <?php if ( $ticket_qr_url !== '' ) : ?><div style="float:right;text-align:center;margin:0 0 12px 18px;"><img src="<?php echo esc_url( $ticket_qr_url ); ?>" alt="QR commande <?php echo esc_attr( $o->get_order_number() ); ?>" width="120" height="120" style="display:block;width:120px;height:120px;"><small>Scanner pour vérifier</small></div><?php endif; ?>
+                            <h2>Ticket de préparation - colis <?php echo esc_html( $ticket_package_code ); ?></h2>
+                            <?php if ( $ticket_qr_url !== '' ) : ?><div style="float:right;text-align:center;margin:0 0 12px 18px;"><img src="<?php echo esc_url( $ticket_qr_url ); ?>" alt="QR du colis <?php echo esc_attr( $ticket_package_code ); ?>" width="120" height="120" style="display:block;width:120px;height:120px;"><small>Scanner pour identifier le colis</small></div><?php endif; ?>
+                            <p style="padding:10px 12px;border:2px solid #1d54a0;background:#f2f7ff;"><strong>ID COLIS :</strong><br><code style="font-size:17px;font-weight:700;color:#d51f65;"><?php echo esc_html( $ticket_package_code ); ?></code><br><small>Commande n°<?php echo esc_html( $o->get_order_number() ); ?></small></p>
                             <p><strong>Client :</strong> <?php echo esc_html( trim( $o->get_billing_first_name() . ' ' . $o->get_billing_last_name() ) ); ?><br>
                             <strong>Téléphone :</strong> <?php echo esc_html( $o->get_billing_phone() ); ?><br>
                             <?php $payment_phone = (string) $o->get_meta( '_sl_collect_payment_phone' ); if ( $payment_phone === '' ) $payment_phone = (string) $o->get_meta( '_mmgate_msisdn' ); ?>
                             <?php if ( $payment_phone !== '' ) : ?><strong>Numéro de paiement :</strong> <?php echo esc_html( $payment_phone ); ?><br><?php endif; ?>
                             <strong>Agence :</strong> <?php echo esc_html( slc_agence_name( $o->get_meta( '_sl_collect_agence' ) ) ); ?><br>
+                            <strong>Créneau :</strong> <?php echo esc_html( function_exists( 'slc_pickup_slot_label' ) ? slc_pickup_slot_label( $o ) : '—' ); ?><br>
+                            <?php if ( $o->get_meta( '_slc_collector_name' ) ) : ?><strong>Mandataire :</strong> <?php echo esc_html( $o->get_meta( '_slc_collector_name' ) . ' · ' . $o->get_meta( '_slc_collector_phone' ) ); ?><br><?php endif; ?>
                             <strong>Date :</strong> <?php echo esc_html( $o->get_date_created() ? $o->get_date_created()->date_i18n( 'd/m/Y H:i' ) : '—' ); ?></p>
                             <table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;border-bottom:1px solid #333;padding:5px;">Article</th><th style="text-align:center;border-bottom:1px solid #333;padding:5px;">Qté</th><th style="text-align:right;border-bottom:1px solid #333;padding:5px;">Total</th></tr></thead><tbody>
                             <?php foreach ( $line_items as $ticket_item ) : ?>
@@ -411,8 +461,9 @@ function slc_redirect_back( $msg ) {
 
 add_action( 'admin_post_slc_mark_ready', function () {
     $order = slc_check_action_order();
-    if ( ! $order->has_status( 'processing' ) ) slc_redirect_back( 'err' );
+    if ( ! $order->has_status( [ 'processing', 'slc-acceptee', 'slc-prep' ] ) ) slc_redirect_back( 'err' );
     $user = wp_get_current_user();
+    $order->update_meta_data( '_slc_prete_by', $user->ID );
     $order->update_status( 'sl-prete', 'Drop & Collect — marquée PRÊTE par ' . $user->user_login . ' (' . slc_agence_name( $order->get_meta( '_sl_collect_agence' ) ) . ').' );
     slc_redirect_back( 'pret' );
 } );
@@ -429,6 +480,7 @@ add_action( 'admin_post_slc_handover', function () {
     }
 
     $user = wp_get_current_user();
+    $order->update_meta_data( '_sl_collect_retire_by', $user->ID );
     $order->update_status( 'completed', 'Drop & Collect — remise effectuée (code vérifié) par ' . $user->user_login . '.' );
     slc_redirect_back( 'remis' );
 } );
@@ -436,7 +488,7 @@ add_action( 'admin_post_slc_handover', function () {
 add_action( 'admin_post_slc_remove_order_item', function () {
     $order = slc_check_action_order();
     $item_id = isset( $_POST['item_id'] ) ? absint( $_POST['item_id'] ) : 0;
-    $allowed_statuses = [ 'pending', 'processing', 'sl-prete' ];
+    $allowed_statuses = [ 'pending', 'processing', 'slc-acceptee', 'slc-prep', 'slc-attente', 'sl-prete' ];
 
     if ( ! $item_id || ! in_array( $order->get_status(), $allowed_statuses, true ) ) {
         slc_redirect_back( 'remove_err' );
@@ -444,15 +496,38 @@ add_action( 'admin_post_slc_remove_order_item', function () {
 
     $items = $order->get_items( 'line_item' );
     $item  = isset( $items[ $item_id ] ) ? $items[ $item_id ] : false;
-    if ( ! $item || count( $items ) <= 1 ) {
+    if ( ! $item ) {
         slc_redirect_back( 'remove_err' );
     }
 
-    $name = $item->get_name();
-    $qty  = (int) $item->get_quantity();
+    if ( function_exists( 'slc_pending_substitution_for_item' ) && slc_pending_substitution_for_item( $order, $item_id ) ) {
+        slc_redirect_back( 'remove_err' );
+    }
+
+    $name       = $item->get_name();
+    $qty        = (int) $item->get_quantity();
+    $old_total  = (float) $order->get_total();
+    $was_paid   = $order->is_paid();
+    $last_item  = count( $items ) === 1;
+    if ( function_exists( 'slc_restore_item_stock' ) ) slc_restore_item_stock( $order, $item );
     $order->remove_item( $item_id );
     $order->calculate_totals( true );
-    $order->add_order_note( sprintf( 'Drop & Collect — ligne supprimée du back-office : %s × %d. Total recalculé par %s. Aucun remboursement automatique.', $name, $qty, wp_get_current_user()->user_login ) );
+    $difference = max( 0, $old_total - (float) $order->get_total() );
+    if ( $was_paid && $difference > 0 && function_exists( 'slc_add_refund_due' ) ) {
+        slc_add_refund_due( $order, $difference, 'Ligne supprimée par l’agence', $item_id );
+    }
+    $order->add_order_note( sprintf( 'Drop & Collect — ligne supprimée du back-office : %s × %d. Stock libéré et total recalculé par %s.', $name, $qty, wp_get_current_user()->user_login ) );
+    if ( $last_item ) {
+        $order->update_status( 'cancelled', 'Drop & Collect — commande annulée car sa dernière ligne a été supprimée.' );
+    }
     $order->save();
+    if ( function_exists( 'slc_notify_customer' ) ) {
+        $message = $last_item
+            ? 'Votre commande n°' . $order->get_order_number() . ' est annulée car son dernier article est indisponible.'
+            : 'L’article « ' . $name . ' » a été retiré de votre commande n°' . $order->get_order_number() . '. Le total a été mis à jour.';
+        if ( $was_paid && $difference > 0 ) $message .= ' Le remboursement correspondant est en cours de traitement.';
+        if ( function_exists( 'slc_order_tracking_url' ) ) $message .= ' Suivi : ' . slc_order_tracking_url( $order );
+        slc_notify_customer( $order, 'Mise à jour de votre commande Santa Lucia', $message );
+    }
     slc_redirect_back( 'removed' );
 } );
