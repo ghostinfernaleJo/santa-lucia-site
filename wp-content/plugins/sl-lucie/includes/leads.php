@@ -1,7 +1,7 @@
 <?php
 /**
  * Contacts / Prospects collectes par Lucie pendant les chats.
- * CPT prive `sl_lucie_lead` (nom, telephone, quartier), liste admin sous le
+ * CPT prive `sl_lucie_lead` (nom, telephone, quartier, anniversaire), liste admin sous le
  * menu Lucie + export CSV. Rempli par l'outil enregistrer_contact.
  */
 
@@ -28,17 +28,61 @@ add_action( 'init', function () {
     ] );
 } );
 
+/* ── Fiche détaillée dans le back-office ── */
+add_action( 'add_meta_boxes', function () {
+    add_meta_box(
+        'sl_lucie_lead_details',
+        'Informations collectées par Lucie',
+        'sl_lucie_lead_details_box',
+        'sl_lucie_lead',
+        'normal',
+        'high'
+    );
+} );
+
+function sl_lucie_lead_details_box( $post ) {
+    $fields = [
+        'Nom / prénom'       => get_post_meta( $post->ID, '_sll_nom', true ),
+        'Téléphone / WhatsApp' => get_post_meta( $post->ID, '_sll_tel', true ),
+        'Ville / quartier'   => get_post_meta( $post->ID, '_sll_quartier', true ),
+        'Date d’anniversaire' => get_post_meta( $post->ID, '_sll_anniversaire', true ),
+        'Session de conversation' => get_post_meta( $post->ID, '_sll_session', true ),
+    ];
+    echo '<table class="widefat striped" style="border:0;box-shadow:none;">';
+    foreach ( $fields as $label => $value ) {
+        echo '<tr><td style="width:240px;"><strong>' . esc_html( $label ) . '</strong></td><td>';
+        if ( $label === 'Date d’anniversaire' && $value ) {
+            echo esc_html( mysql2date( 'd/m/Y', $value ) );
+        } elseif ( $label === 'Session de conversation' && $value ) {
+            echo '<code>' . esc_html( $value ) . '</code>';
+        } else {
+            echo $value !== '' ? esc_html( $value ) : '<span style="color:#777;">Non communiqué</span>';
+        }
+        echo '</td></tr>';
+    }
+    echo '</table>';
+    echo '<p style="margin-bottom:0;color:#646970;">Ces informations ont été communiquées volontairement dans le chat. Elles doivent être utilisées uniquement pour le suivi client et le programme de fidélité.</p>';
+}
+
 /**
  * Enregistre (ou met a jour) un contact. Dedoublonne par session de chat.
  * Retourne l'ID du post, ou false.
  */
-function sl_lucie_save_lead( $nom, $tel, $quartier, $session = '' ) {
+function sl_lucie_save_lead( $nom, $tel, $quartier, $session = '', $anniversaire = '' ) {
     $nom      = sanitize_text_field( (string) $nom );
     $tel      = sanitize_text_field( (string) $tel );
     $quartier = sanitize_text_field( (string) $quartier );
     $session  = sanitize_text_field( (string) $session );
+    $anniversaire = sanitize_text_field( (string) $anniversaire );
+    if ( preg_match( '/^(\d{2})[\/-](\d{2})[\/-](\d{4})$/', $anniversaire, $parts ) ) {
+        $anniversaire = $parts[3] . '-' . $parts[2] . '-' . $parts[1];
+    }
+    $date = DateTime::createFromFormat( '!Y-m-d', $anniversaire );
+    if ( ! $date || $date->format( 'Y-m-d' ) !== $anniversaire || $date > new DateTime( 'today' ) ) {
+        $anniversaire = '';
+    }
 
-    if ( $nom === '' && $tel === '' && $quartier === '' ) return false;
+    if ( $nom === '' && $tel === '' && $quartier === '' && $anniversaire === '' ) return false;
 
     // Une fiche par session de chat (mise a jour si elle existe deja).
     $existing = 0;
@@ -71,6 +115,7 @@ function sl_lucie_save_lead( $nom, $tel, $quartier, $session = '' ) {
     if ( $nom !== '' )      update_post_meta( $id, '_sll_nom', $nom );
     if ( $tel !== '' )      update_post_meta( $id, '_sll_tel', $tel );
     if ( $quartier !== '' ) update_post_meta( $id, '_sll_quartier', $quartier );
+    if ( $anniversaire !== '' ) update_post_meta( $id, '_sll_anniversaire', $anniversaire );
     if ( $session !== '' )  update_post_meta( $id, '_sll_session', $session );
     return $id;
 }
@@ -89,6 +134,7 @@ function sl_lucie_lead_for_session( $session ) {
         'nom'      => (string) get_post_meta( $id, '_sll_nom', true ),
         'tel'      => (string) get_post_meta( $id, '_sll_tel', true ),
         'quartier' => (string) get_post_meta( $id, '_sll_quartier', true ),
+        'anniversaire' => (string) get_post_meta( $id, '_sll_anniversaire', true ),
     ];
 }
 
@@ -99,6 +145,8 @@ add_filter( 'manage_sl_lucie_lead_posts_columns', function ( $cols ) {
         'title'         => 'Nom',
         'sll_tel'       => 'Telephone',
         'sll_quartier'  => 'Quartier / Ville',
+        'sll_anniversaire' => 'Anniversaire',
+        'sll_session'   => 'Session',
         'date'          => 'Recu le',
     ];
 } );
@@ -109,6 +157,12 @@ add_action( 'manage_sl_lucie_lead_posts_custom_column', function ( $col, $id ) {
     } elseif ( $col === 'sll_quartier' ) {
         $q = get_post_meta( $id, '_sll_quartier', true );
         echo $q ? esc_html( $q ) : '—';
+    } elseif ( $col === 'sll_anniversaire' ) {
+        $date = get_post_meta( $id, '_sll_anniversaire', true );
+        echo $date ? esc_html( mysql2date( 'd/m/Y', $date ) ) : '—';
+    } elseif ( $col === 'sll_session' ) {
+        $session = get_post_meta( $id, '_sll_session', true );
+        echo $session ? '<code title="' . esc_attr( $session ) . '">' . esc_html( substr( $session, 0, 12 ) ) . '…</code>' : '—';
     }
 }, 10, 2 );
 
@@ -139,12 +193,13 @@ add_action( 'admin_init', function () {
     header( 'Content-Disposition: attachment; filename=contacts-lucie-' . date( 'Y-m-d' ) . '.csv' );
     $out = fopen( 'php://output', 'w' );
     fprintf( $out, "\xEF\xBB\xBF" ); // BOM UTF-8 pour Excel
-    fputcsv( $out, [ 'Nom', 'Telephone', 'Quartier/Ville', 'Date' ] );
+    fputcsv( $out, [ 'Nom', 'Telephone', 'Quartier/Ville', 'Anniversaire', 'Date' ] );
     foreach ( $leads as $l ) {
         fputcsv( $out, [
             get_post_meta( $l->ID, '_sll_nom', true ),
             get_post_meta( $l->ID, '_sll_tel', true ),
             get_post_meta( $l->ID, '_sll_quartier', true ),
+            get_post_meta( $l->ID, '_sll_anniversaire', true ),
             get_the_date( 'Y-m-d H:i', $l ),
         ] );
     }

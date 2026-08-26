@@ -172,6 +172,7 @@ function sl_lucie_tools_defs() {
                     'nom'       => [ 'type' => 'string', 'description' => 'Prenom et/ou nom du visiteur.' ],
                     'telephone' => [ 'type' => 'string', 'description' => 'Numero de telephone (WhatsApp de preference).' ],
                     'quartier'  => [ 'type' => 'string', 'description' => 'Quartier et/ou ville d\'ou ecrit le visiteur.' ],
+                    'date_anniversaire' => [ 'type' => 'string', 'description' => 'Date de naissance au format AAAA-MM-JJ, uniquement si le visiteur la donne volontairement.' ],
                 ],
             ],
         ],
@@ -560,7 +561,7 @@ function sl_lucie_run_tool( $name, $input ) {
             break;
         case 'enregistrer_contact':
             $id = function_exists( 'sl_lucie_save_lead' )
-                ? sl_lucie_save_lead( $input['nom'] ?? '', $input['telephone'] ?? '', $input['quartier'] ?? '', $GLOBALS['sl_lucie_session_id'] ?? '' )
+                ? sl_lucie_save_lead( $input['nom'] ?? '', $input['telephone'] ?? '', $input['quartier'] ?? '', $GLOBALS['sl_lucie_session_id'] ?? '', $input['date_anniversaire'] ?? '' )
                 : false;
             $d  = $id ? [ 'ok' => true, 'message' => 'Coordonnees enregistrees, merci.' ] : [ 'ok' => false, 'message' => 'Aucune donnee a enregistrer.' ];
             break;

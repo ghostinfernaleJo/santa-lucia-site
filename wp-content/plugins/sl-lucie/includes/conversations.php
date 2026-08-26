@@ -25,6 +25,7 @@ function sl_lucie_session_contact( $session ) {
         'nom'      => get_post_meta( $id, '_sll_nom', true ),
         'tel'      => get_post_meta( $id, '_sll_tel', true ),
         'quartier' => get_post_meta( $id, '_sll_quartier', true ),
+        'anniversaire' => get_post_meta( $id, '_sll_anniversaire', true ),
     ];
 }
 
@@ -50,6 +51,7 @@ function sl_lucie_convos_page() {
                 . esc_html( $contact['nom'] ?: '—' )
                 . ( $contact['tel'] ? ' &middot; 📞 ' . esc_html( $contact['tel'] ) : '' )
                 . ( $contact['quartier'] ? ' &middot; 📍 ' . esc_html( $contact['quartier'] ) : '' )
+                . ( $contact['anniversaire'] ? ' &middot; 🎂 ' . esc_html( mysql2date( 'd/m/Y', $contact['anniversaire'] ) ) : '' )
                 . '</p><hr>';
         } else {
             echo '<p style="margin:0 0 12px;color:#777;">Visiteur anonyme (coordonnees non fournies). Session : <code>' . esc_html( $session ) . '</code></p><hr>';
