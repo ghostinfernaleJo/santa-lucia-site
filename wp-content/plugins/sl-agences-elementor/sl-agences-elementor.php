@@ -565,5 +565,4 @@ function sl_agences_register_widgets( $widgets_manager ) {
     // Widget 20 : Catégorie Produits (une instance par famille)
     require_once SL_AGENCES_PATH . 'includes/class-categorie-produits-widget.php';
     $widgets_manager->register( new SL_Categorie_Produits_Widget() );
-    $widgets_manager->register( new SL_Commande_Patisserie_Widget() );
 }

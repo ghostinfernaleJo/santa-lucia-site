@@ -102,7 +102,8 @@ function sl_submit_cake_request() {
     wp_send_json_success( [ 'message' => 'Votre demande est bien reçue. Notre équipe pâtisserie vous recontactera pour confirmer le modèle, le prix et la disponibilité.' ] );
 }
 
-if ( class_exists( '\Elementor\Widget_Base' ) ) {
+add_action( 'elementor/widgets/register', function ( $widgets_manager ) {
+    if ( ! class_exists( '\Elementor\Widget_Base' ) || class_exists( 'SL_Commande_Patisserie_Widget' ) ) return;
     class SL_Commande_Patisserie_Widget extends \Elementor\Widget_Base {
         public function get_name() { return 'sl_commande_patisserie'; }
         public function get_title() { return 'Commande gâteaux — Pâtisserie'; }
@@ -128,4 +129,5 @@ if ( class_exists( '\Elementor\Widget_Base' ) ) {
             <?php
         }
     }
-}
+    $widgets_manager->register( new SL_Commande_Patisserie_Widget() );
+} );
