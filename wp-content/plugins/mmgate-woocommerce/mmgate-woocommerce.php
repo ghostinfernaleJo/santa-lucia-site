@@ -76,7 +76,9 @@ function mmgate_wc_boot() {
 		return $gateways;
 	}, 20 );
 
-	load_plugin_textdomain( 'mmgate-woocommerce', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+	add_action( 'init', function () {
+		load_plugin_textdomain( 'mmgate-woocommerce', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+	} );
 }
 
 /** Charge l'interface de confirmation Mobile Money sur le checkout uniquement. */

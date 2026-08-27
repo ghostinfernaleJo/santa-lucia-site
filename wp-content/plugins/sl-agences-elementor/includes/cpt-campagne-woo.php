@@ -460,7 +460,9 @@ function sl_cwoo_force_home_promo_query( $query ) {
         return;
     }
 
-    if ( ! ( is_front_page() || is_home() || is_page( 1116 ) ) ) {
+    // Dans pre_get_posts, utiliser l’objet requête reçu : les conditionnels
+    // globaux peuvent être appelés avant que la requête principale soit prête.
+    if ( ! ( $query->is_front_page() || $query->is_home() || $query->is_page( 1116 ) ) ) {
         return;
     }
 
