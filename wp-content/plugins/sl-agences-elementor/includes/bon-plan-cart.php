@@ -82,6 +82,268 @@ function sl_bp_cart_button_html( $bon_plan_id = 0, $product_id = 0 ) {
 }
 
 /* ------------------------------------------------------------
+   BONS PLANS : requêtes et rendu partagés.
+   Le widget Elementor et l'API REST utilisent les mêmes règles afin
+   qu'une offre affichée soit toujours disponible et achetable de la
+   même manière, sans charger toutes les cartes dans le navigateur.
+   ------------------------------------------------------------ */
+
+/** Une offre dont le stock limité est épuisé ne doit jamais être affichée. */
+function sl_bp_bon_plan_is_available( $bon_plan_id ) {
+    $stock_actif = get_post_meta( $bon_plan_id, '_sl_bp_stock_actif', true );
+    $stock_qty   = get_post_meta( $bon_plan_id, '_sl_bp_stock_qty', true );
+
+    return ! ( $stock_actif === '1' && $stock_qty !== '' && (int) $stock_qty <= 0 );
+}
+
+/** Normalise une liste d'agences transmise par le widget ou l'API. */
+function sl_bp_bons_plans_agencies( $values ) {
+    if ( ! is_array( $values ) ) {
+        $values = preg_split( '/\s*,\s*/', (string) $values );
+    }
+
+    return array_values( array_unique( array_filter( array_map( 'sanitize_title', (array) $values ) ) ) );
+}
+
+/** Normalise une liste de catégories transmise par le widget ou l'API. */
+function sl_bp_bons_plans_categories( $values ) {
+    if ( ! is_array( $values ) ) {
+        $values = preg_split( '/\s*,\s*/', (string) $values );
+    }
+
+    return array_values( array_unique( array_filter( array_map( 'intval', (array) $values ) ) ) );
+}
+
+/**
+ * Arguments WP_Query communs aux Bons Plans.
+ *
+ * @param array $params page, per_page, agences/agence, categories/categorie,
+ *                      min_price, max_price, search, orderby et actifs.
+ */
+function sl_bp_bons_plans_query_args( $params = [] ) {
+    $params = wp_parse_args( $params, [
+        'page'       => 1,
+        'per_page'   => 20,
+        'agences'    => [],
+        'categories' => [],
+        'min_price'  => null,
+        'max_price'  => null,
+        'search'     => '',
+        'orderby'    => 'recent',
+        'actifs'     => true,
+    ] );
+
+    if ( empty( $params['agences'] ) && isset( $params['agence'] ) ) {
+        $params['agences'] = $params['agence'];
+    }
+    if ( empty( $params['categories'] ) && isset( $params['categorie'] ) ) {
+        $params['categories'] = $params['categorie'];
+    }
+
+    $page       = max( 1, (int) $params['page'] );
+    $per_page   = min( 100, max( 1, (int) $params['per_page'] ) );
+    $agences    = sl_bp_bons_plans_agencies( $params['agences'] );
+    $categories = sl_bp_bons_plans_categories( $params['categories'] );
+    $orderby    = sanitize_key( (string) $params['orderby'] );
+    $search     = sanitize_text_field( (string) $params['search'] );
+
+    $args = [
+        'post_type'      => 'sl_bon_plan',
+        'post_status'    => 'publish',
+        'posts_per_page' => $per_page,
+        'paged'          => $page,
+    ];
+
+    switch ( $orderby ) {
+        case 'reduc':
+            $args['meta_key'] = '_sl_bp_reduction_pct';
+            $args['orderby']  = 'meta_value_num';
+            $args['order']    = 'DESC';
+            break;
+        case 'prix_asc':
+            $args['meta_key'] = '_sl_bp_prix_apres';
+            $args['orderby']  = 'meta_value_num';
+            $args['order']    = 'ASC';
+            break;
+        case 'prix_desc':
+            $args['meta_key'] = '_sl_bp_prix_apres';
+            $args['orderby']  = 'meta_value_num';
+            $args['order']    = 'DESC';
+            break;
+        default:
+            $args['orderby'] = 'date';
+            $args['order']   = 'DESC';
+            break;
+    }
+
+    if ( $search !== '' ) {
+        $args['s'] = $search;
+    }
+
+    $meta_query = [ 'relation' => 'AND' ];
+    if ( ! empty( $params['actifs'] ) ) {
+        $today        = current_time( 'Y-m-d' );
+        $meta_query[] = [
+            'relation' => 'OR',
+            [ 'key' => '_sl_bp_date_fin', 'value' => $today, 'compare' => '>=', 'type' => 'DATE' ],
+            [ 'key' => '_sl_bp_date_fin', 'value' => '', 'compare' => '=' ],
+            [ 'key' => '_sl_bp_date_fin', 'compare' => 'NOT EXISTS' ],
+        ];
+    }
+
+    // Même logique que l'ancien rendu PHP : un stock vide est accepté tant
+    // qu'il n'est pas explicitement activé comme stock limité.
+    $meta_query[] = [
+        'relation' => 'OR',
+        [ 'key' => '_sl_bp_stock_actif', 'compare' => 'NOT EXISTS' ],
+        [ 'key' => '_sl_bp_stock_actif', 'value' => '1', 'compare' => '!=' ],
+        [
+            'relation' => 'AND',
+            [ 'key' => '_sl_bp_stock_actif', 'value' => '1', 'compare' => '=' ],
+            [
+                'relation' => 'OR',
+                [ 'key' => '_sl_bp_stock_qty', 'compare' => 'NOT EXISTS' ],
+                [ 'key' => '_sl_bp_stock_qty', 'value' => '', 'compare' => '=' ],
+                [ 'key' => '_sl_bp_stock_qty', 'value' => 0, 'compare' => '>', 'type' => 'NUMERIC' ],
+            ],
+        ],
+    ];
+
+    $min_price = is_numeric( $params['min_price'] ) ? (float) $params['min_price'] : null;
+    $max_price = is_numeric( $params['max_price'] ) ? (float) $params['max_price'] : null;
+    if ( $min_price !== null && $min_price > 0 ) {
+        $meta_query[] = [ 'key' => '_sl_bp_prix_apres', 'value' => $min_price, 'compare' => '>=', 'type' => 'NUMERIC' ];
+    }
+    if ( $max_price !== null && $max_price >= 0 ) {
+        $meta_query[] = [ 'key' => '_sl_bp_prix_apres', 'value' => $max_price, 'compare' => '<=', 'type' => 'NUMERIC' ];
+    }
+    $args['meta_query'] = $meta_query;
+
+    $tax_query = [];
+    if ( $agences ) {
+        $tax_query[] = [ 'taxonomy' => 'sl_agence_promo', 'field' => 'slug', 'terms' => $agences, 'operator' => 'IN' ];
+    }
+    if ( $categories ) {
+        $tax_query[] = [ 'taxonomy' => 'sl_categorie_promo', 'field' => 'term_id', 'terms' => $categories, 'operator' => 'IN' ];
+    }
+    if ( $tax_query ) {
+        if ( count( $tax_query ) > 1 ) $tax_query['relation'] = 'AND';
+        $args['tax_query'] = $tax_query;
+    }
+
+    return $args;
+}
+
+/** Prix maximum publié : sert uniquement de borne au filtre, sans charger toutes les cartes. */
+function sl_bp_bons_plans_max_price() {
+    global $wpdb;
+
+    $max = $wpdb->get_var( $wpdb->prepare(
+        "SELECT MAX(CAST(pm.meta_value AS DECIMAL(20,2)))
+         FROM {$wpdb->posts} AS p
+         INNER JOIN {$wpdb->postmeta} AS pm ON pm.post_id = p.ID
+         WHERE p.post_type = %s
+           AND p.post_status = %s
+           AND pm.meta_key = %s
+           AND pm.meta_value <> ''",
+        'sl_bon_plan',
+        'publish',
+        '_sl_bp_prix_apres'
+    ) );
+
+    return max( 0, (float) $max );
+}
+
+/** HTML d'une carte Bons Plans, partagé par le rendu initial et la pagination REST. */
+function sl_bp_render_bon_plan_card_html( $post ) {
+    $post = $post instanceof WP_Post ? $post : get_post( $post );
+    if ( ! $post || ! sl_bp_bon_plan_is_available( $post->ID ) ) return '';
+
+    $id           = (int) $post->ID;
+    $stock_actif  = get_post_meta( $id, '_sl_bp_stock_actif', true );
+    $prix_av      = (float) get_post_meta( $id, '_sl_bp_prix_avant', true );
+    $prix_ap      = (float) get_post_meta( $id, '_sl_bp_prix_apres', true );
+    $reduc        = (int) get_post_meta( $id, '_sl_bp_reduction_pct', true );
+    $badge        = get_post_meta( $id, '_sl_bp_badge_type', true );
+    $date_fin     = get_post_meta( $id, '_sl_bp_date_fin', true );
+    $img_url      = get_the_post_thumbnail_url( $id, 'medium' );
+    $badge_labels = [
+        'flash'     => 'Flash',
+        'nouveau'   => 'Nouveau',
+        'top-vente' => 'Top Vente',
+        'exclusif'  => 'Exclusif',
+    ];
+    $badge_label  = $badge_labels[ $badge ] ?? ucfirst( str_replace( '-', ' ', $badge ) );
+
+    $c_terms = get_the_terms( $id, 'sl_categorie_promo' );
+    if ( is_wp_error( $c_terms ) || ! is_array( $c_terms ) ) $c_terms = [];
+    $cat_ids  = implode( ',', wp_list_pluck( $c_terms, 'term_id' ) );
+    $cat_name = ! empty( $c_terms ) ? $c_terms[0]->name : '';
+
+    $a_terms = get_the_terms( $id, 'sl_agence_promo' );
+    if ( is_wp_error( $a_terms ) || ! is_array( $a_terms ) ) $a_terms = [];
+    $agence_slug = ! empty( $a_terms ) ? $a_terms[0]->slug : '';
+    $agence_name = ! empty( $a_terms ) ? $a_terms[0]->name : '';
+
+    ob_start();
+    ?>
+    <a class="slbp-card"
+         href="<?php echo esc_url( get_permalink( $id ) ); ?>"
+         data-nom="<?php echo esc_attr( strtolower( $post->post_title ) ); ?>"
+         data-cat="<?php echo esc_attr( $cat_ids ); ?>"
+         data-agence="<?php echo esc_attr( $agence_slug ); ?>"
+         data-prix-ap="<?php echo esc_attr( $prix_ap ); ?>"
+         data-reduc="<?php echo esc_attr( $reduc ); ?>"
+         data-date="<?php echo esc_attr( $post->post_date ); ?>">
+
+        <div class="slbp-card-img-wrap">
+            <?php if ( $img_url ) : ?>
+                <img src="<?php echo esc_url( $img_url ); ?>"
+                     alt="<?php echo esc_attr( $post->post_title ); ?>" loading="lazy">
+            <?php else : ?>
+                <div class="slbp-no-img">🛒</div>
+            <?php endif; ?>
+
+            <?php if ( $reduc > 0 ) : ?>
+                <span class="slbp-badge-reduc">-<?php echo $reduc; ?>%</span>
+            <?php endif; ?>
+
+            <?php if ( $badge ) : ?>
+                <span class="slbp-badge-type slbp-badge-<?php echo esc_attr( $badge ); ?>">
+                    <?php echo esc_html( $badge_label ); ?>
+                </span>
+            <?php endif; ?>
+
+            <div class="slbp-eye-btn" title="Voir l'offre">👁</div>
+            <button type="button" class="slbp-share-btn"
+                    data-titre="<?php echo esc_attr( $post->post_title ); ?>"
+                    data-prix="<?php echo esc_attr( $prix_ap > 0 ? number_format( $prix_ap, 0, ',', ' ' ) . ' FCFA' : '' ); ?>"
+                    aria-label="Partager ce bon plan" title="Partager">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            </button>
+        </div>
+
+        <div class="slbp-card-body">
+            <div class="slbp-card-meta">
+                <?php if ( $agence_name ) : ?><span class="slbp-agence-tag"><?php echo esc_html( $agence_name ); ?></span><?php endif; ?>
+                <?php if ( $cat_name ) : ?><span class="slbp-cat-tag"><?php echo esc_html( $cat_name ); ?></span><?php endif; ?>
+            </div>
+            <h3 class="slbp-titre"><?php echo esc_html( $post->post_title ); ?></h3>
+            <div class="slbp-prix-wrap">
+                <?php if ( $prix_ap > 0 ) : ?><span class="slbp-prix-apres"><?php echo number_format( $prix_ap, 0, ',', ' ' ); ?> FCFA</span><?php endif; ?>
+                <?php if ( $prix_av > 0 ) : ?><span class="slbp-prix-avant"><?php echo number_format( $prix_av, 0, ',', ' ' ); ?> FCFA</span><?php endif; ?>
+            </div>
+            <?php if ( $date_fin ) : ?><p class="slbp-date-fin">Valable jusqu'au <?php echo date_i18n( 'd M Y', strtotime( $date_fin ) ); ?></p><?php endif; ?>
+            <?php if ( $stock_actif === '1' ) : ?><p class="slbp-stock-mention">Dans la limite des stocks disponibles</p><?php endif; ?>
+        </div>
+
+        <?php if ( function_exists( 'sl_bp_cart_button_html' ) ) echo sl_bp_cart_button_html( $id ); ?>
+    </a>
+    <?php
+    return trim( ob_get_clean() );
+}
+
+/* ------------------------------------------------------------
    RESTRICTION : une seule agence par panier (Click & Collect).
    On ne peut pas mélanger des offres de deux agences différentes.
    ------------------------------------------------------------ */

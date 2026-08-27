@@ -49,18 +49,33 @@ function slm_register_rest_routes() {
         'permission_callback' => $open,
     ] );
 
+    $bons_plans_args = [
+        'agence'    => [ 'description' => 'Slug d\'agence ou liste séparée par des virgules.', 'type' => 'string' ],
+        'categorie' => [ 'description' => 'ID de catégorie ou liste séparée par des virgules (sl_categorie_promo).', 'type' => 'string' ],
+        'orderby'   => [ 'description' => 'reduc | prix_asc | prix_desc | date (défaut date).', 'type' => 'string' ],
+        'actifs'    => [ 'description' => 'true = seulement non expirés (défaut true).', 'type' => 'boolean' ],
+        'search'    => [ 'description' => 'Recherche par titre ou contenu.', 'type' => 'string' ],
+        'min_price' => [ 'description' => 'Prix minimum en FCFA.', 'type' => 'number' ],
+        'max_price' => [ 'description' => 'Prix maximum en FCFA.', 'type' => 'number' ],
+        'render'    => [ 'description' => 'true = inclut le HTML de carte pour le site web.', 'type' => 'boolean' ],
+        'page'      => [ 'description' => 'Page (défaut 1).', 'type' => 'integer' ],
+        'per_page'  => [ 'description' => 'Éléments par page (1-100, défaut 50).', 'type' => 'integer' ],
+    ];
+
     register_rest_route( $ns, '/bons-plans', [
         'methods'             => 'GET',
         'callback'            => 'slm_rest_bons_plans',
         'permission_callback' => $open,
-        'args'                => [
-            'agence'    => [ 'description' => 'Slug d\'agence.', 'type' => 'string' ],
-            'categorie' => [ 'description' => 'ID de catégorie (sl_categorie_promo).', 'type' => 'integer' ],
-            'orderby'   => [ 'description' => 'reduc | prix_asc | prix_desc | date (défaut date).', 'type' => 'string' ],
-            'actifs'    => [ 'description' => 'true = seulement non expirés (défaut true).', 'type' => 'boolean' ],
-            'page'      => [ 'description' => 'Page (défaut 1).', 'type' => 'integer' ],
-            'per_page'  => [ 'description' => 'Éléments par page (1-100, défaut 50).', 'type' => 'integer' ],
-        ],
+        'args'                => $bons_plans_args,
+    ] );
+
+    // Route volontairement distincte de l'API mobile : les caches servent
+    // ainsi toujours le format HTML attendu par le widget web.
+    register_rest_route( $ns, '/bons-plans/web', [
+        'methods'             => 'GET',
+        'callback'            => 'slm_rest_bons_plans_web',
+        'permission_callback' => $open,
+        'args'                => $bons_plans_args,
     ] );
 
     register_rest_route( $ns, '/promotions/campagnes', [
@@ -264,54 +279,50 @@ function slm_rest_bp_categories() {
 }
 
 /* ---------- Bons Plans : offres ---------- */
+function slm_rest_bons_plans_web( $req ) {
+    // Le front web dépend des cartes rendues par PHP ; l'API publique garde
+    // son format léger par défaut pour les clients mobiles.
+    $req->set_param( 'render', true );
+    return slm_rest_bons_plans( $req );
+}
+
 function slm_rest_bons_plans( $req ) {
     list( $page, $per ) = slm_page_args( $req );
-    $agence  = sanitize_title( (string) $req->get_param( 'agence' ) );
-    $cat     = (int) $req->get_param( 'categorie' );
-    $orderby = sanitize_key( (string) $req->get_param( 'orderby' ) );
     $actifs  = $req->get_param( 'actifs' );
     $actifs  = ( $actifs === null ) ? true : rest_sanitize_boolean( $actifs );
 
-    $args = [
-        'post_type'      => 'sl_bon_plan',
-        'post_status'    => 'publish',
-        'posts_per_page' => $per,
-        'paged'          => $page,
-    ];
+    // Même source de vérité que le widget : pagination, offres actives,
+    // stock limité, recherche, prix et filtres multi-agences/catégories.
+    $args = function_exists( 'sl_bp_bons_plans_query_args' )
+        ? sl_bp_bons_plans_query_args( [
+            'page'       => $page,
+            'per_page'   => $per,
+            'agences'    => $req->get_param( 'agence' ),
+            'categories' => $req->get_param( 'categorie' ),
+            'orderby'    => $req->get_param( 'orderby' ),
+            'actifs'     => $actifs,
+            'search'     => $req->get_param( 'search' ),
+            'min_price'  => $req->get_param( 'min_price' ),
+            'max_price'  => $req->get_param( 'max_price' ),
+        ] )
+        : [];
 
-    switch ( $orderby ) {
-        case 'reduc':
-            $args['meta_key'] = '_sl_bp_reduction_pct'; $args['orderby'] = 'meta_value_num'; $args['order'] = 'DESC'; break;
-        case 'prix_asc':
-            $args['meta_key'] = '_sl_bp_prix_apres'; $args['orderby'] = 'meta_value_num'; $args['order'] = 'ASC'; break;
-        case 'prix_desc':
-            $args['meta_key'] = '_sl_bp_prix_apres'; $args['orderby'] = 'meta_value_num'; $args['order'] = 'DESC'; break;
-        default:
-            $args['orderby'] = 'date'; $args['order'] = 'DESC';
+    if ( ! $args ) {
+        return new WP_Error( 'sl_bp_query_unavailable', 'Les Bons Plans ne sont pas disponibles.', [ 'status' => 500 ] );
     }
 
-    $meta = [];
-    if ( $actifs ) {
-        $today  = current_time( 'Y-m-d' );
-        $meta[] = [
-            'relation' => 'OR',
-            [ 'key' => '_sl_bp_date_fin', 'value' => $today, 'compare' => '>=', 'type' => 'DATE' ],
-            [ 'key' => '_sl_bp_date_fin', 'value' => '', 'compare' => '=' ],
-            [ 'key' => '_sl_bp_date_fin', 'compare' => 'NOT EXISTS' ],
-        ];
+    $render = rest_sanitize_boolean( $req->get_param( 'render' ) );
+    $q      = new WP_Query( $args );
+    if ( $render && function_exists( 'sl_bp_preload_product_ids' ) ) {
+        sl_bp_preload_product_ids( wp_list_pluck( $q->posts, 'ID' ) );
     }
-    if ( $meta ) $args['meta_query'] = $meta;
-
-    $tax = [];
-    if ( $agence ) $tax[] = [ 'taxonomy' => 'sl_agence_promo', 'field' => 'slug', 'terms' => $agence ];
-    if ( $cat )    $tax[] = [ 'taxonomy' => 'sl_categorie_promo', 'field' => 'term_id', 'terms' => $cat ];
-    if ( $tax ) {
-        if ( count( $tax ) > 1 ) $tax['relation'] = 'AND';
-        $args['tax_query'] = $tax;
-    }
-
-    $q     = new WP_Query( $args );
-    $items = array_map( 'slm_format_bon_plan', $q->posts );
+    $items = array_map( function ( $post ) use ( $render ) {
+        $item = slm_format_bon_plan( $post );
+        if ( $render && function_exists( 'sl_bp_render_bon_plan_card_html' ) ) {
+            $item['html'] = sl_bp_render_bon_plan_card_html( $post );
+        }
+        return $item;
+    }, $q->posts );
     return slm_paginated( $items, $q, $page, $per );
 }
 

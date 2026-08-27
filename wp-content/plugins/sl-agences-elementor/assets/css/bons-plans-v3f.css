@@ -492,7 +492,18 @@ html, body { overflow-x: hidden; max-width: 100%; }
     display: grid;
     gap: 10px;
     min-width: 0;
+    transition: opacity .18s ease;
 }
+.slbp-grid.is-loading { opacity: .55; pointer-events: none; }
+.slbp-load-status {
+    min-height: 0;
+    margin: 0;
+    color: #6b7280;
+    font-size: 13px;
+    line-height: 1.4;
+}
+.slbp-load-status.is-visible { min-height: 20px; margin-top: 10px; }
+.slbp-load-status.is-error { color: #b42318; }
 .slbp-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .slbp-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .slbp-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }

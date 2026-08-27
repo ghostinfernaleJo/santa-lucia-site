@@ -148,29 +148,25 @@ function sl_agences_front_assets() {
     );
 
     // Widget "Bons Plans"
+    $bons_plans_css_ver = @filemtime( SL_AGENCES_PATH . 'assets/css/bons-plans-v3f.css' ) ?: SL_AGENCES_VERSION;
     wp_enqueue_style(
         'sl-bons-plans',
         SL_AGENCES_URL . 'assets/css/bons-plans-v3f.css',
         [],
-        SL_AGENCES_VERSION
+        $bons_plans_css_ver
     );
     // Fix scroll : 'overflow-x:hidden' sur <html> force overflow-y:auto et casse le scroll du viewport.
     // 'clip' clippe le débordement horizontal SANS créer de conteneur de scroll. !important neutralise aussi la règle 'html,body{overflow-x:hidden}' de bons-plans-v3.css.
     wp_add_inline_style( 'sl-bons-plans', 'html,body{overflow-x:clip!important;overflow-y:visible!important;max-width:100%}' );
+    // Nouveau nom de fichier : les copies optimisées de l'ancien script
+    // conservaient le catalogue entier côté navigateur. Cette version utilise
+    // l'API REST page par page.
+    $bons_plans_js_ver = @filemtime( SL_AGENCES_PATH . 'assets/js/bons-plans-api.js' ) ?: SL_AGENCES_VERSION;
     wp_enqueue_script(
         'sl-bons-plans',
-        SL_AGENCES_URL . 'assets/js/bons-plans-v3y.js',
+        SL_AGENCES_URL . 'assets/js/bons-plans-api.js',
         [],
-        SL_AGENCES_VERSION,
-        true
-    );
-    // Nom de fichier distinct : contourne les anciennes copies optimisées de
-    // bons-plans-v3y.js encore présentes dans certains caches/CDN.
-    wp_enqueue_script(
-        'sl-bons-plans-pagination-fix',
-        SL_AGENCES_URL . 'assets/js/bons-plans-pagination-fix.js',
-        [ 'sl-bons-plans' ],
-        SL_AGENCES_VERSION,
+        $bons_plans_js_ver,
         true
     );
 

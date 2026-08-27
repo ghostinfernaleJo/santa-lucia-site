@@ -142,28 +142,26 @@ class SL_Bons_Plans_Widget extends Widget_Base {
     protected function render() {
         $s        = $this->get_settings_for_display();
         $wid      = $this->get_id();
-        $today    = current_time( 'Y-m-d' );
         $par_page = max( 5, (int) $s['offres_par_page'] );
         $colonnes = $s['colonnes'];
         $sidebar  = $s['afficher_sidebar'] === 'yes';
 
-        /* Requête WP */
-        $posts = get_posts( [
-            'post_type'      => 'sl_bon_plan',
-            'post_status'    => 'publish',
-            'posts_per_page' => -1,
-            'orderby'        => 'date',
-            'order'          => 'DESC',
-            'meta_query'     => [
-                'relation' => 'OR',
-                [ 'key' => '_sl_bp_date_fin', 'value' => $today, 'compare' => '>=', 'type' => 'DATE' ],
-                [ 'key' => '_sl_bp_date_fin', 'value' => '', 'compare' => '=' ],
-                [ 'key' => '_sl_bp_date_fin', 'compare' => 'NOT EXISTS' ],
-            ],
-        ] );
+        // La page initiale ne charge que les cartes visibles. Les pages et
+        // filtres suivants passent par l'API REST, au lieu d'envoyer toutes
+        // les offres dans un conteneur caché.
+        $initial_query = new \WP_Query( sl_bp_bons_plans_query_args( [
+            'page'     => 1,
+            'per_page' => $par_page,
+            'orderby'  => 'recent',
+            'actifs'   => true,
+        ] ) );
+        $posts         = $initial_query->posts;
+        $total         = (int) $initial_query->found_posts;
+        $total_pages   = (int) $initial_query->max_num_pages;
+        $initial_count = count( $posts );
 
         // Le bouton panier de chaque carte a besoin du produit WooCommerce lié.
-        // Précharger la correspondance évite une requête séparée pour chaque offre.
+        // Précharger la correspondance évite une requête séparée pour chaque carte.
         if ( function_exists( 'sl_bp_preload_product_ids' ) ) {
             sl_bp_preload_product_ids( wp_list_pluck( $posts, 'ID' ) );
         }
@@ -197,9 +195,8 @@ class SL_Bons_Plans_Widget extends Widget_Base {
             }
         }
 
-        foreach ( $posts as $p ) {
-            $pa = (float) get_post_meta( $p->ID, '_sl_bp_prix_apres', true );
-            if ( $pa > $prix_max_site ) $prix_max_site = $pa;
+        if ( function_exists( 'sl_bp_bons_plans_max_price' ) ) {
+            $prix_max_site = sl_bp_bons_plans_max_price();
         }
 
         $prix_max = max( 0, (int) ceil( $prix_max_site ) );
@@ -208,7 +205,11 @@ class SL_Bons_Plans_Widget extends Widget_Base {
         <div class="slbp-wrapper"
              id="slbp-<?php echo esc_attr( $wid ); ?>"
              data-par-page="<?php echo esc_attr( $par_page ); ?>"
-             data-colonnes="<?php echo esc_attr( $colonnes ); ?>">
+             data-colonnes="<?php echo esc_attr( $colonnes ); ?>"
+             data-endpoint="<?php echo esc_url( rest_url( 'santa-lucia/v1/bons-plans/web' ) ); ?>"
+             data-total="<?php echo esc_attr( $total ); ?>"
+             data-total-pages="<?php echo esc_attr( $total_pages ); ?>"
+             data-page="1">
 
             <?php /* ══ BANNIÈRE ══════════════════════════════════════ */ ?>
             <?php if ( $s['afficher_banniere'] === 'yes' ) : ?>
@@ -332,8 +333,8 @@ class SL_Bons_Plans_Widget extends Widget_Base {
 
                         <!-- Compteur gauche -->
                         <span class="slbp-sortbar-count">
-                            Affichage de <strong class="slbp-range-from">1</strong>–<strong class="slbp-range-to">0</strong>
-                            sur <strong class="slbp-total">0</strong> résultats
+                            Affichage de <strong class="slbp-range-from"><?php echo $initial_count ? 1 : 0; ?></strong>–<strong class="slbp-range-to"><?php echo esc_html( $initial_count ); ?></strong>
+                            sur <strong class="slbp-total"><?php echo esc_html( $total ); ?></strong> résultats
                         </span>
 
                         <!-- Groupe droite -->
@@ -415,126 +416,20 @@ class SL_Bons_Plans_Widget extends Widget_Base {
                         </select>
                     </div>
 
-                    <!-- Toutes les cartes source, compatibles avec les scripts mis en cache. -->
-                    <div class="slbp-all-cards" style="display:none !important;">
-                        <?php foreach ( $posts as $p ) :
-                            $stock_actif = get_post_meta( $p->ID, '_sl_bp_stock_actif', true );
-                            $stock_qty   = get_post_meta( $p->ID, '_sl_bp_stock_qty', true );
-                            // Masquer l'offre si la limite de stock est active ET la quantité renseignée atteint 0.
-                            if ( $stock_actif === '1' && $stock_qty !== '' && (int) $stock_qty <= 0 ) {
-                                continue;
-                            }
-                            $prix_av     = (float) get_post_meta( $p->ID, '_sl_bp_prix_avant', true );
-                            $prix_ap     = (float) get_post_meta( $p->ID, '_sl_bp_prix_apres', true );
-                            $reduc       = (int)   get_post_meta( $p->ID, '_sl_bp_reduction_pct', true );
-                            $badge       = get_post_meta( $p->ID, '_sl_bp_badge_type', true );
-                            $badge_labels = [
-                                'flash'     => 'Flash',
-                                'nouveau'   => 'Nouveau',
-                                'top-vente' => 'Top Vente',
-                                'exclusif'  => 'Exclusif',
-                            ];
-                            $badge_label = $badge_labels[ $badge ] ?? ucfirst( str_replace( '-', ' ', $badge ) );
-                            $date_fin    = get_post_meta( $p->ID, '_sl_bp_date_fin', true );
-                            $img_url     = get_the_post_thumbnail_url( $p->ID, 'medium' );
-
-                            $c_terms     = get_the_terms( $p->ID, 'sl_categorie_promo' );
-                            if ( is_wp_error( $c_terms ) ) $c_terms = [];
-                            if ( ! is_array( $c_terms ) ) $c_terms = [];
-                            $cat_ids     = implode( ',', wp_list_pluck( $c_terms, 'term_id' ) );
-                            $cat_name    = ! empty( $c_terms ) ? $c_terms[0]->name : '';
-
-                            $a_terms     = get_the_terms( $p->ID, 'sl_agence_promo' );
-                            if ( is_wp_error( $a_terms ) ) $a_terms = [];
-                            if ( ! is_array( $a_terms ) ) $a_terms = [];
-                            $agence_slug = ! empty( $a_terms ) ? $a_terms[0]->slug : '';
-                            $agence_name = ! empty( $a_terms ) ? $a_terms[0]->name : '';
-                        ?>
-                            <a class="slbp-card"
-                                 href="<?php echo esc_url( get_permalink( $p->ID ) ); ?>"
-                                 data-nom="<?php echo esc_attr( strtolower( $p->post_title ) ); ?>"
-                                 data-cat="<?php echo esc_attr( $cat_ids ); ?>"
-                                 data-agence="<?php echo esc_attr( $agence_slug ); ?>"
-                                 data-prix-ap="<?php echo esc_attr( $prix_ap ); ?>"
-                                 data-reduc="<?php echo esc_attr( $reduc ); ?>"
-                                 data-date="<?php echo esc_attr( $p->post_date ); ?>">
-
-                                <div class="slbp-card-img-wrap">
-                                    <?php if ( $img_url ) : ?>
-                                        <img src="<?php echo esc_url( $img_url ); ?>"
-                                             alt="<?php echo esc_attr( $p->post_title ); ?>" loading="lazy">
-                                    <?php else : ?>
-                                        <div class="slbp-no-img">🛒</div>
-                                    <?php endif; ?>
-
-                                     <?php if ( $reduc > 0 ) : ?>
-                                         <span class="slbp-badge-reduc">-<?php echo $reduc; ?>%</span>
-                                     <?php endif; ?>
-
-                                    <?php if ( $badge ) : ?>
-                                        <span class="slbp-badge-type slbp-badge-<?php echo esc_attr( $badge ); ?>">
-                                            <?php echo esc_html( $badge_label ); ?>
-                                        </span>
-                                    <?php endif; ?>
-
-                                     <div class="slbp-eye-btn" title="Voir l'offre">👁</div>
-
-                                     <button type="button" class="slbp-share-btn"
-                                             data-titre="<?php echo esc_attr( $p->post_title ); ?>"
-                                             data-prix="<?php echo esc_attr( $prix_ap > 0 ? number_format( $prix_ap, 0, ',', ' ' ) . ' FCFA' : '' ); ?>"
-                                             aria-label="Partager ce bon plan" title="Partager">
-                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                                     </button>
-                                 </div>
-
-                                <div class="slbp-card-body">
-                                    <div class="slbp-card-meta">
-                                        <?php if ( $agence_name ) : ?>
-                                            <span class="slbp-agence-tag"><?php echo esc_html( $agence_name ); ?></span>
-                                        <?php endif; ?>
-                                        <?php if ( $cat_name ) : ?>
-                                            <span class="slbp-cat-tag"><?php echo esc_html( $cat_name ); ?></span>
-                                        <?php endif; ?>
-                                    </div>
-
-                                    <h3 class="slbp-titre"><?php echo esc_html( $p->post_title ); ?></h3>
-
-                                    <div class="slbp-prix-wrap">
-                                        <?php if ( $prix_ap > 0 ) : ?>
-                                        <span class="slbp-prix-apres">
-                                            <?php echo number_format( $prix_ap, 0, ',', ' ' ); ?> FCFA
-                                        </span>
-                                        <?php endif; ?>
-                                        <?php if ( $prix_av > 0 ) : ?>
-                                            <span class="slbp-prix-avant">
-                                                <?php echo number_format( $prix_av, 0, ',', ' ' ); ?> FCFA
-                                            </span>
-                                        <?php endif; ?>
-                                    </div>
-
-                                    <?php if ( $date_fin ) : ?>
-                                        <p class="slbp-date-fin">
-                                            Valable jusqu'au <?php echo date_i18n( 'd M Y', strtotime( $date_fin ) ); ?>
-                                        </p>
-                                    <?php endif; ?>
-
-                                    <?php if ( $stock_actif === '1' ) : ?>
-                                        <p class="slbp-stock-mention">Dans la limite des stocks disponibles</p>
-                                    <?php endif; ?>
-                                </div>
-
-                                <?php if ( function_exists( 'sl_bp_cart_button_html' ) ) echo sl_bp_cart_button_html( $p->ID ); ?>
-
-                            </a><!-- .slbp-card -->
-                        <?php endforeach; ?>
-                    </div><!-- .slbp-all-cards -->
-
-                    <!-- Grille visible (JS injecte les cartes ici) -->
+                    <!-- Les seules cartes initiales sont rendues côté serveur :
+                         pas de catalogue complet caché dans le DOM. -->
                     <div class="slbp-grid slbp-cols-<?php echo esc_attr( $colonnes ); ?>"
-                         id="slbp-grid-<?php echo esc_attr( $wid ); ?>"></div>
+                         id="slbp-grid-<?php echo esc_attr( $wid ); ?>"
+                         aria-busy="false">
+                        <?php foreach ( $posts as $p ) : ?>
+                            <?php echo sl_bp_render_bon_plan_card_html( $p ); ?>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <p class="slbp-load-status" role="status" aria-live="polite"></p>
 
                     <!-- Message vide -->
-                    <div class="slbp-empty" id="slbp-empty-<?php echo esc_attr( $wid ); ?>" style="display:none;">
+                    <div class="slbp-empty" id="slbp-empty-<?php echo esc_attr( $wid ); ?>"<?php echo $initial_count ? ' style="display:none;"' : ''; ?>>
                         Aucune offre ne correspond à vos critères.
                     </div>
 
