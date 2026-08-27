@@ -114,8 +114,6 @@ function slg_append_cake_form_to_patisserie( $content ) {
     <script>(function(){document.querySelectorAll('[data-sl-cake-auto]').forEach(function(f){f.addEventListener('submit',function(e){e.preventDefault();var b=f.querySelector('button'),o=f.querySelector('.result');b.disabled=true;var d=new FormData(f);fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>',{method:'POST',body:d,credentials:'same-origin'}).then(function(r){return r.json()}).then(function(j){if(!j.success)throw new Error(j.data&&j.data.message?j.data.message:'Une erreur est survenue.');o.textContent=j.data.message;o.hidden=false;f.reset()}).catch(function(e){o.textContent=e.message;o.style.background='#fff1f1';o.style.color='#9c1c1c';o.hidden=false}).finally(function(){b.disabled=false})})})})();</script>
     <?php return $content . ob_get_clean();
 }
-add_filter( 'the_content', 'slg_append_cake_form_to_patisserie', 30 );
-add_filter( 'elementor/frontend/the_content', 'slg_append_cake_form_to_patisserie', 30 );
 
 add_action( 'elementor/widgets/register', function ( $widgets_manager ) {
     if ( ! class_exists( '\Elementor\Widget_Base' ) || class_exists( 'SL_Commande_Patisserie_Widget' ) ) return;
