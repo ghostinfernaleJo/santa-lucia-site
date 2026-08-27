@@ -102,6 +102,135 @@ function sl_submit_cake_request() {
     wp_send_json_success( [ 'message' => 'Votre demande est bien reçue. Notre équipe pâtisserie vous recontactera pour confirmer le modèle, le prix et la disponibilité.' ] );
 }
 
+/** Référencement de la page Pâtisserie, sans dépendre du contenu Elementor. */
+function slg_is_patisserie_page() {
+    return ! is_admin() && is_page( 'patisserie' );
+}
+
+function slg_patisserie_seo_title() {
+    return 'Gâteaux personnalisés | Pâtisserie Santa Lucia';
+}
+
+function slg_patisserie_seo_description() {
+    return 'Commandez un gâteau personnalisé pour un anniversaire, un mariage ou un baptême chez Santa Lucia. Retrait dans l’agence de votre choix.';
+}
+
+function slg_patisserie_seo_image() {
+    return 'https://complexesantalucia.com/wp-content/uploads/2024/06/arriere-plan-patisserie-complexe-santa-lucia.webp';
+}
+
+/** Les questions restent visibles sur la page et servent aussi aux données structurées. */
+function slg_patisserie_faq_items() {
+    return [
+        [
+            'question' => 'Pour quels événements puis-je commander un gâteau ?',
+            'answer'   => 'Les demandes peuvent concerner notamment un anniversaire, un mariage, un baptême, une communion, un événement professionnel ou toute autre célébration.',
+        ],
+        [
+            'question' => 'Quelles informations dois-je indiquer dans ma demande ?',
+            'answer'   => 'Indiquez au minimum votre nom, votre téléphone, l’occasion, la date souhaitée et l’agence de retrait. Le nombre de parts, la saveur, le budget et les idées de décoration aideront aussi notre équipe à vous proposer une réponse adaptée.',
+        ],
+        [
+            'question' => 'Comment le modèle et le prix sont-ils confirmés ?',
+            'answer'   => 'Après étude de votre demande, l’équipe pâtisserie vous recontacte pour confirmer le modèle, le prix et la disponibilité avant la préparation.',
+        ],
+        [
+            'question' => 'Où retirer ma commande de gâteau ?',
+            'answer'   => 'Choisissez l’agence souhaitée dans le formulaire. L’équipe confirme ensuite avec vous le lieu de retrait de votre commande.',
+        ],
+    ];
+}
+
+function slg_filter_patisserie_document_title( $title ) {
+    return slg_is_patisserie_page() ? slg_patisserie_seo_title() : $title;
+}
+add_filter( 'pre_get_document_title', 'slg_filter_patisserie_document_title', 999 );
+add_filter( 'rank_math/frontend/title', 'slg_filter_patisserie_document_title', 999 );
+
+function slg_filter_patisserie_description( $description ) {
+    return slg_is_patisserie_page() ? slg_patisserie_seo_description() : $description;
+}
+add_filter( 'rank_math/frontend/description', 'slg_filter_patisserie_description', 999 );
+
+function slg_filter_patisserie_social_image( $image ) {
+    return slg_is_patisserie_page() ? slg_patisserie_seo_image() : $image;
+}
+add_filter( 'rank_math/opengraph/facebook/image', 'slg_filter_patisserie_social_image', 999 );
+add_filter( 'rank_math/opengraph/twitter/image', 'slg_filter_patisserie_social_image', 999 );
+
+/** Replie les balises indispensables si Rank Math est désactivé ultérieurement. */
+function slg_patisserie_fallback_meta() {
+    if ( ! slg_is_patisserie_page() || defined( 'RANK_MATH_VERSION' ) ) return;
+    $title       = slg_patisserie_seo_title();
+    $description = slg_patisserie_seo_description();
+    $image       = slg_patisserie_seo_image();
+    printf( "\n<meta name=\"description\" content=\"%s\">\n<meta property=\"og:title\" content=\"%s\">\n<meta property=\"og:description\" content=\"%s\">\n<meta property=\"og:image\" content=\"%s\">\n<meta name=\"twitter:card\" content=\"summary_large_image\">\n", esc_attr( $description ), esc_attr( $title ), esc_attr( $description ), esc_url( $image ) );
+}
+add_action( 'wp_head', 'slg_patisserie_fallback_meta', 1 );
+
+/** Remplace le schéma Article générique par les données utiles à une demande de gâteau. */
+function slg_patisserie_schema( $data, $jsonld ) {
+    if ( ! slg_is_patisserie_page() ) return $data;
+
+    foreach ( $data as $key => $schema ) {
+        $types = isset( $schema['@type'] ) ? (array) $schema['@type'] : [];
+        if ( in_array( 'Article', $types, true ) || in_array( 'BreadcrumbList', $types, true ) ) unset( $data[ $key ] );
+    }
+
+    $page_url    = get_permalink();
+    $site_url    = home_url( '/' );
+    $title       = slg_patisserie_seo_title();
+    $description = slg_patisserie_seo_description();
+    $image       = slg_patisserie_seo_image();
+    if ( ! $page_url ) return $data;
+
+    if ( isset( $data['WebPage'] ) && is_array( $data['WebPage'] ) ) {
+        $data['WebPage']['name']        = $title;
+        $data['WebPage']['description'] = $description;
+    }
+
+    $data['PatisserieSantaLucia'] = [
+        '@type'              => 'Bakery',
+        '@id'                => $page_url . '#bakery',
+        'name'               => 'Pâtisserie Santa Lucia',
+        'url'                => $page_url,
+        'image'              => $image,
+        'description'        => $description,
+        'parentOrganization' => [ '@id' => $site_url . '#organization' ],
+        'areaServed'         => [ '@type' => 'Country', 'name' => 'Cameroun' ],
+        'makesOffer'         => [ '@type' => 'Offer', 'itemOffered' => [ '@id' => $page_url . '#cake-order-service' ] ],
+    ];
+    $data['CommandeGateauxSantaLucia'] = [
+        '@type'       => 'Service',
+        '@id'         => $page_url . '#cake-order-service',
+        'name'        => 'Commande de gâteaux personnalisés',
+        'description' => 'Demande de gâteaux personnalisés pour un anniversaire, un mariage, un baptême ou un événement professionnel, avec retrait en agence.',
+        'provider'    => [ '@id' => $page_url . '#bakery' ],
+        'areaServed'  => [ '@type' => 'Country', 'name' => 'Cameroun' ],
+        'url'         => $page_url,
+    ];
+
+    $questions = [];
+    foreach ( slg_patisserie_faq_items() as $item ) {
+        $questions[] = [
+            '@type'          => 'Question',
+            'name'           => $item['question'],
+            'acceptedAnswer' => [ '@type' => 'Answer', 'text' => $item['answer'] ],
+        ];
+    }
+    $data['PatisserieFAQ'] = [ '@type' => 'FAQPage', '@id' => $page_url . '#faq', 'mainEntity' => $questions ];
+    $data['PatisserieBreadcrumbs'] = [
+        '@type'           => 'BreadcrumbList',
+        '@id'             => $page_url . '#breadcrumb',
+        'itemListElement' => [
+            [ '@type' => 'ListItem', 'position' => 1, 'name' => 'Accueil', 'item' => $site_url ],
+            [ '@type' => 'ListItem', 'position' => 2, 'name' => 'Pâtisserie', 'item' => $page_url ],
+        ],
+    ];
+    return $data;
+}
+add_filter( 'rank_math/json_ld', 'slg_patisserie_schema', 999, 2 );
+
 /** Affiche automatiquement le formulaire sur la page publique Pâtisserie. */
 function slg_append_cake_form_to_patisserie( $content ) {
     $elementor_data = (string) get_post_meta( get_queried_object_id(), '_elementor_data', true );
@@ -124,13 +253,14 @@ function slg_append_cake_form_to_patisserie( $content ) {
         .sl-cake-promise p{margin:0 0 20px;font-size:clamp(18px,2vw,24px);font-weight:700;line-height:1.35}
         .sl-cake-promise strong,.sl-cake-promise span{display:block}.sl-cake-promise strong{margin-bottom:4px;font-size:15px}.sl-cake-promise span{font-size:13px;opacity:.86}
         .sl-cake-panel{padding:clamp(30px,5vw,64px);background:linear-gradient(140deg,#fff 0%,#fffafd 100%)}
-        .sl-cake-head{max-width:620px;margin:0 0 30px}.sl-cake-head .sl-cake-kicker{margin-bottom:12px;color:#e91e63}.sl-cake-head h2{margin:0 0 10px;color:#142b4f;font-size:clamp(29px,3.4vw,44px);letter-spacing:-.03em;line-height:1.08}.sl-cake-head p{margin:0;color:#667085;line-height:1.6}
+        .sl-cake-head{max-width:620px;margin:0 0 30px}.sl-cake-head .sl-cake-kicker{margin-bottom:12px;color:#e91e63}.sl-cake-head h1{margin:0 0 10px;color:#142b4f;font-size:clamp(29px,3.4vw,44px);letter-spacing:-.03em;line-height:1.08}.sl-cake-head p{margin:0;color:#667085;line-height:1.6}
         .sl-cake-auto form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}.sl-cake-auto label{display:flex;flex-direction:column;gap:8px;color:#142b4f;font-size:13px;font-weight:800}
         .sl-cake-auto input:not([type=hidden]),.sl-cake-auto select,.sl-cake-auto textarea{box-sizing:border-box;width:100%;min-height:48px;padding:12px 14px;border:1px solid #dce1e8;border-radius:10px;background:#fff;color:#172033;font:inherit;transition:border-color .18s,box-shadow .18s}
         .sl-cake-auto input:focus,.sl-cake-auto select:focus,.sl-cake-auto textarea:focus{outline:0;border-color:#e91e63;box-shadow:0 0 0 3px rgba(233,30,99,.12)}.sl-cake-auto textarea{min-height:118px;resize:vertical}.sl-cake-auto .full,.sl-cake-auto .result{grid-column:1/-1}
         .sl-cake-auto button{border:0;border-radius:10px;padding:15px 26px;background:#e91e63;color:#fff;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 10px 18px rgba(233,30,99,.2);transition:transform .18s,box-shadow .18s}.sl-cake-auto button:hover{transform:translateY(-1px);box-shadow:0 13px 23px rgba(233,30,99,.28)}.sl-cake-auto button:disabled{opacity:.6;cursor:wait;transform:none}.sl-cake-auto .result{padding:14px 16px;border-radius:10px;background:#eaf8f0;color:#17633a}.sl-cake-auto .hp{position:absolute;left:-9999px}
-        @media(max-width:900px){.sl-cake-auto{margin:38px 18px}.sl-cake-layout{grid-template-columns:1fr}.sl-cake-visual,.sl-cake-visual-content{min-height:330px}.sl-cake-visual-content{padding:26px}.sl-cake-promise{max-width:520px}.sl-cake-panel{padding:34px 28px}}
-        @media(max-width:650px){.sl-cake-auto{margin:30px 14px;border-radius:20px}.sl-cake-visual,.sl-cake-visual-content{min-height:280px}.sl-cake-visual-content{box-sizing:border-box;padding:20px 20px 86px}.sl-cake-promise{padding:17px;border-radius:14px}.sl-cake-promise p{margin:0;font-size:17px}.sl-cake-promise strong,.sl-cake-promise span{display:none}.sl-cake-panel{padding:30px 20px}.sl-cake-auto form{grid-template-columns:1fr}.sl-cake-auto .full,.sl-cake-auto .result{grid-column:auto}.sl-cake-auto button{width:100%}}
+        .sl-cake-seo{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr);gap:clamp(28px,5vw,62px);padding:clamp(30px,5vw,60px);border-top:1px solid #edf0f4;background:linear-gradient(145deg,#fff 0%,#fff8fb 100%)}.sl-cake-seo h2{margin:0 0 15px;color:#142b4f;font-size:clamp(23px,2.4vw,32px);letter-spacing:-.02em}.sl-cake-seo p{margin:0 0 13px;color:#586274;line-height:1.72}.sl-cake-seo p:last-child{margin-bottom:0}.sl-cake-seo a{color:#d81b60;font-weight:700;text-decoration:underline;text-underline-offset:3px}.sl-cake-faq{align-self:start;padding:24px;border:1px solid #f0dce7;border-radius:18px;background:#fff}.sl-cake-faq h2{font-size:22px}.sl-cake-faq details{border-top:1px solid #edf0f4;padding:13px 0}.sl-cake-faq details:last-child{padding-bottom:0}.sl-cake-faq summary{cursor:pointer;color:#142b4f;font-weight:800;line-height:1.4}.sl-cake-faq details p{padding:9px 20px 0 0;font-size:14px;line-height:1.6}
+        @media(max-width:900px){.sl-cake-auto{margin:38px 18px}.sl-cake-layout,.sl-cake-seo{grid-template-columns:1fr}.sl-cake-visual,.sl-cake-visual-content{min-height:330px}.sl-cake-visual-content{padding:26px}.sl-cake-promise{max-width:520px}.sl-cake-panel{padding:34px 28px}}
+        @media(max-width:650px){.sl-cake-auto{margin:30px 14px;border-radius:20px}.sl-cake-visual,.sl-cake-visual-content{min-height:280px}.sl-cake-visual-content{box-sizing:border-box;padding:20px 20px 86px}.sl-cake-promise{padding:17px;border-radius:14px}.sl-cake-promise p{margin:0;font-size:17px}.sl-cake-promise strong,.sl-cake-promise span{display:none}.sl-cake-panel,.sl-cake-seo{padding:30px 20px}.sl-cake-auto form{grid-template-columns:1fr}.sl-cake-auto .full,.sl-cake-auto .result{grid-column:auto}.sl-cake-auto button{width:100%}.sl-cake-faq{padding:20px}}
     </style>
     <section class="sl-cake-auto" aria-labelledby="sl-cake-auto-title">
         <div class="sl-cake-layout">
@@ -138,7 +268,47 @@ function slg_append_cake_form_to_patisserie( $content ) {
                 <img src="https://complexesantalucia.com/wp-content/uploads/2024/06/arriere-plan-patisserie-complexe-santa-lucia.webp" alt="Assortiment de pâtisseries Santa Lucia" loading="lazy" decoding="async">
                 <div class="sl-cake-visual-content"><span class="sl-cake-kicker">Pâtisserie Santa Lucia</span><div class="sl-cake-promise"><p>« Pour chaque célébration, un gâteau imaginé avec vous. »</p><strong>Anniversaire, mariage, baptême…</strong><span>Retrait dans l’agence de votre choix.</span></div></div>
             </aside>
-            <div class="sl-cake-panel"><div class="sl-cake-head"><span class="sl-cake-kicker">Demande sur mesure</span><h2 id="sl-cake-auto-title">Votre gâteau, à votre image</h2><p>Partagez les grandes lignes de votre projet. Notre équipe pâtisserie vous recontactera pour valider le modèle, le prix et la disponibilité.</p></div><form data-sl-cake-auto><input type="hidden" name="action" value="sl_submit_cake_request"><input type="hidden" name="nonce" value="<?php echo esc_attr( wp_create_nonce( 'sl_cake_request' ) ); ?>"><input class="hp" type="text" name="website" tabindex="-1" autocomplete="off"><label>Nom complet *<input name="nom" required autocomplete="name"></label><label>Téléphone *<input name="telephone" required type="tel" autocomplete="tel"></label><label>Occasion *<select name="type" required><option value="">Choisir…</option><option>Anniversaire</option><option>Mariage</option><option>Baptême</option><option>Communion</option><option>Événement professionnel</option><option>Autre</option></select></label><label>Date souhaitée *<input name="date" required type="date" min="<?php echo esc_attr( date( 'Y-m-d', current_time( 'timestamp' ) + DAY_IN_SECONDS ) ); ?>"></label><label>Agence de retrait *<select name="agence" required><option value="">Choisir une agence…</option><?php foreach ( $agencies as $agency ) : ?><option value="<?php echo esc_attr( $agency->name ); ?>"><?php echo esc_html( $agency->name ); ?></option><?php endforeach; ?></select></label><label>Nombre de parts<input name="quantite" type="number" min="1" max="500" placeholder="Ex. 20"></label><label>Saveur / parfum<input name="saveur" placeholder="Ex. chocolat, vanille…"></label><label>Budget indicatif (FCFA)<input name="budget" inputmode="numeric" placeholder="Ex. 25 000"></label><label>E-mail<input name="email" type="email" autocomplete="email"></label><label class="full">Détails du gâteau<textarea name="message" placeholder="Couleurs, inscription, décoration, photo de référence…"></textarea></label><div class="full"><button type="submit">Envoyer ma demande</button></div><div class="result" hidden role="status"></div></form></div>
+            <div class="sl-cake-panel">
+                <div class="sl-cake-head">
+                    <span class="sl-cake-kicker">Demande sur mesure</span>
+                    <h1 id="sl-cake-auto-title">Gâteaux personnalisés et pâtisserie Santa Lucia</h1>
+                    <p>Partagez les grandes lignes de votre projet. Notre équipe pâtisserie vous recontactera pour valider le modèle, le prix et la disponibilité.</p>
+                </div>
+                <form data-sl-cake-auto>
+                    <input type="hidden" name="action" value="sl_submit_cake_request">
+                    <input type="hidden" name="nonce" value="<?php echo esc_attr( wp_create_nonce( 'sl_cake_request' ) ); ?>">
+                    <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
+                    <label>Nom complet *<input name="nom" required autocomplete="name"></label>
+                    <label>Téléphone *<input name="telephone" required type="tel" autocomplete="tel"></label>
+                    <label>Occasion *<select name="type" required><option value="">Choisir…</option><option>Anniversaire</option><option>Mariage</option><option>Baptême</option><option>Communion</option><option>Événement professionnel</option><option>Autre</option></select></label>
+                    <label>Date souhaitée *<input name="date" required type="date" min="<?php echo esc_attr( date( 'Y-m-d', current_time( 'timestamp' ) + DAY_IN_SECONDS ) ); ?>"></label>
+                    <label>Agence de retrait *<select name="agence" required><option value="">Choisir une agence…</option><?php foreach ( $agencies as $agency ) : ?><option value="<?php echo esc_attr( $agency->name ); ?>"><?php echo esc_html( $agency->name ); ?></option><?php endforeach; ?></select></label>
+                    <label>Nombre de parts<input name="quantite" type="number" min="1" max="500" placeholder="Ex. 20"></label>
+                    <label>Saveur / parfum<input name="saveur" placeholder="Ex. chocolat, vanille…"></label>
+                    <label>Budget indicatif (FCFA)<input name="budget" inputmode="numeric" placeholder="Ex. 25 000"></label>
+                    <label>E-mail<input name="email" type="email" autocomplete="email"></label>
+                    <label class="full">Détails du gâteau<textarea name="message" placeholder="Couleurs, inscription, décoration, photo de référence…"></textarea></label>
+                    <div class="full"><button type="submit">Envoyer ma demande</button></div>
+                    <div class="result" hidden role="status"></div>
+                </form>
+            </div>
+        </div>
+        <div class="sl-cake-seo">
+            <section class="sl-cake-guide" aria-labelledby="sl-cake-guide-title">
+                <span class="sl-cake-kicker">Pâtisserie sur mesure</span>
+                <h2 id="sl-cake-guide-title">Un gâteau sur mesure pour votre événement</h2>
+                <p>Anniversaire, mariage, baptême, communion ou événement professionnel : la Pâtisserie Santa Lucia vous aide à préparer un gâteau adapté à votre célébration. Indiquez l’occasion, la date souhaitée, le nombre de parts, la saveur, le budget et vos idées de décoration.</p>
+                <p>Après réception de votre demande, notre équipe vérifie la disponibilité et vous contacte pour confirmer le modèle, le prix et l’agence de retrait. Vous pouvez choisir l’agence qui vous convient parmi <a href="<?php echo esc_url( home_url( '/nos-agences/' ) ); ?>">nos agences Santa Lucia</a>.</p>
+            </section>
+            <section class="sl-cake-faq" id="sl-cake-faq" aria-labelledby="sl-cake-faq-title">
+                <h2 id="sl-cake-faq-title">Questions fréquentes</h2>
+                <?php foreach ( slg_patisserie_faq_items() as $item ) : ?>
+                    <details>
+                        <summary><?php echo esc_html( $item['question'] ); ?></summary>
+                        <p><?php echo esc_html( $item['answer'] ); ?></p>
+                    </details>
+                <?php endforeach; ?>
+            </section>
         </div>
     </section>
     <script>(function(){document.querySelectorAll('[data-sl-cake-auto]').forEach(function(f){f.addEventListener('submit',function(e){e.preventDefault();var b=f.querySelector('button'),o=f.querySelector('.result');b.disabled=true;var d=new FormData(f);fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>',{method:'POST',body:d,credentials:'same-origin'}).then(function(r){return r.json()}).then(function(j){if(!j.success)throw new Error(j.data&&j.data.message?j.data.message:'Une erreur est survenue.');o.textContent=j.data.message;o.hidden=false;f.reset()}).catch(function(e){o.textContent=e.message;o.style.background='#fff1f1';o.style.color='#9c1c1c';o.hidden=false}).finally(function(){b.disabled=false})})})})();</script>
