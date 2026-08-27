@@ -155,6 +155,26 @@ function sl_lucie_tools_defs() {
             'input_schema' => [ 'type' => 'object', 'properties' => new stdClass() ],
         ],
         [
+            'name' => 'enregistrer_demande_patisserie',
+            'description' => 'Enregistre une demande de gâteau personnalisé dans le back-office. À utiliser uniquement après que le client a clairement confirmé qu’il souhaite envoyer sa demande. Le prix final sera confirmé par l’équipe pâtisserie.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'nom' => [ 'type' => 'string', 'description' => 'Nom complet du client.' ],
+                    'telephone' => [ 'type' => 'string', 'description' => 'Téléphone du client.' ],
+                    'email' => [ 'type' => 'string', 'description' => 'E-mail facultatif.' ],
+                    'type' => [ 'type' => 'string', 'description' => 'Anniversaire, mariage, baptême, communion ou autre.' ],
+                    'date' => [ 'type' => 'string', 'description' => 'Date souhaitée au format AAAA-MM-JJ.' ],
+                    'agence' => [ 'type' => 'string', 'description' => 'Agence de retrait choisie.' ],
+                    'quantite' => [ 'type' => 'integer', 'description' => 'Nombre de parts, si connu.' ],
+                    'saveur' => [ 'type' => 'string', 'description' => 'Saveur souhaitée, si connue.' ],
+                    'budget' => [ 'type' => 'string', 'description' => 'Budget indicatif en FCFA, si fourni.' ],
+                    'message' => [ 'type' => 'string', 'description' => 'Décoration, inscription et autres détails.' ],
+                ],
+                'required' => [ 'nom', 'telephone', 'type', 'date', 'agence' ],
+            ],
+        ],
+        [
             'name' => 'lister_pages',
             'description' => 'Liste les pages d\'information du site (titre + lien). A appeler pour DECOUVRIR quelles pages existent (a-propos / qui sommes-nous, services, livraison, recrutement, FAQ...) avant d\'en lire une avec lire_page.',
             'input_schema' => [ 'type' => 'object', 'properties' => new stdClass() ],
@@ -574,6 +594,13 @@ function sl_lucie_run_tool( $name, $input ) {
             break;
         case 'contacter_conseiller_whatsapp':
             $d = function_exists( 'sl_lucie_whatsapp_support_url' ) ? sl_lucie_whatsapp_support_url() : [ 'ok' => false, 'message' => 'WhatsApp est indisponible.' ];
+            break;
+        case 'enregistrer_demande_patisserie':
+            $d = function_exists( 'slg_create_cake_request_from_lucie' )
+                ? slg_create_cake_request_from_lucie( $input )
+                : new WP_Error( 'slg_unavailable', 'Le registre pâtisserie est indisponible.' );
+            if ( is_wp_error( $d ) ) $d = [ 'ok' => false, 'message' => $d->get_error_message() ];
+            else $d = [ 'ok' => true, 'demande_id' => (int) $d, 'message' => 'La demande de gâteau est enregistrée. L’équipe pâtisserie va recontacter le client pour confirmer le modèle, le prix et la disponibilité.' ];
             break;
         case 'infos_agence':
             $d = sl_lucie_tool_agence_infos( $input['recherche'] ?? '' );

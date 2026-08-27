@@ -42,6 +42,7 @@ require_once SL_AGENCES_PATH . 'includes/search-unified.php';
 require_once SL_AGENCES_PATH . 'includes/supervision-agences.php';
 require_once SL_AGENCES_PATH . 'includes/rapport-performance-pdf.php';
 require_once SL_AGENCES_PATH . 'includes/fidelity-dashboard.php';
+require_once SL_AGENCES_PATH . 'includes/class-commande-patisserie-widget.php';
 
 // Force single template for Bons Plans
 add_filter( 'template_include', 'sl_bp_single_template' );
@@ -564,4 +565,5 @@ function sl_agences_register_widgets( $widgets_manager ) {
     // Widget 20 : Catégorie Produits (une instance par famille)
     require_once SL_AGENCES_PATH . 'includes/class-categorie-produits-widget.php';
     $widgets_manager->register( new SL_Categorie_Produits_Widget() );
+    $widgets_manager->register( new SL_Commande_Patisserie_Widget() );
 }
