@@ -110,7 +110,9 @@ function slg_append_cake_form_to_patisserie( $content ) {
     if ( is_wp_error( $agencies ) ) $agencies = [];
     ob_start(); ?>
     <style>
-        .sl-cake-auto{max-width:1180px;margin:clamp(42px,7vw,84px) auto;overflow:hidden;border:1px solid #edf0f4;border-radius:28px;background:#fff;box-shadow:0 18px 54px rgba(20,43,79,.13)}
+        /* Masque uniquement le bandeau héro de la page Pâtisserie : le bandeau promotionnel global reste affiché. */
+        .elementor-element-49f18f4b{display:none!important}
+        .sl-cake-auto{max-width:1180px;margin:clamp(32px,4vw,56px) auto clamp(42px,7vw,84px);overflow:hidden;border:1px solid #edf0f4;border-radius:28px;background:#fff;box-shadow:0 18px 54px rgba(20,43,79,.13)}
         .sl-cake-layout{display:grid;grid-template-columns:minmax(330px,.82fr) minmax(0,1.18fr)}
         .sl-cake-visual{position:relative;min-height:720px;overflow:hidden;background:#142b4f;color:#fff}
         .sl-cake-visual>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
