@@ -138,6 +138,23 @@ function sl_lucie_tools_defs() {
             'input_schema' => [ 'type' => 'object', 'properties' => new stdClass() ],
         ],
         [
+            'name' => 'suivre_commande',
+            'description' => 'Consulte le statut réel d’une commande Drop & Collect. Utilise le code du lien de suivi, ou le numéro de commande avec le téléphone de la commande. Ne devine jamais un statut.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'code_suivi'      => [ 'type' => 'string', 'description' => 'Jeton ou code du lien de suivi, si le client en possède un.' ],
+                    'numero_commande' => [ 'type' => 'string', 'description' => 'Numéro exact de commande.' ],
+                    'telephone'      => [ 'type' => 'string', 'description' => 'Téléphone utilisé lors de la commande, requis avec le numéro de commande.' ],
+                ],
+            ],
+        ],
+        [
+            'name' => 'contacter_conseiller_whatsapp',
+            'description' => 'Prépare un lien WhatsApp avec un résumé court de la conversation. À utiliser uniquement si le client demande un conseiller ou souhaite poursuivre sur WhatsApp. Aucun message n’est envoyé automatiquement.',
+            'input_schema' => [ 'type' => 'object', 'properties' => new stdClass() ],
+        ],
+        [
             'name' => 'lister_pages',
             'description' => 'Liste les pages d\'information du site (titre + lien). A appeler pour DECOUVRIR quelles pages existent (a-propos / qui sommes-nous, services, livraison, recrutement, FAQ...) avant d\'en lire une avec lire_page.',
             'input_schema' => [ 'type' => 'object', 'properties' => new stdClass() ],
@@ -549,6 +566,14 @@ function sl_lucie_run_tool( $name, $input ) {
             $d = function_exists( 'sl_lucie_tool_checkout' )
                 ? sl_lucie_tool_checkout()
                 : [ 'ok' => false, 'message' => 'Le checkout est indisponible.' ];
+            break;
+        case 'suivre_commande':
+            $d = function_exists( 'sl_lucie_tracking_payload' )
+                ? sl_lucie_tracking_payload( $input['code_suivi'] ?? '', $input['numero_commande'] ?? '', $input['telephone'] ?? '' )
+                : [ 'ok' => false, 'message' => 'Le suivi est indisponible.' ];
+            break;
+        case 'contacter_conseiller_whatsapp':
+            $d = function_exists( 'sl_lucie_whatsapp_support_url' ) ? sl_lucie_whatsapp_support_url() : [ 'ok' => false, 'message' => 'WhatsApp est indisponible.' ];
             break;
         case 'infos_agence':
             $d = sl_lucie_tool_agence_infos( $input['recherche'] ?? '' );

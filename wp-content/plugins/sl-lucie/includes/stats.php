@@ -126,6 +126,31 @@ function sl_lucie_stats_page() {
     }
     arsort( $tool_count );
 
+    // Indicateurs commerciaux légers : ils réutilisent les appels déjà journalisés.
+    $commercial_labels = [
+        'menu_du_jour'          => 'Menus du jour consultés',
+        'promotions'            => 'Promotions consultées',
+        'bons_plans'            => 'Bons plans consultés',
+        'infos_produits'        => 'Recherches produits',
+        'proposer_panier_budget'=> 'Recommandations par budget',
+        'ajouter_au_panier'     => 'Ajouts au panier',
+        'finaliser_commande'    => 'Passages vers le checkout',
+        'suivre_commande'       => 'Suivis de commande',
+        'contacter_conseiller_whatsapp' => 'Transferts WhatsApp',
+    ];
+    $commercial_count = [];
+    foreach ( $commercial_labels as $tool => $label ) $commercial_count[ $tool ] = (int) ( $tool_count[ $tool ] ?? 0 );
+    $lead_query = new WP_Query( [
+        'post_type'      => 'sl_lucie_lead',
+        'post_status'    => 'any',
+        'posts_per_page' => 1,
+        'fields'         => 'ids',
+        'no_found_rows'  => false,
+        'date_query'     => [ [ 'after' => $since, 'inclusive' => true ] ],
+    ] );
+    $leads_period = (int) $lead_query->found_posts;
+    wp_reset_postdata();
+
     $max_day = 0; foreach ( $daily as $d ) { $max_day = max( $max_day, (int) $d['n'] ); }
     $card = function ( $label, $val, $sub = '' ) {
         echo '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;min-width:150px;flex:1;">'
@@ -162,6 +187,7 @@ function sl_lucie_stats_page() {
             $card( 'Temps de reponse moyen', $tpsmoy . ' ms' );
             $card( 'Dans le perimetre', $total ? round( 100 * $enscope / $total ) . ' %' : '—', $hors . ' hors-sujet' );
             $card( 'Erreurs', number_format_i18n( $errs ) );
+            $card( 'Contacts collectés', number_format_i18n( $leads_period ), 'sur la période' );
             ?>
         </div>
 
@@ -192,6 +218,13 @@ function sl_lucie_stats_page() {
                 </tbody></table>
             </div>
         </div>
+
+        <h2 style="margin-top:28px;">Parcours commerciaux</h2>
+        <table class="widefat striped"><thead><tr><th>Intention</th><th style="width:100px;">Interactions</th></tr></thead><tbody>
+        <?php foreach ( $commercial_count as $tool => $n ) : if ( $n < 1 ) continue; ?>
+            <tr><td><?php echo esc_html( $commercial_labels[ $tool ] ); ?></td><td><?php echo (int) $n; ?></td></tr>
+        <?php endforeach; if ( ! array_sum( $commercial_count ) ) : ?><tr><td colspan="2">Aucune intention commerciale enregistrée sur la période.</td></tr><?php endif; ?>
+        </tbody></table>
         <?php endif; ?>
     </div>
     <?php

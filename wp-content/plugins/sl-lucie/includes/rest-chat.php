@@ -46,7 +46,9 @@ function sl_lucie_system_prompt() {
     $p .= "10. PANIER — appelle ajouter_au_panier, retirer_du_panier ou vider_panier uniquement lorsque le DERNIER message du client exprime clairement cette action. 'Que me proposes-tu ?', 'je regarde', 'combien coute ceci ?' ou une demande de budget ne sont jamais des confirmations. Avant un ajout, utilise dans cette meme demande un outil produit/menu/promotion/budget pour obtenir le product_id exact ; ne devine jamais un identifiant. En cas de doute, demande confirmation. Respecte le verrou une seule agence par commande renvoye par WooCommerce.\n";
     $p .= "11. VALIDATION — quand le client demande de payer, valider ou finaliser, appelle finaliser_commande et fournis le lien exact du checkout. Ne dis jamais que la commande est passee avant la validation reelle du formulaire de checkout. Ne demande jamais dans le chat un numero Mobile Money, une carte bancaire, un mot de passe ou un code OTP.\n";
     $p .= "12. CARTES PRODUITS — les outils peuvent afficher automatiquement des cartes avec image, prix et bouton d'ajout. Dans ton texte, resume les meilleurs choix sans recopier une longue liste. Les prix et stocks de l'outil priment toujours sur toute autre information.\n";
-    $p .= "13. Si une agence ou un produit n'a pas une disponibilite verifiable, dis clairement 'disponibilite a confirmer' et ne le presente jamais comme commandable.\n";
+    $p .= "13. SUIVI DE COMMANDE — si le visiteur demande où en est sa commande, son retrait ou son colis, appelle suivre_commande. Utilise un code de suivi s'il le fournit ; sinon demande le numéro de commande et le téléphone utilisé, sans afficher de données d'une autre commande. Ne devine jamais le statut.\n";
+    $p .= "14. CONSEILLER WHATSAPP — si le visiteur demande explicitement à parler à un conseiller ou à continuer sur WhatsApp, appelle contacter_conseiller_whatsapp puis affiche le lien exact renvoyé. Aucun message n'est envoyé automatiquement et ne demande jamais de mot de passe, code OTP ou information bancaire dans le résumé.\n";
+    $p .= "15. Si une agence ou un produit n'a pas une disponibilite verifiable, dis clairement 'disponibilite a confirmer' et ne le presente jamais comme commandable.\n";
 
     if ( trim( $kb ) !== '' ) {
         $p .= "\n===== BASE DE CONNAISSANCES SANTA LUCIA =====\n" . $kb . "\n===== FIN DE LA BASE DE CONNAISSANCES =====\n";
@@ -59,7 +61,7 @@ function sl_lucie_in_scope( $message ) {
     $local = function_exists( 'sl_lucie_normalize_text' ) ? sl_lucie_normalize_text( $message ) : mb_strtolower( (string) $message );
     // Les confirmations courtes dependent souvent du contexte precedent et ne
     // doivent pas etre rejetees par un classifieur qui ne voit que ce message.
-    if ( preg_match( '/\b(panier|commande|commander|ajoute|ajouter|mets|mettre|retire|supprime|vider|budget|agence|produit|promo|menu|payer|paiement|valider|finaliser)\b/u', $local ) ) return true;
+    if ( preg_match( '/\b(panier|commande|commander|suivi|suivre|colis|retrait|conseiller|whatsapp|ajoute|ajouter|mets|mettre|retire|supprime|vider|budget|agence|produit|promo|menu|payer|paiement|valider|finaliser)\b/u', $local ) ) return true;
     if ( mb_strlen( $local ) <= 35 && preg_match( '/^(oui|ok|d accord|vas y|je confirme|le premier|le deuxieme|celui ci|celle ci)[.! ]*$/u', $local ) ) return true;
     if ( get_option( 'sl_lucie_scope_guard', '1' ) !== '1' ) return true;
     return sl_lucie_llm_classify( $message );

@@ -71,6 +71,11 @@ function sl_lucie_lead_details_box( $post ) {
 function sl_lucie_save_lead( $nom, $tel, $quartier, $session = '', $anniversaire = '' ) {
     $nom      = sanitize_text_field( (string) $nom );
     $tel      = sanitize_text_field( (string) $tel );
+    // Compare les formats courants comme le même numéro (+237 6xx… / 2376xx…
+    // / 6xx…). Le numéro est proprement stocké en chiffres pour éviter les
+    // doublons liés uniquement aux espaces, au + ou aux tirets.
+    $tel = preg_replace( '/\D+/', '', $tel );
+    if ( strlen( $tel ) === 9 && strpos( $tel, '6' ) === 0 ) $tel = '237' . $tel;
     $quartier = sanitize_text_field( (string) $quartier );
     $session  = sanitize_text_field( (string) $session );
     $anniversaire = sanitize_text_field( (string) $anniversaire );
@@ -98,6 +103,21 @@ function sl_lucie_save_lead( $nom, $tel, $quartier, $session = '', $anniversaire
         if ( ! empty( $hit ) ) $existing = (int) $hit[0];
     }
 
+    // Une même personne peut revenir avec une nouvelle session. Le numéro
+    // exact est l'identifiant de déduplication le plus fiable disponible ici.
+    // On réutilise donc sa fiche au lieu d'en créer une deuxième.
+    if ( $tel !== '' ) {
+        $hit = get_posts( [
+            'post_type'   => 'sl_lucie_lead',
+            'post_status' => 'any',
+            'numberposts' => 1,
+            'fields'      => 'ids',
+            'meta_key'    => '_sll_tel',
+            'meta_value'  => $tel,
+        ] );
+        if ( ! empty( $hit ) ) $existing = (int) $hit[0];
+    }
+
     $titre = $nom !== '' ? $nom : ( $tel !== '' ? $tel : 'Visiteur' );
 
     if ( $existing ) {
@@ -116,7 +136,13 @@ function sl_lucie_save_lead( $nom, $tel, $quartier, $session = '', $anniversaire
     if ( $tel !== '' )      update_post_meta( $id, '_sll_tel', $tel );
     if ( $quartier !== '' ) update_post_meta( $id, '_sll_quartier', $quartier );
     if ( $anniversaire !== '' ) update_post_meta( $id, '_sll_anniversaire', $anniversaire );
-    if ( $session !== '' )  update_post_meta( $id, '_sll_session', $session );
+    if ( $session !== '' ) {
+        update_post_meta( $id, '_sll_session', $session );
+        $sessions = get_post_meta( $id, '_sll_sessions', true );
+        $sessions = is_array( $sessions ) ? $sessions : [];
+        if ( ! in_array( $session, $sessions, true ) ) $sessions[] = $session;
+        update_post_meta( $id, '_sll_sessions', array_values( array_slice( $sessions, -50 ) ) );
+    }
     return $id;
 }
 
@@ -126,7 +152,11 @@ function sl_lucie_lead_for_session( $session ) {
     if ( $session === '' ) return null;
     $hit = get_posts( [
         'post_type' => 'sl_lucie_lead', 'post_status' => 'any', 'numberposts' => 1, 'fields' => 'ids',
-        'meta_key' => '_sll_session', 'meta_value' => $session,
+        'meta_query' => [
+            'relation' => 'OR',
+            [ 'key' => '_sll_session', 'value' => $session, 'compare' => '=' ],
+            [ 'key' => '_sll_sessions', 'value' => $session, 'compare' => 'LIKE' ],
+        ],
     ] );
     if ( empty( $hit ) ) return null;
     $id = $hit[0];
