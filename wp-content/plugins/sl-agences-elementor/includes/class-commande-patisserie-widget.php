@@ -103,7 +103,7 @@ function sl_submit_cake_request() {
 }
 
 /** Affiche automatiquement le formulaire sur la page publique Pâtisserie. */
-add_filter( 'the_content', function ( $content ) {
+function slg_append_cake_form_to_patisserie( $content ) {
     if ( is_admin() || ! is_page( 'patisserie' ) || false !== strpos( $content, 'data-sl-cake-form' ) ) return $content;
     $agencies = function_exists( 'slc_agences' ) ? slc_agences() : get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] );
     if ( is_wp_error( $agencies ) ) $agencies = [];
@@ -113,7 +113,9 @@ add_filter( 'the_content', function ( $content ) {
     <section class="sl-cake-auto"><h2>Commandez votre gâteau personnalisé</h2><p>Anniversaire, mariage, baptême ou événement : décrivez votre projet et notre pâtisserie vous recontactera.</p><form data-sl-cake-auto><input type="hidden" name="action" value="sl_submit_cake_request"><input type="hidden" name="nonce" value="<?php echo esc_attr( wp_create_nonce( 'sl_cake_request' ) ); ?>"><input class="hp" type="text" name="website" tabindex="-1" autocomplete="off"><label>Nom complet *<input name="nom" required autocomplete="name"></label><label>Téléphone *<input name="telephone" required type="tel" autocomplete="tel"></label><label>Occasion *<select name="type" required><option value="">Choisir…</option><option>Anniversaire</option><option>Mariage</option><option>Baptême</option><option>Communion</option><option>Événement professionnel</option><option>Autre</option></select></label><label>Date souhaitée *<input name="date" required type="date" min="<?php echo esc_attr( date( 'Y-m-d', current_time( 'timestamp' ) + DAY_IN_SECONDS ) ); ?>"></label><label>Agence de retrait *<select name="agence" required><option value="">Choisir une agence…</option><?php foreach ( $agencies as $agency ) : ?><option value="<?php echo esc_attr( $agency->name ); ?>"><?php echo esc_html( $agency->name ); ?></option><?php endforeach; ?></select></label><label>Nombre de parts<input name="quantite" type="number" min="1" max="500" placeholder="Ex. 20"></label><label>Saveur / parfum<input name="saveur" placeholder="Ex. chocolat, vanille…"></label><label>Budget indicatif (FCFA)<input name="budget" inputmode="numeric" placeholder="Ex. 25 000"></label><label>E-mail<input name="email" type="email" autocomplete="email"></label><label class="full">Détails du gâteau<textarea name="message" placeholder="Couleurs, inscription, décoration, photo de référence…"></textarea></label><div class="full"><button type="submit">Envoyer ma demande</button></div><div class="result" hidden role="status"></div></form></section>
     <script>(function(){document.querySelectorAll('[data-sl-cake-auto]').forEach(function(f){f.addEventListener('submit',function(e){e.preventDefault();var b=f.querySelector('button'),o=f.querySelector('.result');b.disabled=true;var d=new FormData(f);fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>',{method:'POST',body:d,credentials:'same-origin'}).then(function(r){return r.json()}).then(function(j){if(!j.success)throw new Error(j.data&&j.data.message?j.data.message:'Une erreur est survenue.');o.textContent=j.data.message;o.hidden=false;f.reset()}).catch(function(e){o.textContent=e.message;o.style.background='#fff1f1';o.style.color='#9c1c1c';o.hidden=false}).finally(function(){b.disabled=false})})})})();</script>
     <?php return $content . ob_get_clean();
-}, 30 );
+}
+add_filter( 'the_content', 'slg_append_cake_form_to_patisserie', 30 );
+add_filter( 'elementor/frontend/the_content', 'slg_append_cake_form_to_patisserie', 30 );
 
 add_action( 'elementor/widgets/register', function ( $widgets_manager ) {
     if ( ! class_exists( '\Elementor\Widget_Base' ) || class_exists( 'SL_Commande_Patisserie_Widget' ) ) return;
