@@ -1,0 +1,24 @@
+/* Panier mobile Santa Lucia : le code promo reste disponible sans encombrer la commande. */
+.slc-cart-coupon-toggle { display:none; }
+
+@media (max-width:575px) {
+    body.slc-cart-coupon-ready .woocommerce-cart-form .coupon:not(.slc-coupon-open) { display:none; }
+    .slc-cart-coupon-toggle {
+        display:flex;
+        align-items:center;
+        width:100%;
+        min-height:42px;
+        margin:10px 0 8px;
+        padding:0 13px;
+        border:1px solid #e5e7eb;
+        border-radius:8px;
+        background:#fff;
+        color:#3b4454;
+        font:700 13px inherit;
+        text-align:left;
+    }
+    .slc-cart-coupon-toggle::before { content:'+'; margin-right:8px; color:#e91e72; font-size:18px; font-weight:400; }
+    .woocommerce-cart-form .coupon.slc-coupon-open { display:block; margin:0 0 12px; padding:12px; border:1px solid #f1d8e4; border-radius:8px; background:#fff8fb; }
+    .woocommerce-cart-form .coupon.slc-coupon-open input { width:100%; min-height:44px; margin:0 0 8px; }
+    .woocommerce-cart-form .coupon.slc-coupon-open button { width:100%; min-height:44px; }
+}

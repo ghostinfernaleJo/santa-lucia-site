@@ -48,3 +48,4 @@
 .woocommerce-checkout .order-review-wrapper .woocommerce-checkout-payment #place_order:hover { background:var(--slc-pink-dark); }
 @media (max-width:991px) { .woocommerce-checkout .slc-checkout-intro { padding:21px 19px; border-radius:13px; } .woocommerce-checkout .order-review-wrapper { margin-top:26px; padding:20px !important; border-radius:13px; } }
 @media (max-width:575px) { .woocommerce-checkout .slc-checkout-intro h1,.woocommerce-checkout .slc-checkout-section-heading h2,.woocommerce-checkout .slc-checkout-review-heading h2 { font-size:21px; } .woocommerce-checkout .slc-checkout-reassurance { gap:8px 13px; } .woocommerce-checkout .order-review-wrapper { padding:17px !important; } }
+@media (max-width:575px) { .woocommerce-checkout .woocommerce-form-login-toggle,.woocommerce-checkout .woocommerce-form-coupon-toggle { margin:0 0 10px; padding:12px 14px; font-size:13px; } .woocommerce-checkout .slc-checkout-intro { margin-bottom:20px; } }

@@ -1012,24 +1012,41 @@ html, body { overflow-x: hidden; max-width: 100%; }
 /* ══════════════════════════════════════════
    ACCESSIBILITÉ & FEEDBACK TACTILE
 ══════════════════════════════════════════ */
-/* Carte accessible via <a> — reset styles de lien */
-a.slbp-card {
+/* Liens produit accessibles : les boutons Partager et Ajouter au panier ne
+   sont plus imbriqués dans un lien, ce qui évite les clics ambigus au mobile. */
+.slbp-card-link {
     text-decoration: none;
     color: inherit;
-    display: flex;
-    flex-direction: column;
+    display: block;
 }
-a.slbp-card:visited { color: inherit; }
-a.slbp-card:active,
-a.slbp-card:focus-visible {
+.slbp-card-link:visited { color: inherit; }
+.slbp-card-link:focus-visible {
     outline: 2px solid var(--sl-red);
-    outline-offset: 2px;
+    outline-offset: -2px;
 }
 /* Feedback tactile au tap */
-a.slbp-card:active {
+.slbp-card-link:active {
     transform: scale(0.98);
     box-shadow: none;
 }
+
+.slbp-order-agency-box {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:18px;
+    margin:0 0 22px;
+    padding:16px 18px;
+    border:1px solid #f3d5e3;
+    border-radius:10px;
+    background:linear-gradient(110deg,#fff7fa 0%,#fff 70%);
+}
+.slbp-order-agency-box > div { display:flex; flex-direction:column; gap:3px; }
+.slbp-order-agency-eyebrow { color:var(--sl-red); font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
+.slbp-order-agency-box strong { color:var(--sl-dark); font-size:15px; }
+.slbp-order-agency-box small { color:var(--sl-muted); font-size:12px; }
+.slbp-order-agency { width:min(320px,100%); min-height:46px; padding:0 35px 0 13px; border:1px solid var(--sl-border); border-radius:7px; background:#fff; color:var(--sl-dark); font:600 13px inherit; }
+.slbp-order-agency:focus { border-color:var(--sl-red); outline:3px solid rgba(233,30,99,.14); outline-offset:1px; }
 
 /* Badge filtre actif */
 .slbp-mobile-filter-btn .slbp-filter-badge {
@@ -1323,6 +1340,7 @@ a.slbp-card:active {
    écrasées. On repasse le corps en colonne : image à gauche, infos empilées à droite.
 ══════════════════════════════════════════ */
 @media (max-width: 580px) {
+    .slbp-grid.view-list .slbp-card-link { display: contents; }
     .slbp-grid.view-list .slbp-card {
         height: auto;
         min-height: 116px;
@@ -1365,6 +1383,11 @@ a.slbp-card:active {
         max-width: calc(100% - 8px);
     }
     .slbp-grid.view-list .slbp-eye-btn { display: none; }
+}
+
+@media (max-width: 580px) {
+    .slbp-order-agency-box { align-items:stretch; flex-direction:column; gap:12px; margin-bottom:14px; padding:14px; }
+    .slbp-order-agency { width:100%; }
 }
 
 /* ══════════════════════════════════════════

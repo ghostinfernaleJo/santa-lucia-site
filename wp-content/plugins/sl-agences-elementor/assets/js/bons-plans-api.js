@@ -53,6 +53,7 @@
             var closeSidebarBtn = wrap.querySelector('.slbp-close-sidebar');
             var sidebarOverlay  = wrap.querySelector('.slbp-sidebar-overlay');
             var statusEl        = wrap.querySelector('.slbp-load-status');
+            var orderAgencySelect = wrap.querySelector('.slbp-order-agency');
 
             function hasActiveFilters() {
                 return filterCats.length > 0 || filterAgences.length > 0 || filterSearch !== ''
@@ -373,6 +374,45 @@
             }
             setupAgenceMultiselect();
 
+            function applyOrderAgency(value, shouldLoad) {
+                value = value || '';
+                filterAgences = value ? [value] : [];
+
+                if (agenceMs) {
+                    var all = agenceMs.querySelector('.slbp-agence-ms-all');
+                    agenceMs.querySelectorAll('.slbp-agence-ms-choice').forEach(function (choice) {
+                        choice.checked = value !== '' && choice.value === value;
+                    });
+                    if (all) all.checked = value === '';
+                    var label = agenceMs.querySelector('.slbp-agence-ms-label');
+                    if (label) {
+                        var selected = agenceMs.querySelector('.slbp-agence-ms-choice:checked');
+                        label.textContent = selected ? (selected.dataset.label || selected.value) : 'Toutes les agences';
+                    }
+                }
+                if (agenceSelect) agenceSelect.value = value;
+                updateFilterBadge();
+                if (shouldLoad) loadOffers(1, false);
+            }
+
+            if (orderAgencySelect) {
+                var storedAgency = '';
+                try { storedAgency = window.localStorage.getItem('slbp-order-agency') || ''; } catch (ignore) {}
+                var initialAgency = orderAgencySelect.dataset.cartAgency || storedAgency;
+                if (initialAgency && orderAgencySelect.querySelector('option[value="' + initialAgency.replace(/"/g, '\\"') + '"]')) {
+                    orderAgencySelect.value = initialAgency;
+                    applyOrderAgency(initialAgency, true);
+                }
+                orderAgencySelect.addEventListener('change', function () {
+                    var value = orderAgencySelect.value || '';
+                    try {
+                        if (value) window.localStorage.setItem('slbp-order-agency', value);
+                        else window.localStorage.removeItem('slbp-order-agency');
+                    } catch (ignore) {}
+                    applyOrderAgency(value, true);
+                });
+            }
+
             if (agenceSelect) {
                 agenceSelect.addEventListener('change', function () {
                     filterAgences = agenceSelect.value ? [agenceSelect.value] : [];
@@ -513,7 +553,8 @@
                 event.preventDefault();
                 event.stopPropagation();
                 var card = share.closest('.slbp-card');
-                var url = card && card.href ? card.href : window.location.href;
+                var cardLink = card ? card.querySelector('.slbp-card-link[href]') : null;
+                var url = cardLink && cardLink.href ? cardLink.href : window.location.href;
                 var title = share.dataset.titre || '';
                 var price = share.dataset.prix || '';
                 var text = 'Bon plan Santa Lucia : ' + title + (price ? ' à ' + price : '') + ' 🔥';

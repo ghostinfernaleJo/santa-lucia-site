@@ -77,8 +77,18 @@ function sl_bp_cart_button_html( $bon_plan_id = 0, $product_id = 0 ) {
     if ( ! $p || ! $p->is_purchasable() || ! $p->is_in_stock() ) return '';
 
     $svg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>';
+    $agency_attributes = '';
+    if ( $bon_plan_id && function_exists( 'sl_bp_product_agency' ) ) {
+        $agency = sl_bp_product_agency( $pid );
+        if ( $agency ) {
+            // Une agence est demandée avant l'ajout depuis les Bons Plans. Les
+            // autres usages du bouton (notamment Fast Food) restent inchangés.
+            $agency_attributes = ' data-order-agency-required="1" data-agence="' . esc_attr( $agency ) . '"';
+        }
+    }
+
     return '<div class="slbp-cart-wrap"><button type="button" class="slbp-add-cart" data-pid="' . esc_attr( $pid )
-         . '" data-label="Ajouter au panier" aria-label="Ajouter au panier">' . $svg . '<span>Ajouter au panier</span></button></div>';
+         . $agency_attributes . ' data-label="Ajouter au panier" aria-label="Ajouter au panier">' . $svg . '<span>Ajouter au panier</span></button></div>';
 }
 
 /* ------------------------------------------------------------
@@ -287,8 +297,7 @@ function sl_bp_render_bon_plan_card_html( $post ) {
 
     ob_start();
     ?>
-    <a class="slbp-card"
-         href="<?php echo esc_url( get_permalink( $id ) ); ?>"
+    <article class="slbp-card"
          data-nom="<?php echo esc_attr( strtolower( $post->post_title ) ); ?>"
          data-cat="<?php echo esc_attr( $cat_ids ); ?>"
          data-agence="<?php echo esc_attr( $agence_slug ); ?>"
@@ -297,24 +306,28 @@ function sl_bp_render_bon_plan_card_html( $post ) {
          data-date="<?php echo esc_attr( $post->post_date ); ?>">
 
         <div class="slbp-card-img-wrap">
-            <?php if ( $img_url ) : ?>
-                <img src="<?php echo esc_url( $img_url ); ?>"
-                     alt="<?php echo esc_attr( $post->post_title ); ?>" loading="lazy">
-            <?php else : ?>
-                <div class="slbp-no-img">🛒</div>
-            <?php endif; ?>
+            <a class="slbp-card-link slbp-card-img-link"
+               href="<?php echo esc_url( get_permalink( $id ) ); ?>"
+               aria-label="Voir l'offre : <?php echo esc_attr( $post->post_title ); ?>">
+                <?php if ( $img_url ) : ?>
+                    <img src="<?php echo esc_url( $img_url ); ?>"
+                         alt="<?php echo esc_attr( $post->post_title ); ?>" loading="lazy">
+                <?php else : ?>
+                    <div class="slbp-no-img">🛒</div>
+                <?php endif; ?>
 
-            <?php if ( $reduc > 0 ) : ?>
-                <span class="slbp-badge-reduc">-<?php echo $reduc; ?>%</span>
-            <?php endif; ?>
+                <?php if ( $reduc > 0 ) : ?>
+                    <span class="slbp-badge-reduc">-<?php echo $reduc; ?>%</span>
+                <?php endif; ?>
 
-            <?php if ( $badge ) : ?>
-                <span class="slbp-badge-type slbp-badge-<?php echo esc_attr( $badge ); ?>">
-                    <?php echo esc_html( $badge_label ); ?>
-                </span>
-            <?php endif; ?>
+                <?php if ( $badge ) : ?>
+                    <span class="slbp-badge-type slbp-badge-<?php echo esc_attr( $badge ); ?>">
+                        <?php echo esc_html( $badge_label ); ?>
+                    </span>
+                <?php endif; ?>
 
-            <div class="slbp-eye-btn" title="Voir l'offre">👁</div>
+                <span class="slbp-eye-btn" aria-hidden="true">👁</span>
+            </a>
             <button type="button" class="slbp-share-btn"
                     data-titre="<?php echo esc_attr( $post->post_title ); ?>"
                     data-prix="<?php echo esc_attr( $prix_ap > 0 ? number_format( $prix_ap, 0, ',', ' ' ) . ' FCFA' : '' ); ?>"
@@ -323,22 +336,24 @@ function sl_bp_render_bon_plan_card_html( $post ) {
             </button>
         </div>
 
-        <div class="slbp-card-body">
-            <div class="slbp-card-meta">
-                <?php if ( $agence_name ) : ?><span class="slbp-agence-tag"><?php echo esc_html( $agence_name ); ?></span><?php endif; ?>
-                <?php if ( $cat_name ) : ?><span class="slbp-cat-tag"><?php echo esc_html( $cat_name ); ?></span><?php endif; ?>
+        <a class="slbp-card-link slbp-card-body-link" href="<?php echo esc_url( get_permalink( $id ) ); ?>">
+            <div class="slbp-card-body">
+                <div class="slbp-card-meta">
+                    <?php if ( $agence_name ) : ?><span class="slbp-agence-tag"><?php echo esc_html( $agence_name ); ?></span><?php endif; ?>
+                    <?php if ( $cat_name ) : ?><span class="slbp-cat-tag"><?php echo esc_html( $cat_name ); ?></span><?php endif; ?>
+                </div>
+                <h3 class="slbp-titre"><?php echo esc_html( $post->post_title ); ?></h3>
+                <div class="slbp-prix-wrap">
+                    <?php if ( $prix_ap > 0 ) : ?><span class="slbp-prix-apres"><?php echo number_format( $prix_ap, 0, ',', ' ' ); ?> FCFA</span><?php endif; ?>
+                    <?php if ( $prix_av > 0 ) : ?><span class="slbp-prix-avant"><?php echo number_format( $prix_av, 0, ',', ' ' ); ?> FCFA</span><?php endif; ?>
+                </div>
+                <?php if ( $date_fin ) : ?><p class="slbp-date-fin">Valable jusqu'au <?php echo date_i18n( 'd M Y', strtotime( $date_fin ) ); ?></p><?php endif; ?>
+                <?php if ( $stock_actif === '1' ) : ?><p class="slbp-stock-mention">Dans la limite des stocks disponibles</p><?php endif; ?>
             </div>
-            <h3 class="slbp-titre"><?php echo esc_html( $post->post_title ); ?></h3>
-            <div class="slbp-prix-wrap">
-                <?php if ( $prix_ap > 0 ) : ?><span class="slbp-prix-apres"><?php echo number_format( $prix_ap, 0, ',', ' ' ); ?> FCFA</span><?php endif; ?>
-                <?php if ( $prix_av > 0 ) : ?><span class="slbp-prix-avant"><?php echo number_format( $prix_av, 0, ',', ' ' ); ?> FCFA</span><?php endif; ?>
-            </div>
-            <?php if ( $date_fin ) : ?><p class="slbp-date-fin">Valable jusqu'au <?php echo date_i18n( 'd M Y', strtotime( $date_fin ) ); ?></p><?php endif; ?>
-            <?php if ( $stock_actif === '1' ) : ?><p class="slbp-stock-mention">Dans la limite des stocks disponibles</p><?php endif; ?>
-        </div>
+        </a>
 
         <?php if ( function_exists( 'sl_bp_cart_button_html' ) ) echo sl_bp_cart_button_html( $id ); ?>
-    </a>
+    </article>
     <?php
     return trim( ob_get_clean() );
 }
@@ -413,6 +428,13 @@ function sl_bp_ajax_add_to_cart() {
         wp_send_json( [ 'ok' => false, 'msg' => 'Produit introuvable.' ] );
     }
     $new_ag  = sl_bp_product_agency( $pid );
+    $chosen_agency = isset( $_POST['agency'] ) ? sanitize_title( wp_unslash( $_POST['agency'] ) ) : '';
+    if ( $chosen_agency && $new_ag && $chosen_agency !== $new_ag ) {
+        wp_send_json( [ 'ok' => false, 'agency' => true, 'msg' => sprintf(
+            'Cette offre est disponible à « %s ». Choisissez cette agence pour commander.',
+            sl_bp_agency_name( $new_ag )
+        ) ] );
+    }
     $cart_ag = sl_bp_cart_agency();
     if ( $new_ag && $cart_ag && $cart_ag !== $new_ag ) {
         wp_send_json( [ 'ok' => false, 'agency' => true, 'msg' => sprintf(
@@ -542,11 +564,32 @@ function sl_bp_cart_assets() {
 
         function slbpAdd( btn ){
             var pid = btn.getAttribute('data-pid'); if ( ! pid ) return;
+            var requiresAgency = btn.getAttribute('data-order-agency-required') === '1';
+            var requestedAgency = '';
+            if ( requiresAgency ) {
+                var wrapper = btn.closest ? btn.closest('.slbp-wrapper') : null;
+                var agencySelect = wrapper ? wrapper.querySelector('.slbp-order-agency') : null;
+                // La fiche individuelle conserve son fonctionnement actuel : le
+                // sélecteur d'agence n'existe que sur la liste Bons Plans.
+                if ( ! agencySelect ) requiresAgency = false;
+            }
+            if ( requiresAgency ) {
+                requestedAgency = agencySelect.value || '';
+                if ( ! requestedAgency ) {
+                    slbpToast('Choisissez d’abord votre agence de retrait.', true);
+                    if ( agencySelect ) { agencySelect.focus(); agencySelect.scrollIntoView({ behavior:'smooth', block:'center' }); }
+                    return;
+                }
+                if ( btn.getAttribute('data-agence') && btn.getAttribute('data-agence') !== requestedAgency ) {
+                    slbpToast('Cette offre n’est pas disponible dans l’agence choisie.', true);
+                    return;
+                }
+            }
             var span = btn.querySelector('span');
             var label = btn.getAttribute('data-label') || 'Ajouter au panier';
             btn.classList.remove('done','err');
             btn.classList.add('loading'); if ( span ) span.textContent = 'Ajout…';
-            var body = 'product_id=' + encodeURIComponent(pid);
+            var body = 'product_id=' + encodeURIComponent(pid) + (requestedAgency ? '&agency=' + encodeURIComponent(requestedAgency) : '');
             fetch(ENDPOINT, { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body })
                 .then(function(r){ return r.json(); })
                 .then(function(res){
@@ -565,7 +608,10 @@ function sl_bp_cart_assets() {
                     }
                     if ( window.jQuery && res.fragments ) { jQuery(document.body).trigger('added_to_cart', [res.fragments, res.cart_hash, jQuery(btn)]); }
                     if ( span ) span.textContent = label;
-                    slbpToast('Produit ajouté au panier.', false, {
+                    var card = btn.closest ? btn.closest('.slbp-card') : null;
+                    var agencyTag = card ? card.querySelector('.slbp-agence-tag') : null;
+                    var successMessage = requestedAgency ? 'Produit ajouté — retrait à ' + (agencyTag ? agencyTag.textContent.trim() : 'votre agence') + '.' : 'Produit ajouté au panier.';
+                    slbpToast(successMessage, false, {
                         label: 'Voir le panier',
                         run: function(){ window.location.href = CART_URL; }
                     });

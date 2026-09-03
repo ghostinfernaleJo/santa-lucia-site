@@ -200,6 +200,7 @@ class SL_Bons_Plans_Widget extends Widget_Base {
         }
 
         $prix_max = max( 0, (int) ceil( $prix_max_site ) );
+        $cart_agency = function_exists( 'sl_bp_cart_agency' ) ? sl_bp_cart_agency() : '';
         ?>
 
         <div class="slbp-wrapper"
@@ -233,6 +234,23 @@ class SL_Bons_Plans_Widget extends Widget_Base {
                 </div>
                 <?php endif; ?>
             </div>
+            <?php endif; ?>
+
+            <?php if ( ! empty( $agences_dispo ) ) : ?>
+            <section class="slbp-order-agency-box" aria-labelledby="slbp-order-agency-title-<?php echo esc_attr( $wid ); ?>">
+                <div>
+                    <span class="slbp-order-agency-eyebrow">Commande en retrait</span>
+                    <strong id="slbp-order-agency-title-<?php echo esc_attr( $wid ); ?>">Dans quelle agence souhaitez-vous retirer vos achats ?</strong>
+                    <small>Choisissez une agence avant d’ajouter un bon plan au panier.</small>
+                </div>
+                <label class="screen-reader-text" for="slbp-order-agency-<?php echo esc_attr( $wid ); ?>">Agence de retrait</label>
+                <select id="slbp-order-agency-<?php echo esc_attr( $wid ); ?>" class="slbp-order-agency" data-cart-agency="<?php echo esc_attr( $cart_agency ); ?>">
+                    <option value="">Choisir mon agence de retrait</option>
+                    <?php foreach ( $agences_dispo as $slug => $name ) : ?>
+                        <option value="<?php echo esc_attr( $slug ); ?>" <?php selected( $cart_agency, $slug ); ?>><?php echo esc_html( $name ); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </section>
             <?php endif; ?>
 
             <?php /* ══ LAYOUT 2 COLONNES ══════════════════════════════ */ ?>

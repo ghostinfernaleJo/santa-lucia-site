@@ -19,9 +19,20 @@ add_filter( 'woocommerce_checkout_registration_enabled', '__return_true', 99 );
  */
 add_action( 'wp_enqueue_scripts', 'slc_checkout_enqueue_refonte_assets', 30 );
 function slc_checkout_enqueue_refonte_assets() {
-    if ( ! function_exists( 'is_checkout' ) || ! is_checkout() || ( function_exists( 'is_order_received_page' ) && is_order_received_page() ) ) {
+    $is_checkout = function_exists( 'is_checkout' ) && is_checkout() && ! ( function_exists( 'is_order_received_page' ) && is_order_received_page() );
+    $is_cart     = function_exists( 'is_cart' ) && is_cart();
+    if ( ! $is_checkout && ! $is_cart ) {
         return;
     }
+
+    if ( $is_cart ) {
+        $cart_css = SL_COLLECT_PATH . 'assets/cart-mobile-v1.css';
+        $cart_js  = SL_COLLECT_PATH . 'assets/cart-mobile-v1.js';
+        wp_enqueue_style( 'slc-cart-mobile', SL_COLLECT_URL . 'assets/cart-mobile-v1.css', [], file_exists( $cart_css ) ? (string) filemtime( $cart_css ) : SL_COLLECT_VERSION );
+        wp_enqueue_script( 'slc-cart-mobile', SL_COLLECT_URL . 'assets/cart-mobile-v1.js', [], file_exists( $cart_js ) ? (string) filemtime( $cart_js ) : SL_COLLECT_VERSION, true );
+    }
+
+    if ( ! $is_checkout ) return;
 
     $css_file = SL_COLLECT_PATH . 'assets/checkout-refonte-v1.css';
     $js_file  = SL_COLLECT_PATH . 'assets/checkout-refonte-v1.js';
@@ -39,6 +50,22 @@ function slc_checkout_enqueue_refonte_assets() {
         file_exists( $js_file ) ? (string) filemtime( $js_file ) : SL_COLLECT_VERSION,
         true
     );
+}
+
+/** Francisation ciblée du panier, sans modifier les autres écrans WooCommerce. */
+add_filter( 'gettext', 'slc_cart_french_labels', 20, 3 );
+function slc_cart_french_labels( $translated, $text, $domain ) {
+    if ( is_admin() || ! function_exists( 'is_cart' ) || ! is_cart() ) return $translated;
+    $labels = [
+        'Cart'          => 'Panier',
+        'Quantity'      => 'Quantité',
+        'Coupon:'       => 'Code promo :',
+        'Coupon code'   => 'Saisissez votre code',
+        'Apply coupon'  => 'Appliquer',
+        'Clear All'     => 'Vider le panier',
+        'Shopping Cart' => 'Panier',
+    ];
+    return isset( $labels[ $text ] ) ? $labels[ $text ] : $translated;
 }
 
 /** Etape 1 : informations necessaires au retrait. */
