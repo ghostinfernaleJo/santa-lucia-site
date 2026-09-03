@@ -189,7 +189,8 @@ class SL_Bons_Plans_Carousel_Widget extends Widget_Base {
         $img   = $c['img']   ?? '';
         $title = $c['title'] ?? '';
         ?>
-        <a class="slbp-card" href="<?php echo esc_url( $c['url'] ?? '#' ); ?>">
+        <article class="slbp-card">
+            <a class="slbp-card-link slbp-card-image-link" href="<?php echo esc_url( $c['url'] ?? '#' ); ?>" aria-label="Voir <?php echo esc_attr( $title ); ?>">
             <div class="slbp-card-img-wrap">
                 <?php if ( $img ) : ?>
                     <img src="<?php echo esc_url( $img ); ?>" alt="<?php echo esc_attr( $title ); ?>" loading="lazy">
@@ -204,6 +205,8 @@ class SL_Bons_Plans_Carousel_Widget extends Widget_Base {
                 <?php endif; ?>
                 <div class="slbp-eye-btn" title="Voir l'offre">👁</div>
             </div>
+            </a>
+            <a class="slbp-card-link slbp-card-content-link" href="<?php echo esc_url( $c['url'] ?? '#' ); ?>">
             <div class="slbp-card-body">
                 <div class="slbp-card-meta">
                     <?php if ( ! empty( $c['agence'] ) ) : ?><span class="slbp-agence-tag"><?php echo esc_html( $c['agence'] ); ?></span><?php endif; ?>
@@ -217,8 +220,9 @@ class SL_Bons_Plans_Carousel_Widget extends Widget_Base {
                 <?php if ( ! empty( $c['date_fin'] ) ) : ?><p class="slbp-date-fin">Valable jusqu'au <?php echo date_i18n( 'd M Y', strtotime( $c['date_fin'] ) ); ?></p><?php endif; ?>
                 <?php if ( ! empty( $c['stock'] ) ) : ?><p class="slbp-stock-mention">Dans la limite des stocks disponibles</p><?php endif; ?>
             </div>
-            <?php if ( function_exists( 'sl_bp_cart_button_html' ) && ! empty( $c['cart_pid'] ) ) echo sl_bp_cart_button_html( 0, (int) $c['cart_pid'] ); ?>
-        </a>
+            </a>
+            <?php if ( function_exists( 'sl_bp_cart_button_html' ) && ! empty( $c['cart_pid'] ) ) echo sl_bp_cart_button_html( (int) ( $c['bon_plan_id'] ?? 0 ), (int) $c['cart_pid'] ); ?>
+        </article>
         <?php
     }
 
@@ -275,6 +279,7 @@ class SL_Bons_Plans_Carousel_Widget extends Widget_Base {
                     'reduc'   => $has_sale ? (int) round( ( ( $reg - $sale ) / $reg ) * 100 ) : 0,
                     'badge'   => '', 'badge_label' => '', 'date_fin' => '', 'stock' => false,
                     'agence'  => '', 'cat' => $catn,
+                    'bon_plan_id' => 0,
                     'cart_pid' => (int) $pid,
                 ];
             }
@@ -317,6 +322,7 @@ class SL_Bons_Plans_Carousel_Widget extends Widget_Base {
                     'stock'       => ( $stock_actif === '1' ),
                     'agence'      => ! empty( $atb ) ? $atb[0]->name : '',
                     'cat'         => ! empty( $ctb ) ? $ctb[0]->name : '',
+                    'bon_plan_id' => (int) $p->ID,
                     'cart_pid'    => function_exists( 'sl_bp_product_id_for' ) ? sl_bp_product_id_for( $p->ID ) : 0,
                 ];
             }
@@ -354,6 +360,11 @@ class SL_Bons_Plans_Carousel_Widget extends Widget_Base {
         #<?php echo $uid; ?> .slbpc-dots{display:flex;gap:6px;justify-content:center;margin-top:6px;flex-wrap:wrap;}
         #<?php echo $uid; ?> .slbpc-dot{width:8px;height:8px;border-radius:50%;border:none;background:#dcdcdc;cursor:pointer;padding:0;transition:.2s;}
         #<?php echo $uid; ?> .slbpc-dot.is-active{background:#E91E63;width:22px;border-radius:4px;}
+        #<?php echo $uid; ?> .slbpc-order-agency{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 16px;padding:13px 15px;border:1px solid #f1d4df;border-radius:10px;background:#fff8fb;}
+        #<?php echo $uid; ?> .slbpc-order-agency strong{display:block;color:#1d2327;font-size:14px;}
+        #<?php echo $uid; ?> .slbpc-order-agency small{display:block;margin-top:3px;color:#6b7178;font-size:12px;}
+        #<?php echo $uid; ?> .slbpc-order-agency select{width:min(300px,100%);min-height:44px;padding:0 12px;border:1px solid #d9dce1;border-radius:7px;background:#fff;color:#1d2327;font:600 13px inherit;}
+        @media (max-width:600px){#<?php echo $uid; ?> .slbpc-order-agency{align-items:stretch;flex-direction:column;gap:10px;}#<?php echo $uid; ?> .slbpc-order-agency select{width:100%;}}
         @media (max-width:600px){#<?php echo $uid; ?> .slbpc-arrow{display:none;}}
         </style>
 
@@ -366,6 +377,22 @@ class SL_Bons_Plans_Carousel_Widget extends Widget_Base {
             <div class="slbpc-head">
                 <?php if ( ! empty( $s['titre'] ) ) : ?><h2><?php echo esc_html( $s['titre'] ); ?></h2><?php endif; ?>
                 <?php if ( ! empty( $s['sous_titre'] ) ) : ?><p><?php echo esc_html( $s['sous_titre'] ); ?></p><?php endif; ?>
+            </div>
+            <?php endif; ?>
+
+            <?php
+            $carousel_agencies = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC' ] );
+            $cart_agency = function_exists( 'sl_bp_cart_agency' ) ? sl_bp_cart_agency() : '';
+            if ( ! is_wp_error( $carousel_agencies ) && ! empty( $carousel_agencies ) ) : ?>
+            <div class="slbpc-order-agency">
+                <div><strong>Commande en retrait</strong><small>Choisissez votre agence avant d’ajouter une offre au panier.</small></div>
+                <label class="screen-reader-text" for="<?php echo esc_attr( $uid ); ?>-agency">Agence de retrait</label>
+                <select id="<?php echo esc_attr( $uid ); ?>-agency" class="slbp-order-agency" data-cart-agency="<?php echo esc_attr( $cart_agency ); ?>">
+                    <option value="">Choisir mon agence de retrait</option>
+                    <?php foreach ( $carousel_agencies as $agency_term ) : ?>
+                        <option value="<?php echo esc_attr( $agency_term->slug ); ?>" <?php selected( $cart_agency, $agency_term->slug ); ?>><?php echo esc_html( $agency_term->name ); ?></option>
+                    <?php endforeach; ?>
+                </select>
             </div>
             <?php endif; ?>
 

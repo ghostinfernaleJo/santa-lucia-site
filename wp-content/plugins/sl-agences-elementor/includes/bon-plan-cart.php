@@ -567,7 +567,7 @@ function sl_bp_cart_assets() {
             var requiresAgency = btn.getAttribute('data-order-agency-required') === '1';
             var requestedAgency = '';
             if ( requiresAgency ) {
-                var wrapper = btn.closest ? btn.closest('.slbp-wrapper') : null;
+                var wrapper = btn.closest ? (btn.closest('.slbp-wrapper') || btn.closest('.slbpc')) : null;
                 var agencySelect = wrapper ? wrapper.querySelector('.slbp-order-agency') : null;
                 // La fiche individuelle conserve son fonctionnement actuel : le
                 // sélecteur d'agence n'existe que sur la liste Bons Plans.
