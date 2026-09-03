@@ -74,7 +74,7 @@ function slc_checkout_customer_intro() {
     echo '<section class="slc-checkout-intro" aria-labelledby="slc-checkout-title">'
         . '<span class="slc-checkout-intro__eyebrow">Commande en ligne</span>'
         . '<h1 id="slc-checkout-title">Finalisez votre commande</h1>'
-        . '<p>Renseignez vos coordonnées, choisissez votre agence et recevez votre code de retrait par SMS ou e-mail.</p>'
+        . '<p>Vos coordonnées et votre créneau de retrait. Le paiement vient ensuite.</p>'
         . '<ul class="slc-checkout-reassurance" aria-label="Vos garanties">'
         . '<li>Retrait en agence</li><li>Confirmation par SMS</li><li>Paiement sécurisé</li>'
         . '</ul></section>';
@@ -84,7 +84,7 @@ add_action( 'woocommerce_before_checkout_billing_form', 'slc_checkout_billing_he
 function slc_checkout_billing_heading() {
     echo '<div class="slc-checkout-section-heading">'
         . '<span class="slc-checkout-step" aria-hidden="true">1</span>'
-        . '<div><h2>Vos coordonnées et votre retrait</h2><p>Nous les utilisons uniquement pour préparer votre commande et vous prévenir.</p></div>'
+        . '<div><h2>Coordonnées et retrait</h2><p>Les champs marqués d’un astérisque sont nécessaires.</p></div>'
         . '</div>';
 }
 
