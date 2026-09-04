@@ -40,6 +40,14 @@
     reset.hidden = true;
     loadProducts();
   }
+  function setCategory(value, activeButton) {
+    selectedCategory = value || '';
+    root.querySelectorAll('.slcat__category, .slcat__all-cats').forEach(function (button) {
+      button.classList.toggle('is-active', button === activeButton);
+    });
+    reset.hidden = !selectedCategory;
+    loadProducts();
+  }
   var saved = localStorage.getItem('sl_catalogue_agency');
   if (!agency.value && saved && agency.querySelector('option[value="' + CSS.escape(saved) + '"]')) agency.value = saved;
   if (agency.value) { search.disabled = false; root.dataset.ready = 'true'; }
@@ -48,14 +56,12 @@
   root.querySelectorAll('.slcat__category').forEach(function (button) {
     button.addEventListener('click', function () {
       if (!selectedAgency()) { agency.focus(); showToast('Choisissez votre agence avant de consulter ce rayon.'); return; }
-      selectedCategory = button.dataset.category || '';
-      reset.hidden = !selectedCategory;
-      loadProducts();
+      setCategory(button.dataset.category || '', button);
       root.querySelector('.slcat__results').scrollIntoView({behavior:'smooth', block:'start'});
     });
   });
-  root.querySelector('.slcat__all-cats').addEventListener('click', function () { selectedCategory = ''; reset.hidden = true; loadProducts(); });
-  reset.addEventListener('click', function () { selectedCategory = ''; reset.hidden = true; loadProducts(); });
+  root.querySelector('.slcat__all-cats').addEventListener('click', function () { setCategory('', root.querySelector('.slcat__all-cats')); });
+  reset.addEventListener('click', function () { setCategory('', root.querySelector('.slcat__all-cats')); });
   root.addEventListener('click', function (event) {
     var button = event.target.closest('.slcat-product__add');
     if (!button) return;

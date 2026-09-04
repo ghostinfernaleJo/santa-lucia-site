@@ -154,23 +154,16 @@ function slcat_render_catalogue() {
         <p class="slcat__availability" aria-live="polite"><span></span>Choisissez votre agence : les prix et le stock peuvent varier selon le magasin.</p>
 
         <div class="slcat__body">
-            <?php if ( count( $categories ) > 1 ) : ?>
-            <section class="slcat__featured" aria-labelledby="slcat-departments-title">
-                <div class="slcat__section-head">
-                    <div>
-                        <p class="slcat__eyebrow">Rayons</p>
-                        <h2 id="slcat-departments-title">Choisir un rayon</h2>
-                    </div>
-                    <button class="slcat__all-cats" type="button">Voir tous les rayons</button>
-                </div>
+            <aside class="slcat__sidebar" aria-labelledby="slcat-departments-title">
+                <p class="slcat__eyebrow">Navigation</p>
+                <h2 id="slcat-departments-title">Rayons</h2>
                 <div class="slcat__categories">
+                    <button class="slcat__all-cats is-active" type="button">Tous les produits</button>
                     <?php foreach ( $categories as $category ) : ?>
                         <button class="slcat__category" type="button" data-category="<?php echo esc_attr( $category->term_id ); ?>"><?php echo esc_html( $category->name ); ?></button>
                     <?php endforeach; ?>
                 </div>
-            </section>
-            <?php endif; ?>
-
+            </aside>
             <section class="slcat__results" aria-labelledby="slcat-results-title">
                 <div class="slcat__results-head">
                     <h2 id="slcat-results-title">Produits disponibles</h2>
