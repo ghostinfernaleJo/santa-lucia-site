@@ -75,6 +75,8 @@
       '<button type="button" data-prompt="Quelles sont les promotions disponibles en ce moment ?">🏷️ Promotions</button>' +
       '<button type="button" data-prompt="Aide-moi à trouver l’agence Santa Lucia la plus adaptée.">📍 Une agence</button>' +
       '<button type="button" data-prompt="Aide-moi à préparer un panier selon mon budget.">✨ Panier budget</button>' +
+      '<button type="button" data-prompt="Je veux préparer une liste de courses.">📝 Liste de courses</button>' +
+      '<button type="button" data-prompt="Je veux suivre ma commande.">📦 Suivre ma commande</button>' +
     '</div>' +
     '<div class="sl-lucie-msgs" id="sl-lucie-msgs" role="log" aria-live="polite" aria-relevant="additions"></div>' +
     '<div class="sl-lucie-cart" id="sl-lucie-cart" hidden></div>' +
@@ -248,7 +250,10 @@
     payload.action = action;
     if (trigger) trigger.disabled = true;
     return postJson(slLucie.cartRest, payload).then(function (result) {
-      if (result && result.cart) renderCart(result.cart);
+      if (result && result.cart) {
+        renderCart(result.cart);
+        if (action === 'view' && result.ok && !result.cart.empty) remindSavedCart();
+      }
       showNote(result && result.message ? result.message : (result && result.ok ? 'Panier mis à jour.' : 'Impossible de modifier le panier.'), !(result && result.ok));
       if (window.jQuery && result && result.ok && action !== 'view') window.jQuery(document.body).trigger('wc_fragment_refresh');
       return result;
@@ -258,6 +263,16 @@
       if (trigger) trigger.disabled = false;
       return result;
     });
+  }
+
+  function remindSavedCart() {
+    var key = 'sl_lucie_cart_reminder_at';
+    var now = Date.now();
+    var previous = 0;
+    try { previous = parseInt(localStorage.getItem(key) || '0', 10); } catch (ignore) {}
+    if (previous && now - previous < 86400000) return;
+    try { localStorage.setItem(key, String(now)); } catch (ignore) {}
+    showNote('Votre panier est toujours disponible. Vous pouvez le reprendre quand vous voulez.', false);
   }
 
   function typingRow() {

@@ -531,6 +531,101 @@ function sl_lucie_recommend_budget( $input ) {
     ];
 }
 
+/**
+ * Liste de courses : recherche deterministe, sans demander au modele de
+ * fabriquer des produits. L'agence est obligatoire afin de ne jamais laisser
+ * croire qu'un produit est disponible dans un lieu non verifie.
+ */
+function sl_lucie_prepare_shopping_list( $input ) {
+    $raw_items = $input['articles'] ?? [];
+    if ( ! is_array( $raw_items ) ) $raw_items = preg_split( '/[,;\n]+/', (string) $raw_items );
+    $items = [];
+    foreach ( array_slice( (array) $raw_items, 0, 12 ) as $item ) {
+        $item = sanitize_text_field( (string) $item );
+        if ( $item !== '' ) $items[] = $item;
+    }
+    $items = array_values( array_unique( $items ) );
+    if ( ! $items ) return [ 'ok' => false, 'message' => 'Indique au moins un article pour préparer la liste.' ];
+
+    $agency = sanitize_text_field( (string) ( $input['agence'] ?? '' ) );
+    $city   = sanitize_text_field( (string) ( $input['ville'] ?? '' ) );
+    if ( $agency === '' && $city === '' ) {
+        return [ 'ok' => false, 'needs_location' => true, 'message' => 'Précise une agence ou une ville afin que je vérifie la disponibilité réelle de ta liste.' ];
+    }
+    $agencies = sl_lucie_resolve_agencies( $agency, $city );
+    if ( ! $agencies ) return [ 'ok' => false, 'message' => 'Je ne trouve pas cette agence ou cette ville. Demande-moi la liste des agences disponibles.' ];
+    $slugs = array_values( array_unique( array_map( fn( $agency_item ) => $agency_item['slug'], $agencies ) ) );
+
+    $cards = [];
+    $found = [];
+    $missing = [];
+    foreach ( $items as $item ) {
+        $tokens = sl_lucie_recommendation_tokens( $item, '' );
+        if ( ! $tokens ) { $missing[] = $item; continue; }
+        $candidates = sl_lucie_recommendation_candidates( $slugs, $tokens, true );
+        if ( ! $candidates ) { $missing[] = $item; continue; }
+        usort( $candidates, function( $a, $b ) {
+            return $b['match_score'] === $a['match_score'] ? $a['price_raw'] <=> $b['price_raw'] : $b['match_score'] <=> $a['match_score'];
+        } );
+        $card = $candidates[0];
+        if ( $card['match_score'] < 60 ) { $missing[] = $item; continue; }
+        $card['recommended_quantity'] = 1;
+        if ( isset( $cards[ $card['product_id'] ] ) ) {
+            $cards[ $card['product_id'] ]['recommended_quantity'] = min( 20, $cards[ $card['product_id'] ]['recommended_quantity'] + 1 );
+        } else {
+            $cards[ $card['product_id'] ] = $card;
+        }
+        $found[] = [ 'demande' => $item, 'produit' => $card['name'], 'prix' => $card['price'] ];
+    }
+    $cards = array_values( $cards );
+    if ( $cards ) sl_lucie_set_ui_cards( $cards );
+    return [
+        'ok'       => ! empty( $cards ),
+        'agences'  => array_values( array_map( fn( $agency_item ) => $agency_item['name'], $agencies ) ),
+        'trouves'  => $found,
+        'manquants'=> $missing,
+        'message'  => $cards ? 'Voici les articles disponibles pour ta liste. Rien n’a été ajouté au panier.' : 'Aucun article de cette liste n’est disponible à la commande dans l’agence choisie.',
+    ];
+}
+
+/** Reprise privee : uniquement la derniere commande du client deja connecte. */
+function sl_lucie_last_order_recommendation() {
+    if ( ! is_user_logged_in() || ! function_exists( 'wc_get_orders' ) ) {
+        return [ 'ok' => false, 'requires_login' => true, 'message' => 'Connecte-toi à ton compte Santa Lucia pour retrouver ta dernière commande en toute sécurité.' ];
+    }
+    $orders = wc_get_orders( [
+        'customer_id' => get_current_user_id(),
+        'limit'       => 8,
+        'orderby'     => 'date',
+        'order'       => 'DESC',
+        'return'      => 'objects',
+    ] );
+    $order = null;
+    foreach ( $orders as $candidate ) {
+        if ( $candidate && ! $candidate->has_status( [ 'cancelled', 'failed', 'refunded', 'trash' ] ) ) { $order = $candidate; break; }
+    }
+    if ( ! $order ) return [ 'ok' => false, 'message' => 'Aucune commande précédente utilisable n’a été trouvée dans ton compte.' ];
+
+    $cards = [];
+    $unavailable = [];
+    foreach ( $order->get_items() as $item ) {
+        $product_id = (int) $item->get_product_id();
+        $card = $product_id ? sl_lucie_product_card( $product_id ) : null;
+        if ( ! $card || ! $card['addable'] ) { $unavailable[] = $item->get_name(); continue; }
+        $card['recommended_quantity'] = max( 1, min( 20, (int) $item->get_quantity() ) );
+        $cards[ $product_id ] = $card;
+    }
+    $cards = array_values( $cards );
+    if ( $cards ) sl_lucie_set_ui_cards( $cards );
+    return [
+        'ok'          => ! empty( $cards ),
+        'commande'    => $order->get_order_number(),
+        'articles'    => array_map( fn( $card ) => [ 'nom' => $card['name'], 'quantite_habituelle' => $card['recommended_quantity'], 'prix' => $card['price'] ], $cards ),
+        'indisponibles'=> $unavailable,
+        'message'     => $cards ? 'Voici les articles encore disponibles de ta dernière commande. Choisis ceux que tu souhaites ajouter au panier.' : 'Les articles de ta dernière commande ne sont pas disponibles à la commande actuellement.',
+    ];
+}
+
 /* -------------------------------------------------------------------------
  * Garde supplementaire pour les mutations demandees par le modele
  * ---------------------------------------------------------------------- */

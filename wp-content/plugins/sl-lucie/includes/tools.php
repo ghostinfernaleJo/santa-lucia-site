@@ -100,6 +100,24 @@ function sl_lucie_tools_defs() {
             ],
         ],
         [
+            'name' => 'preparer_liste_courses',
+            'description' => 'Transforme une liste de courses ecrite par le client en produits reellement achetables dans une agence ou une ville. Verifie les prix et disponibilites, puis affiche des cartes que le client choisit lui-meme. Ne modifie jamais le panier.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'articles' => [ 'type' => 'array', 'items' => [ 'type' => 'string' ], 'description' => 'Les articles recherches, par exemple riz, huile, savon.' ],
+                    'agence'  => [ 'type' => 'string', 'description' => 'Agence de retrait souhaitee.' ],
+                    'ville'   => [ 'type' => 'string', 'description' => 'Ville souhaitee si l’agence n’est pas connue.' ],
+                ],
+                'required' => [ 'articles' ],
+            ],
+        ],
+        [
+            'name' => 'reprendre_derniere_commande',
+            'description' => 'Pour un client connecte a son compte, retrouve sa derniere commande et propose uniquement les articles encore disponibles. Ne modifie jamais le panier : le client choisit les articles a ajouter.',
+            'input_schema' => [ 'type' => 'object', 'properties' => new stdClass() ],
+        ],
+        [
             'name' => 'voir_panier',
             'description' => 'Affiche le panier WooCommerce actuel de ce visiteur, avec articles, quantites, agence et total reels.',
             'input_schema' => [ 'type' => 'object', 'properties' => new stdClass() ],
@@ -561,6 +579,16 @@ function sl_lucie_run_tool( $name, $input ) {
             $d = function_exists( 'sl_lucie_recommend_budget' )
                 ? sl_lucie_recommend_budget( $input )
                 : [ 'ok' => false, 'message' => 'Le moteur de recommandation est indisponible.' ];
+            break;
+        case 'preparer_liste_courses':
+            $d = function_exists( 'sl_lucie_prepare_shopping_list' )
+                ? sl_lucie_prepare_shopping_list( $input )
+                : [ 'ok' => false, 'message' => 'La liste de courses est indisponible.' ];
+            break;
+        case 'reprendre_derniere_commande':
+            $d = function_exists( 'sl_lucie_last_order_recommendation' )
+                ? sl_lucie_last_order_recommendation()
+                : [ 'ok' => false, 'message' => 'La reprise de commande est indisponible.' ];
             break;
         case 'voir_panier':
             $cart = function_exists( 'sl_lucie_cart_snapshot' ) ? sl_lucie_cart_snapshot() : [ 'available' => false ];
