@@ -62,6 +62,18 @@ function slcat_render_settings_page() {
                 </button>
             </form>
         </div>
+        <div style="max-width:760px;margin-top:20px;padding:24px;background:#fff;border:1px solid #dcdcde;">
+            <h2 style="margin-top:0;">Jeu de démonstration</h2>
+            <p>Crée des références clairement identifiées <strong>« Produit démo »</strong> pour vérifier l’interface, la recherche, les prix et la disponibilité par agence. Les références déjà créées ne seront jamais dupliquées.</p>
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                <?php wp_nonce_field( 'slcat_seed_demo_catalogue' ); ?>
+                <input type="hidden" name="action" value="slcat_seed_demo_catalogue">
+                <button type="submit" class="button button-secondary">Créer les produits de démonstration</button>
+            </form>
+            <?php if ( isset( $_GET['slcat_demo_created'] ) ) : ?>
+                <p style="margin-bottom:0;color:#15803d;"><strong><?php echo esc_html( absint( $_GET['slcat_demo_created'] ) ); ?> produit(s) de démonstration créé(s).</strong></p>
+            <?php endif; ?>
+        </div>
         <p style="margin-top:20px;"><strong>À placer dans Elementor :</strong> <code>[sl_catalogue]</code></p>
     </div>
     <?php
@@ -72,6 +84,74 @@ add_action( 'admin_post_slcat_toggle_catalogue', function () {
     check_admin_referer( 'slcat_toggle_catalogue' );
     update_option( 'slcat_enabled', isset( $_POST['enabled'] ) && wp_unslash( $_POST['enabled'] ) === 'yes' ? 'yes' : 'no' );
     wp_safe_redirect( add_query_arg( 'page', 'sl-catalogue', admin_url( 'admin.php' ) ) );
+    exit;
+} );
+
+/** Crée un catalogue de test reproductible, sans écraser les références existantes. */
+add_action( 'admin_post_slcat_seed_demo_catalogue', function () {
+    if ( ! current_user_can( 'manage_woocommerce' ) ) wp_die( 'Accès non autorisé.' );
+    check_admin_referer( 'slcat_seed_demo_catalogue' );
+
+    $items = [
+        [ 'Produit démo — Café moulu Santa Lucia 250 g', 1850 ],
+        [ 'Produit démo — Eau minérale source 1,5 L', 650 ],
+        [ 'Produit démo — Riz parfumé 1 kg', 1450 ],
+        [ 'Produit démo — Pâtes spaghetti 500 g', 900 ],
+        [ 'Produit démo — Huile de tournesol 1 L', 2100 ],
+        [ 'Produit démo — Lait UHT demi-écrémé 1 L', 1100 ],
+        [ 'Produit démo — Biscuits chocolat 200 g', 950 ],
+        [ 'Produit démo — Confiture fraise 370 g', 1750 ],
+        [ 'Produit démo — Thé citron 25 sachets', 1200 ],
+        [ 'Produit démo — Savon liquide aloe vera 500 ml', 1600 ],
+        [ 'Produit démo — Papier toilette doux x12', 2800 ],
+        [ 'Produit démo — Shampooing nutrition 400 ml', 2400 ],
+        [ 'Produit démo — Dentifrice fraîcheur 100 g', 1350 ],
+        [ 'Produit démo — Crème hydratante 250 ml', 2200 ],
+        [ 'Produit démo — Arachides grillées 150 g', 700 ],
+        [ 'Produit démo — Chips de plantain 100 g', 800 ],
+        [ 'Produit démo — Chocolat noir 100 g', 1150 ],
+        [ 'Produit démo — Eau gazeuse 50 cl', 500 ],
+        [ 'Produit démo — Café instantané 100 g', 2900 ],
+        [ 'Produit démo — Jus orange pressé 1 L', 1250 ],
+    ];
+
+    $category = get_term_by( 'name', 'Produit frais et transformé', 'product_cat' );
+    $agencies = array_values( array_filter( [ 'bonaberi', 'mokolo' ], function ( $slug ) {
+        return (bool) get_term_by( 'slug', $slug, 'sl_agence_promo' );
+    } ) );
+    if ( empty( $agencies ) && function_exists( 'slcat_agencies' ) ) {
+        $agencies = array_slice( wp_list_pluck( slcat_agencies(), 'slug' ), 0, 2 );
+    }
+
+    $created = 0;
+    foreach ( $items as [ $name, $price ] ) {
+        if ( get_page_by_title( $name, OBJECT, 'product' ) ) continue;
+        $product = new WC_Product_Simple();
+        $product->set_name( $name );
+        $product->set_status( 'publish' );
+        $product->set_catalog_visibility( 'visible' );
+        $product->set_regular_price( (string) $price );
+        $product->set_price( (string) $price );
+        $product->set_stock_status( 'instock' );
+        $product->set_manage_stock( false );
+        if ( $category && ! is_wp_error( $category ) ) $product->set_category_ids( [ (int) $category->term_id ] );
+        $product_id = $product->save();
+        if ( ! $product_id ) continue;
+
+        $agency_prices = [];
+        $agency_stock  = [];
+        foreach ( $agencies as $index => $agency ) {
+            $agency_prices[ $agency ] = $price + ( $index * 50 );
+            $agency_stock[ $agency ]  = 10 + ( $index * 5 );
+        }
+        update_post_meta( $product_id, SLCAT_AGENCIES_META, wp_json_encode( $agencies ) );
+        update_post_meta( $product_id, SLCAT_PRICES_META, wp_json_encode( $agency_prices ) );
+        update_post_meta( $product_id, SLCAT_STOCK_META, wp_json_encode( $agency_stock ) );
+        update_post_meta( $product_id, '_slcat_demo_seed', '1' );
+        $created++;
+    }
+    delete_transient( 'slcat_top_categories_v1' );
+    wp_safe_redirect( add_query_arg( [ 'page' => 'sl-catalogue', 'slcat_demo_created' => $created ], admin_url( 'admin.php' ) ) );
     exit;
 } );
 
