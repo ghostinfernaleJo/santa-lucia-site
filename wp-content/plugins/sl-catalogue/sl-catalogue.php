@@ -92,9 +92,11 @@ function slcat_demo_media_id( $needle ) {
     global $wpdb;
     $needle = sanitize_text_field( (string) $needle );
     if ( '' === $needle ) return 0;
+    $slug = sanitize_title( $needle );
     $id = $wpdb->get_var( $wpdb->prepare(
-        "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_mime_type LIKE 'image/%%' AND post_status = 'inherit' AND post_title LIKE %s ORDER BY ID DESC LIMIT 1",
-        '%' . $wpdb->esc_like( $needle ) . '%'
+        "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_mime_type LIKE 'image/%%' AND post_status = 'inherit' AND (post_title LIKE %s OR post_name LIKE %s) ORDER BY ID DESC LIMIT 1",
+        '%' . $wpdb->esc_like( $needle ) . '%',
+        '%' . $wpdb->esc_like( $slug ) . '%'
     ) );
     return absint( $id );
 }
@@ -135,10 +137,16 @@ add_action( 'admin_post_slcat_seed_demo_catalogue', function () {
 
     $category = get_term_by( 'name', 'Produit frais et transformé', 'product_cat' );
     $agencies = function_exists( 'slcat_agencies' ) ? wp_list_pluck( slcat_agencies(), 'slug' ) : [];
+    // Les médias existants servent aussi de visuels de démonstration de secours :
+    // aucun téléversement ni image cassée dans le catalogue d’aperçu.
+    $media_pool = array_values( array_filter( array_map( 'slcat_demo_media_id', [
+        'detergent liquide viking', 'top', 'biere blonde pilsner',
+        'jus de fruit pomme', 'sirop cassis bidon', 'boulettes sautees',
+    ] ) ) );
 
     $created = 0;
     $updated = 0;
-    foreach ( $items as [ $key, $name, $price, $media_search, $legacy_name ] ) {
+    foreach ( $items as $item_index => [ $key, $name, $price, $media_search, $legacy_name ] ) {
         $existing_ids = get_posts( [ 'post_type' => 'product', 'post_status' => 'any', 'posts_per_page' => 1, 'fields' => 'ids', 'meta_key' => '_slcat_demo_key', 'meta_value' => $key ] );
         $existing = $existing_ids ? get_post( $existing_ids[0] ) : get_page_by_title( $name, OBJECT, 'product' );
         if ( ! $existing && $legacy_name ) $existing = get_page_by_title( $legacy_name, OBJECT, 'product' );
@@ -159,10 +167,9 @@ add_action( 'admin_post_slcat_seed_demo_catalogue', function () {
         $product->set_name( $name );
         $product->set_regular_price( (string) $price );
         $product->set_price( (string) $price );
-        if ( $media_search ) {
-            $image_id = slcat_demo_media_id( $media_search );
-            if ( $image_id ) $product->set_image_id( $image_id );
-        }
+        $image_id = $media_search ? slcat_demo_media_id( $media_search ) : 0;
+        if ( ! $image_id && $media_pool ) $image_id = $media_pool[ $item_index % count( $media_pool ) ];
+        if ( $image_id ) $product->set_image_id( $image_id );
         $product_id = $product->save();
         if ( ! $product_id ) continue;
 
