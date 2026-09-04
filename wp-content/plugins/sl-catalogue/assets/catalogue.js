@@ -7,6 +7,7 @@
   var results = root.querySelector('.slcat__results-content');
   var reset = root.querySelector('.slcat__reset');
   var toast = root.querySelector('.slcat__toast');
+  var availability = root.querySelector('.slcat__availability');
   var selectedCategory = '';
   var timer;
 
@@ -31,10 +32,19 @@
         results.innerHTML = '<div class="slcat__product-grid">' + res.data.html + '</div>';
       }).catch(function () { empty(SLCatalogue.errorCopy); });
   }
-  function setAgency() {
+  function updateAgencyState() {
     var value = selectedAgency();
     search.disabled = !value;
     root.dataset.ready = value ? 'true' : 'false';
+    if (availability) {
+      availability.innerHTML = '<span></span>' + (value
+        ? 'Produits, prix et stock affichés pour l’agence « ' + agency.options[agency.selectedIndex].text + ' ».'
+        : 'Choisissez votre agence : les prix et le stock peuvent varier selon le magasin.');
+    }
+  }
+  function setAgency() {
+    var value = selectedAgency();
+    updateAgencyState();
     if (value) localStorage.setItem('sl_catalogue_agency', value);
     selectedCategory = '';
     reset.hidden = true;
@@ -50,7 +60,10 @@
   }
   var saved = localStorage.getItem('sl_catalogue_agency');
   if (!agency.value && saved && agency.querySelector('option[value="' + CSS.escape(saved) + '"]')) agency.value = saved;
-  if (agency.value) { search.disabled = false; root.dataset.ready = 'true'; }
+  updateAgencyState();
+  // Une agence déjà pré-remplie (panier ou choix précédent) doit charger
+  // immédiatement son catalogue, sans obliger le client à la re-sélectionner.
+  if (agency.value) loadProducts();
   agency.addEventListener('change', setAgency);
   search.addEventListener('input', function () { window.clearTimeout(timer); timer = window.setTimeout(loadProducts, 280); });
   root.querySelectorAll('.slcat__category').forEach(function (button) {
