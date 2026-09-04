@@ -87,22 +87,34 @@ add_action( 'admin_post_slcat_toggle_catalogue', function () {
     exit;
 } );
 
+/** Retrouve un visuel déjà présent dans la médiathèque, sans téléverser de copie. */
+function slcat_demo_media_id( $needle ) {
+    global $wpdb;
+    $needle = sanitize_text_field( (string) $needle );
+    if ( '' === $needle ) return 0;
+    $id = $wpdb->get_var( $wpdb->prepare(
+        "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_mime_type LIKE 'image/%%' AND post_status = 'inherit' AND post_title LIKE %s ORDER BY ID DESC LIMIT 1",
+        '%' . $wpdb->esc_like( $needle ) . '%'
+    ) );
+    return absint( $id );
+}
+
 /** Crée un catalogue de test reproductible et le rend visible dans chaque agence. */
 add_action( 'admin_post_slcat_seed_demo_catalogue', function () {
     if ( ! current_user_can( 'manage_woocommerce' ) ) wp_die( 'Accès non autorisé.' );
     check_admin_referer( 'slcat_seed_demo_catalogue' );
 
     $items = [
-        [ 'Produit démo — Café moulu Santa Lucia 250 g', 1850 ],
-        [ 'Produit démo — Eau minérale source 1,5 L', 650 ],
-        [ 'Produit démo — Riz parfumé 1 kg', 1450 ],
-        [ 'Produit démo — Pâtes spaghetti 500 g', 900 ],
+        [ 'cafe-moulu', 'Produit démo — Café moulu Santa Lucia 250 g', 1850, '', '' ],
+        [ 'boisson-top', 'Produit démo — Boisson Top 50 cl', 650, 'top', 'Produit démo — Eau minérale source 1,5 L' ],
+        [ 'boulettes-sautees', 'Produit démo — Boulettes sautées 500 g', 1450, 'boulettes sautees', 'Produit démo — Riz parfumé 1 kg' ],
+        [ 'biere-blonde', 'Produit démo — Bière blonde Pilsner Urquell 33 cl', 900, 'biere blonde 33cl pilsner urquell', 'Produit démo — Pâtes spaghetti 500 g' ],
         [ 'Produit démo — Huile de tournesol 1 L', 2100 ],
         [ 'Produit démo — Lait UHT demi-écrémé 1 L', 1100 ],
         [ 'Produit démo — Biscuits chocolat 200 g', 950 ],
-        [ 'Produit démo — Confiture fraise 370 g', 1750 ],
+        [ 'sirop-cassis', 'Produit démo — Sirop cassis 75 cl', 1750, 'sirop cassis bidon', 'Produit démo — Confiture fraise 370 g' ],
         [ 'Produit démo — Thé citron 25 sachets', 1200 ],
-        [ 'Produit démo — Savon liquide aloe vera 500 ml', 1600 ],
+        [ 'detergent-viking', 'Produit démo — Détergent liquide Viking 2 L', 1600, 'detergent liquide viking', 'Produit démo — Savon liquide aloe vera 500 ml' ],
         [ 'Produit démo — Papier toilette doux x12', 2800 ],
         [ 'Produit démo — Shampooing nutrition 400 ml', 2400 ],
         [ 'Produit démo — Dentifrice fraîcheur 100 g', 1350 ],
@@ -112,33 +124,47 @@ add_action( 'admin_post_slcat_seed_demo_catalogue', function () {
         [ 'Produit démo — Chocolat noir 100 g', 1150 ],
         [ 'Produit démo — Eau gazeuse 50 cl', 500 ],
         [ 'Produit démo — Café instantané 100 g', 2900 ],
-        [ 'Produit démo — Jus orange pressé 1 L', 1250 ],
+        [ 'jus-pomme', 'Produit démo — Jus de fruit pomme 1 L', 1250, 'jus de fruit pomme', 'Produit démo — Jus orange pressé 1 L' ],
     ];
+
+    // Normalise les anciennes références créées avant l'ajout des visuels.
+    foreach ( $items as &$item ) {
+        if ( 2 === count( $item ) ) $item = [ sanitize_title( $item[0] ), $item[0], $item[1], '', '' ];
+    }
+    unset( $item );
 
     $category = get_term_by( 'name', 'Produit frais et transformé', 'product_cat' );
     $agencies = function_exists( 'slcat_agencies' ) ? wp_list_pluck( slcat_agencies(), 'slug' ) : [];
 
     $created = 0;
     $updated = 0;
-    foreach ( $items as [ $name, $price ] ) {
-        $existing = get_page_by_title( $name, OBJECT, 'product' );
+    foreach ( $items as [ $key, $name, $price, $media_search, $legacy_name ] ) {
+        $existing_ids = get_posts( [ 'post_type' => 'product', 'post_status' => 'any', 'posts_per_page' => 1, 'fields' => 'ids', 'meta_key' => '_slcat_demo_key', 'meta_value' => $key ] );
+        $existing = $existing_ids ? get_post( $existing_ids[0] ) : get_page_by_title( $name, OBJECT, 'product' );
+        if ( ! $existing && $legacy_name ) $existing = get_page_by_title( $legacy_name, OBJECT, 'product' );
         if ( $existing ) {
             $product_id = (int) $existing->ID;
+            $product = wc_get_product( $product_id );
             $updated++;
         } else {
             $product = new WC_Product_Simple();
-            $product->set_name( $name );
             $product->set_status( 'publish' );
             $product->set_catalog_visibility( 'visible' );
-            $product->set_regular_price( (string) $price );
-            $product->set_price( (string) $price );
             $product->set_stock_status( 'instock' );
             $product->set_manage_stock( false );
             if ( $category && ! is_wp_error( $category ) ) $product->set_category_ids( [ (int) $category->term_id ] );
-            $product_id = $product->save();
-            if ( ! $product_id ) continue;
             $created++;
         }
+        if ( ! $product ) continue;
+        $product->set_name( $name );
+        $product->set_regular_price( (string) $price );
+        $product->set_price( (string) $price );
+        if ( $media_search ) {
+            $image_id = slcat_demo_media_id( $media_search );
+            if ( $image_id ) $product->set_image_id( $image_id );
+        }
+        $product_id = $product->save();
+        if ( ! $product_id ) continue;
 
         $agency_prices = [];
         $agency_stock  = [];
@@ -150,6 +176,7 @@ add_action( 'admin_post_slcat_seed_demo_catalogue', function () {
         update_post_meta( $product_id, SLCAT_PRICES_META, wp_json_encode( $agency_prices ) );
         update_post_meta( $product_id, SLCAT_STOCK_META, wp_json_encode( $agency_stock ) );
         update_post_meta( $product_id, '_slcat_demo_seed', '1' );
+        update_post_meta( $product_id, '_slcat_demo_key', $key );
     }
     delete_transient( 'slcat_top_categories_v1' );
     wp_safe_redirect( add_query_arg( [ 'page' => 'sl-catalogue', 'slcat_demo_created' => $created, 'slcat_demo_updated' => $updated ], admin_url( 'admin.php' ) ) );
