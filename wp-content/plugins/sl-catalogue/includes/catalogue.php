@@ -131,7 +131,7 @@ function slcat_render_catalogue() {
     $cart_agency = function_exists( 'sl_bp_cart_agency' ) ? sl_bp_cart_agency() : '';
     ob_start();
     ?>
-    <section class="slcat" data-cart-agency="<?php echo esc_attr( $cart_agency ); ?>" aria-labelledby="slcat-title">
+    <section class="slcat" data-cart-agency="<?php echo esc_attr( $cart_agency ); ?>" data-ajax="<?php echo esc_attr( class_exists( 'WC_AJAX' ) ? WC_AJAX::get_endpoint( 'sl_catalogue_%endpoint%' ) : '' ); ?>" data-cart-url="<?php echo esc_url( function_exists( 'wc_get_cart_url' ) ? wc_get_cart_url() : '' ); ?>" data-empty-copy="Choisissez une agence pour voir les produits, les prix et le stock disponibles." data-error-copy="Le catalogue est momentanément indisponible. Réessayez dans un instant." aria-labelledby="slcat-title">
         <header class="slcat__intro">
             <p class="slcat__eyebrow">Santa Lucia en ligne</p>
             <h1 id="slcat-title">Faire mes courses</h1>

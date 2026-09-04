@@ -1,7 +1,16 @@
 (function () {
   'use strict';
   var root = document.querySelector('.slcat');
-  if (!root || !window.SLCatalogue) return;
+  if (!root) return;
+  // La configuration vit aussi dans le HTML : certains optimiseurs WordPress
+  // retardent les variables localisées alors que le script est déjà exécuté.
+  var config = window.SLCatalogue || {
+    ajax: root.dataset.ajax,
+    cartUrl: root.dataset.cartUrl,
+    emptyCopy: root.dataset.emptyCopy,
+    errorCopy: root.dataset.errorCopy
+  };
+  if (!config.ajax) return;
   var agency = root.querySelector('#slcat-agency');
   var search = root.querySelector('#slcat-search');
   var results = root.querySelector('.slcat__results-content');
@@ -11,17 +20,17 @@
   var selectedCategory = '';
   var timer;
 
-  function endpoint(name) { return SLCatalogue.ajax.replace('%endpoint%', name); }
+  function endpoint(name) { return config.ajax.replace('%endpoint%', name); }
   function selectedAgency() { return agency.value; }
   function showToast(message, cartLink) {
-    toast.innerHTML = message + (cartLink ? ' <a href="' + SLCatalogue.cartUrl + '">Voir le panier</a>' : '');
+    toast.innerHTML = message + (cartLink ? ' <a href="' + config.cartUrl + '">Voir le panier</a>' : '');
     toast.hidden = false;
     window.clearTimeout(showToast.timeout);
     showToast.timeout = window.setTimeout(function () { toast.hidden = true; }, 4200);
   }
   function empty(message) { results.innerHTML = '<p class="slcat__empty">' + message + '</p>'; }
   function loadProducts() {
-    if (!selectedAgency()) { empty(SLCatalogue.emptyCopy); return; }
+    if (!selectedAgency()) { empty(config.emptyCopy); return; }
     empty('Chargement des produits…');
     var body = new URLSearchParams({agency: selectedAgency(), category: selectedCategory, search: search.value.trim()});
     fetch(endpoint('products'), {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:body.toString()})
@@ -30,7 +39,7 @@
         if (!res.success) throw new Error();
         if (res.data.empty) { empty('Aucun produit disponible pour cette recherche dans cette agence.'); return; }
         results.innerHTML = '<div class="slcat__product-grid">' + res.data.html + '</div>';
-      }).catch(function () { empty(SLCatalogue.errorCopy); });
+      }).catch(function () { empty(config.errorCopy); });
   }
   function updateAgencyState() {
     var value = selectedAgency();
@@ -81,9 +90,9 @@
     button.disabled = true;
     fetch(endpoint('add'), {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:new URLSearchParams({product_id:button.dataset.product, agency:button.dataset.agency}).toString()})
       .then(function (res) { return res.json(); }).then(function (res) {
-        if (!res.success) throw new Error(res.data && res.data.message ? res.data.message : SLCatalogue.errorCopy);
+        if (!res.success) throw new Error(res.data && res.data.message ? res.data.message : config.errorCopy);
         if (res.data.fragments && window.jQuery) window.jQuery(document.body).trigger('added_to_cart', [res.data.fragments, res.data.cart_hash, button]);
         showToast(res.data.message, true);
-      }).catch(function (error) { showToast(error.message || SLCatalogue.errorCopy); }).finally(function () { button.disabled = false; });
+      }).catch(function (error) { showToast(error.message || config.errorCopy); }).finally(function () { button.disabled = false; });
   });
 }());
