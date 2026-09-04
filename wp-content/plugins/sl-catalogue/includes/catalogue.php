@@ -88,10 +88,18 @@ function slcat_categories() {
     $cached = get_transient( 'slcat_top_categories_v1' );
     if ( is_array( $cached ) ) return $cached;
 
-    $terms = get_terms( [
-        'taxonomy'   => 'product_cat',
-        'parent'     => 0,
-        'hide_empty' => false,
+    $catalogue_ids = get_posts( [
+        'post_type'      => 'product',
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'fields'         => 'ids',
+        'meta_query'     => [ [ 'key' => SLCAT_AGENCIES_META, 'value' => '[', 'compare' => 'LIKE' ] ],
+    ] );
+    if ( ! $catalogue_ids ) {
+        set_transient( 'slcat_top_categories_v1', [], 15 * MINUTE_IN_SECONDS );
+        return [];
+    }
+    $terms = wp_get_object_terms( $catalogue_ids, 'product_cat', [
         'number'     => 8,
         'orderby'    => 'name',
         'order'      => 'ASC',
@@ -125,9 +133,9 @@ function slcat_render_catalogue() {
     ?>
     <section class="slcat" data-cart-agency="<?php echo esc_attr( $cart_agency ); ?>" aria-labelledby="slcat-title">
         <header class="slcat__intro">
-            <p class="slcat__eyebrow">Catalogue Santa Lucia</p>
+            <p class="slcat__eyebrow">Santa Lucia en ligne</p>
             <h1 id="slcat-title">Faire mes courses</h1>
-            <p>Tout le magasin, dans votre agence.</p>
+            <p>Choisissez votre agence pour voir le bon prix et le stock disponible.</p>
         </header>
 
         <div class="slcat__control" role="search">
@@ -146,27 +154,22 @@ function slcat_render_catalogue() {
         <p class="slcat__availability" aria-live="polite"><span></span>Choisissez votre agence : les prix et le stock peuvent varier selon le magasin.</p>
 
         <div class="slcat__body">
+            <?php if ( count( $categories ) > 1 ) : ?>
             <section class="slcat__featured" aria-labelledby="slcat-departments-title">
                 <div class="slcat__section-head">
                     <div>
-                        <p class="slcat__eyebrow">Commencer par un rayon</p>
-                        <h2 id="slcat-departments-title">Les essentiels du magasin</h2>
+                        <p class="slcat__eyebrow">Rayons</p>
+                        <h2 id="slcat-departments-title">Choisir un rayon</h2>
                     </div>
                     <button class="slcat__all-cats" type="button">Voir tous les rayons</button>
                 </div>
-                <?php if ( $categories ) : ?>
-                    <div class="slcat__categories">
-                        <?php foreach ( $categories as $index => $category ) : $image = slcat_category_image( $category ); ?>
-                            <button class="slcat__category <?php echo $index === 0 ? 'slcat__category--lead' : ''; ?> <?php echo $image ? 'slcat__category--with-image' : ''; ?>" type="button" data-category="<?php echo esc_attr( $category->term_id ); ?>">
-                                <?php if ( $image ) : ?><span class="slcat__category-image"><?php echo $image; ?></span><?php endif; ?>
-                                <span class="slcat__category-copy"><strong><?php echo esc_html( $category->name ); ?></strong><small>Voir les produits</small></span>
-                            </button>
-                        <?php endforeach; ?>
-                    </div>
-                <?php else : ?>
-                    <div class="slcat__setup-note"><strong>Le catalogue se prépare.</strong><span>Les rayons apparaîtront ici dès que les catégories et références Odoo seront synchronisées.</span></div>
-                <?php endif; ?>
+                <div class="slcat__categories">
+                    <?php foreach ( $categories as $category ) : ?>
+                        <button class="slcat__category" type="button" data-category="<?php echo esc_attr( $category->term_id ); ?>"><?php echo esc_html( $category->name ); ?></button>
+                    <?php endforeach; ?>
+                </div>
             </section>
+            <?php endif; ?>
 
             <section class="slcat__results" aria-labelledby="slcat-results-title">
                 <div class="slcat__results-head">
@@ -217,7 +220,7 @@ function slcat_ajax_products() {
 }
 
 function slcat_render_product_card( WC_Product $product, $agency ) {
-    $image = $product->get_image( 'woocommerce_thumbnail', [ 'loading' => 'lazy' ] );
+    $image = $product->get_image( 'woocommerce_thumbnail', [ 'loading' => 'lazy', 'alt' => $product->get_name() ] );
     $price = slcat_product_price_for( $product, $agency );
     ?>
     <article class="slcat-product">

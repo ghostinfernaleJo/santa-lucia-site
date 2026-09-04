@@ -64,14 +64,14 @@ function slcat_render_settings_page() {
         </div>
         <div style="max-width:760px;margin-top:20px;padding:24px;background:#fff;border:1px solid #dcdcde;">
             <h2 style="margin-top:0;">Jeu de démonstration</h2>
-            <p>Crée des références clairement identifiées <strong>« Produit démo »</strong> pour vérifier l’interface, la recherche, les prix et la disponibilité par agence. Les références déjà créées ne seront jamais dupliquées.</p>
+            <p>Crée ou actualise des références clairement identifiées <strong>« Produit démo »</strong> pour vérifier l’interface, la recherche, les prix et la disponibilité dans toutes les agences. Les références existantes ne sont jamais dupliquées.</p>
             <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                 <?php wp_nonce_field( 'slcat_seed_demo_catalogue' ); ?>
                 <input type="hidden" name="action" value="slcat_seed_demo_catalogue">
-                <button type="submit" class="button button-secondary">Créer les produits de démonstration</button>
+                <button type="submit" class="button button-secondary">Créer / actualiser les produits de démonstration</button>
             </form>
-            <?php if ( isset( $_GET['slcat_demo_created'] ) ) : ?>
-                <p style="margin-bottom:0;color:#15803d;"><strong><?php echo esc_html( absint( $_GET['slcat_demo_created'] ) ); ?> produit(s) de démonstration créé(s).</strong></p>
+            <?php if ( isset( $_GET['slcat_demo_created'] ) || isset( $_GET['slcat_demo_updated'] ) ) : ?>
+                <p style="margin-bottom:0;color:#15803d;"><strong><?php echo esc_html( absint( $_GET['slcat_demo_created'] ?? 0 ) ); ?> créé(s) · <?php echo esc_html( absint( $_GET['slcat_demo_updated'] ?? 0 ) ); ?> actualisé(s).</strong></p>
             <?php endif; ?>
         </div>
         <p style="margin-top:20px;"><strong>À placer dans Elementor :</strong> <code>[sl_catalogue]</code></p>
@@ -87,7 +87,7 @@ add_action( 'admin_post_slcat_toggle_catalogue', function () {
     exit;
 } );
 
-/** Crée un catalogue de test reproductible, sans écraser les références existantes. */
+/** Crée un catalogue de test reproductible et le rend visible dans chaque agence. */
 add_action( 'admin_post_slcat_seed_demo_catalogue', function () {
     if ( ! current_user_can( 'manage_woocommerce' ) ) wp_die( 'Accès non autorisé.' );
     check_admin_referer( 'slcat_seed_demo_catalogue' );
@@ -116,27 +116,29 @@ add_action( 'admin_post_slcat_seed_demo_catalogue', function () {
     ];
 
     $category = get_term_by( 'name', 'Produit frais et transformé', 'product_cat' );
-    $agencies = array_values( array_filter( [ 'bonaberi', 'mokolo' ], function ( $slug ) {
-        return (bool) get_term_by( 'slug', $slug, 'sl_agence_promo' );
-    } ) );
-    if ( empty( $agencies ) && function_exists( 'slcat_agencies' ) ) {
-        $agencies = array_slice( wp_list_pluck( slcat_agencies(), 'slug' ), 0, 2 );
-    }
+    $agencies = function_exists( 'slcat_agencies' ) ? wp_list_pluck( slcat_agencies(), 'slug' ) : [];
 
     $created = 0;
+    $updated = 0;
     foreach ( $items as [ $name, $price ] ) {
-        if ( get_page_by_title( $name, OBJECT, 'product' ) ) continue;
-        $product = new WC_Product_Simple();
-        $product->set_name( $name );
-        $product->set_status( 'publish' );
-        $product->set_catalog_visibility( 'visible' );
-        $product->set_regular_price( (string) $price );
-        $product->set_price( (string) $price );
-        $product->set_stock_status( 'instock' );
-        $product->set_manage_stock( false );
-        if ( $category && ! is_wp_error( $category ) ) $product->set_category_ids( [ (int) $category->term_id ] );
-        $product_id = $product->save();
-        if ( ! $product_id ) continue;
+        $existing = get_page_by_title( $name, OBJECT, 'product' );
+        if ( $existing ) {
+            $product_id = (int) $existing->ID;
+            $updated++;
+        } else {
+            $product = new WC_Product_Simple();
+            $product->set_name( $name );
+            $product->set_status( 'publish' );
+            $product->set_catalog_visibility( 'visible' );
+            $product->set_regular_price( (string) $price );
+            $product->set_price( (string) $price );
+            $product->set_stock_status( 'instock' );
+            $product->set_manage_stock( false );
+            if ( $category && ! is_wp_error( $category ) ) $product->set_category_ids( [ (int) $category->term_id ] );
+            $product_id = $product->save();
+            if ( ! $product_id ) continue;
+            $created++;
+        }
 
         $agency_prices = [];
         $agency_stock  = [];
@@ -148,10 +150,9 @@ add_action( 'admin_post_slcat_seed_demo_catalogue', function () {
         update_post_meta( $product_id, SLCAT_PRICES_META, wp_json_encode( $agency_prices ) );
         update_post_meta( $product_id, SLCAT_STOCK_META, wp_json_encode( $agency_stock ) );
         update_post_meta( $product_id, '_slcat_demo_seed', '1' );
-        $created++;
     }
     delete_transient( 'slcat_top_categories_v1' );
-    wp_safe_redirect( add_query_arg( [ 'page' => 'sl-catalogue', 'slcat_demo_created' => $created ], admin_url( 'admin.php' ) ) );
+    wp_safe_redirect( add_query_arg( [ 'page' => 'sl-catalogue', 'slcat_demo_created' => $created, 'slcat_demo_updated' => $updated ], admin_url( 'admin.php' ) ) );
     exit;
 } );
 
