@@ -88,8 +88,19 @@ function slcat_enqueue_assets() {
 
 /** @return WP_Term[] */
 function slcat_categories() {
-    $cached = get_transient( 'slcat_top_categories_v1' );
+    $cached = get_transient( 'slcat_top_categories_v2' );
     if ( is_array( $cached ) ) return $cached;
+
+    // Rayons de démonstration : ils doivent rester visibles même avant
+    // l'import réel du catalogue ou si aucun produit n'est encore publié.
+    $demo_departments = [
+        'slcat-demo-boissons'          => 'Boissons',
+        'slcat-demo-petit-dejeuner'    => 'Petit déjeuner',
+        'slcat-demo-biscuits-gouters'  => 'Biscuits & goûters',
+        'slcat-demo-traiteur'          => 'Plats cuisinés',
+        'slcat-demo-hygiene-beaute'    => 'Hygiène & beauté',
+        'slcat-demo-entretien-maison'  => 'Entretien de la maison',
+    ];
 
     $catalogue_ids = get_posts( [
         'post_type'      => 'product',
@@ -98,15 +109,11 @@ function slcat_categories() {
         'fields'         => 'ids',
         'meta_query'     => [ [ 'key' => SLCAT_AGENCIES_META, 'value' => '[', 'compare' => 'LIKE' ] ],
     ] );
-    if ( ! $catalogue_ids ) {
-        set_transient( 'slcat_top_categories_v1', [], 15 * MINUTE_IN_SECONDS );
-        return [];
-    }
-    $terms = wp_get_object_terms( $catalogue_ids, 'product_cat', [
+    $terms = $catalogue_ids ? wp_get_object_terms( $catalogue_ids, 'product_cat', [
         'number'     => 8,
         'orderby'    => 'name',
         'order'      => 'ASC',
-    ] );
+    ] ) : [];
     $terms = is_wp_error( $terms ) ? [] : array_values( array_filter( $terms, static function ( $term ) {
         $name = remove_accents( strtolower( trim( (string) $term->name ) ) );
         $slug = sanitize_title( (string) $term->slug );
@@ -116,14 +123,30 @@ function slcat_categories() {
             && 'non classe' !== $name
             && 'produit frais et transforme' !== $name;
     } ) );
-    set_transient( 'slcat_top_categories_v1', $terms, 15 * MINUTE_IN_SECONDS );
+
+    // Complète la navigation avec les rayons fictifs du catalogue de démo.
+    $terms_by_slug = [];
+    foreach ( $terms as $term ) $terms_by_slug[ $term->slug ] = $term;
+    foreach ( $demo_departments as $slug => $label ) {
+        if ( isset( $terms_by_slug[ $slug ] ) ) continue;
+        $term = get_term_by( 'slug', $slug, 'product_cat' );
+        if ( $term && ! is_wp_error( $term ) ) {
+            $terms[] = $term;
+            continue;
+        }
+        $terms[] = (object) [ 'term_id' => 0, 'slug' => $slug, 'name' => $label ];
+    }
+    set_transient( 'slcat_top_categories_v2', $terms, 15 * MINUTE_IN_SECONDS );
     return $terms;
 }
 
 add_action( 'created_product_cat', 'slcat_clear_category_cache' );
 add_action( 'edited_product_cat', 'slcat_clear_category_cache' );
 add_action( 'delete_product_cat', 'slcat_clear_category_cache' );
-function slcat_clear_category_cache() { delete_transient( 'slcat_top_categories_v1' ); }
+function slcat_clear_category_cache() {
+    delete_transient( 'slcat_top_categories_v1' );
+    delete_transient( 'slcat_top_categories_v2' );
+}
 
 function slcat_category_image( WP_Term $term ) {
     $thumb_id = (int) get_term_meta( $term->term_id, 'thumbnail_id', true );
