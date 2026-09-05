@@ -71,8 +71,11 @@ function slcat_money( $amount ) {
 function slcat_enqueue_assets() {
     $css = SL_CATALOGUE_PATH . 'assets/catalogue.css';
     $js  = SL_CATALOGUE_PATH . 'assets/catalogue.js';
-    wp_enqueue_style( 'sl-catalogue', SL_CATALOGUE_URL . 'assets/catalogue.css', [], file_exists( $css ) ? (string) filemtime( $css ) : SL_CATALOGUE_VERSION );
-    wp_enqueue_script( 'sl-catalogue', SL_CATALOGUE_URL . 'assets/catalogue.js', [], file_exists( $js ) ? (string) filemtime( $js ) : SL_CATALOGUE_VERSION, true );
+    // A distinct revision prevents a page-optimizer/CDN from serving an old
+    // catalogue stylesheet after a deployment.
+    $asset_revision = SL_CATALOGUE_VERSION . '-20260905-sidebar';
+    wp_enqueue_style( 'sl-catalogue', SL_CATALOGUE_URL . 'assets/catalogue.css', [], $asset_revision );
+    wp_enqueue_script( 'sl-catalogue', SL_CATALOGUE_URL . 'assets/catalogue.js', [], $asset_revision, true );
 
     $ajax = class_exists( 'WC_AJAX' ) ? WC_AJAX::get_endpoint( 'sl_catalogue_%endpoint%' ) : '';
     wp_localize_script( 'sl-catalogue', 'SLCatalogue', [
