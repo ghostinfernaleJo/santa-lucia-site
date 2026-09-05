@@ -2,14 +2,14 @@
 /**
  * Plugin Name: Santa Lucia - Catalogue agences
  * Description: Catalogue e-commerce par agence : recherche rapide, disponibilité, prix et stock par magasin, compatible Drop & Collect.
- * Version: 0.1.0
+ * Version: 0.2.0
  * Author: Santa Lucia
  * Text Domain: sl-catalogue
  */
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SL_CATALOGUE_VERSION', '0.1.0' );
+define( 'SL_CATALOGUE_VERSION', '0.2.0' );
 define( 'SL_CATALOGUE_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SL_CATALOGUE_URL', plugin_dir_url( __FILE__ ) );
 
@@ -106,50 +106,53 @@ add_action( 'admin_post_slcat_seed_demo_catalogue', function () {
     if ( ! current_user_can( 'manage_woocommerce' ) ) wp_die( 'Accès non autorisé.' );
     check_admin_referer( 'slcat_seed_demo_catalogue' );
 
+    // Conserve les clés des 20 démos existantes. Chaque visuel a été vérifié
+    // dans la médiathèque : aucun remplacement aléatoire entre familles.
     $items = [
-        [ 'cafe-moulu', 'Produit démo — Café moulu Santa Lucia 250 g', 1850, '', '' ],
-        [ 'boisson-top', 'Produit démo — Boisson Top 50 cl', 650, 'top', 'Produit démo — Eau minérale source 1,5 L' ],
-        [ 'boulettes-sautees', 'Produit démo — Boulettes sautées 500 g', 1450, 'boulettes sautees', 'Produit démo — Riz parfumé 1 kg' ],
-        [ 'biere-blonde', 'Produit démo — Bière blonde Pilsner Urquell 33 cl', 900, 'biere blonde 33cl pilsner urquell', 'Produit démo — Pâtes spaghetti 500 g' ],
-        [ 'Produit démo — Huile de tournesol 1 L', 2100 ],
-        [ 'Produit démo — Lait UHT demi-écrémé 1 L', 1100 ],
-        [ 'Produit démo — Biscuits chocolat 200 g', 950 ],
-        [ 'sirop-cassis', 'Produit démo — Sirop cassis 75 cl', 1750, 'sirop cassis bidon', 'Produit démo — Confiture fraise 370 g' ],
-        [ 'Produit démo — Thé citron 25 sachets', 1200 ],
-        [ 'detergent-viking', 'Produit démo — Détergent liquide Viking 2 L', 1600, 'detergent liquide viking', 'Produit démo — Savon liquide aloe vera 500 ml' ],
-        [ 'Produit démo — Papier toilette doux x12', 2800 ],
-        [ 'Produit démo — Shampooing nutrition 400 ml', 2400 ],
-        [ 'Produit démo — Dentifrice fraîcheur 100 g', 1350 ],
-        [ 'Produit démo — Crème hydratante 250 ml', 2200 ],
-        [ 'Produit démo — Arachides grillées 150 g', 700 ],
-        [ 'Produit démo — Chips de plantain 100 g', 800 ],
-        [ 'Produit démo — Chocolat noir 100 g', 1150 ],
-        [ 'Produit démo — Eau gazeuse 50 cl', 500 ],
-        [ 'Produit démo — Café instantané 100 g', 2900 ],
-        [ 'jus-pomme', 'Produit démo — Jus de fruit pomme 1 L', 1250, 'jus de fruit pomme', 'Produit démo — Jus orange pressé 1 L' ],
+        [ 'cafe-moulu', 'Petit beurre pur beurre BF 200 g', 1850, 16953, 'petit-dejeuner' ],
+        [ 'boisson-top', 'Boisson Top 50 cl', 650, 17004, 'boissons' ],
+        [ 'boulettes-sautees', 'Boulettes sautées', 1450, 16994, 'traiteur' ],
+        [ 'biere-blonde', 'Bière blonde Pilsner Urquell 33 cl', 900, 17001, 'boissons' ],
+        [ 'produit-demo-huile-de-tournesol-1-l', 'Riz à la viande', 2100, 17045, 'traiteur' ],
+        [ 'produit-demo-lait-uht-demi-ecreme-1-l', 'Lait concentré sucré OMIT 1 kg', 1100, 16980, 'petit-dejeuner' ],
+        [ 'produit-demo-biscuits-chocolat-200-g', 'Goûters fourrés chocolat BF 300 g', 950, 16972, 'biscuits-gouters' ],
+        [ 'sirop-cassis', 'Sirop cassis 75 cl', 1750, 16995, 'boissons' ],
+        [ 'produit-demo-the-citron-25-sachets', 'Goûters ronds fourrés chocolat BF 300 g', 1200, 16977, 'biscuits-gouters' ],
+        [ 'detergent-viking', 'Détergent liquide Viking 2 L', 1600, 17023, 'entretien-maison' ],
+        [ 'produit-demo-papier-toilette-doux-x12', 'Dégraissant Sim Fluch 1 L', 2800, 17026, 'entretien-maison' ],
+        [ 'produit-demo-shampooing-nutrition-400-ml', 'Shampooing Evoluderm', 2400, 16913, 'hygiene-beaute' ],
+        [ 'produit-demo-dentifrice-fraicheur-100-g', 'Masque capillaire Byphasse', 1350, 16907, 'hygiene-beaute' ],
+        [ 'produit-demo-creme-hydratante-250-ml', 'Savon Soft Boni 750 ml', 2200, 17029, 'entretien-maison' ],
+        [ 'produit-demo-arachides-grillees-150-g', 'Cookies nougatine et chocolat BF 200 g', 700, 16967, 'biscuits-gouters' ],
+        [ 'produit-demo-chips-de-plantain-100-g', 'Sablés noix de coco BF 125 g', 800, 16959, 'biscuits-gouters' ],
+        [ 'produit-demo-chocolat-noir-100-g', 'Poulet yassa', 1150, 17033, 'traiteur' ],
+        [ 'produit-demo-eau-gazeuse-50-cl', 'Jus Planet assorti 1,20 L', 500, 17046, 'boissons' ],
+        [ 'produit-demo-cafe-instantane-100-g', 'Poisson carpe à la poêle', 2900, 17041, 'traiteur' ],
+        [ 'jus-pomme', 'Jus de pomme Ceres 1 L', 1250, 16998, 'boissons' ],
     ];
-
-    // Normalise les anciennes références créées avant l'ajout des visuels.
-    foreach ( $items as &$item ) {
-        if ( 2 === count( $item ) ) $item = [ sanitize_title( $item[0] ), $item[0], $item[1], '', '' ];
+    $departments = [
+        'boissons' => 'Boissons',
+        'petit-dejeuner' => 'Petit déjeuner',
+        'biscuits-gouters' => 'Biscuits & goûters',
+        'traiteur' => 'Plats cuisinés',
+        'hygiene-beaute' => 'Hygiène & beauté',
+        'entretien-maison' => 'Entretien de la maison',
+    ];
+    $category_ids = [];
+    foreach ( $departments as $slug => $label ) {
+        $term = term_exists( 'slcat-demo-' . $slug, 'product_cat' );
+        if ( ! $term ) $term = wp_insert_term( $label, 'product_cat', [ 'slug' => 'slcat-demo-' . $slug ] );
+        if ( is_wp_error( $term ) ) wp_die( esc_html( $term->get_error_message() ) );
+        $category_ids[ $slug ] = (int) $term['term_id'];
+        update_term_meta( $category_ids[ $slug ], '_slcat_demo_department', '1' );
     }
-    unset( $item );
-
-    $category = get_term_by( 'name', 'Produit frais et transformé', 'product_cat' );
     $agencies = function_exists( 'slcat_agencies' ) ? wp_list_pluck( slcat_agencies(), 'slug' ) : [];
-    // Les médias existants servent aussi de visuels de démonstration de secours :
-    // aucun téléversement ni image cassée dans le catalogue d’aperçu.
-    $media_pool = array_values( array_filter( array_map( 'slcat_demo_media_id', [
-        'detergent liquide viking', 'top', 'biere blonde pilsner',
-        'jus de fruit pomme', 'sirop cassis bidon', 'boulettes sautees',
-    ] ) ) );
 
     $created = 0;
     $updated = 0;
-    foreach ( $items as $item_index => [ $key, $name, $price, $media_search, $legacy_name ] ) {
+    foreach ( $items as [ $key, $name, $price, $image_id, $department ] ) {
         $existing_ids = get_posts( [ 'post_type' => 'product', 'post_status' => 'any', 'posts_per_page' => 1, 'fields' => 'ids', 'meta_key' => '_slcat_demo_key', 'meta_value' => $key ] );
-        $existing = $existing_ids ? get_post( $existing_ids[0] ) : get_page_by_title( $name, OBJECT, 'product' );
-        if ( ! $existing && $legacy_name ) $existing = get_page_by_title( $legacy_name, OBJECT, 'product' );
+        $existing = $existing_ids ? get_post( $existing_ids[0] ) : null;
         if ( $existing ) {
             $product_id = (int) $existing->ID;
             $product = wc_get_product( $product_id );
@@ -160,16 +163,14 @@ add_action( 'admin_post_slcat_seed_demo_catalogue', function () {
             $product->set_catalog_visibility( 'visible' );
             $product->set_stock_status( 'instock' );
             $product->set_manage_stock( false );
-            if ( $category && ! is_wp_error( $category ) ) $product->set_category_ids( [ (int) $category->term_id ] );
             $created++;
         }
         if ( ! $product ) continue;
-        $product->set_name( $name );
+        $product->set_name( 'Produit démo — ' . $name );
+        $product->set_category_ids( [ $category_ids[ $department ] ] );
         $product->set_regular_price( (string) $price );
         $product->set_price( (string) $price );
-        $image_id = $media_search ? slcat_demo_media_id( $media_search ) : 0;
-        if ( ! $image_id && $media_pool ) $image_id = $media_pool[ $item_index % count( $media_pool ) ];
-        if ( $image_id ) $product->set_image_id( $image_id );
+        $product->set_image_id( wp_attachment_is_image( $image_id ) ? $image_id : 0 );
         $product_id = $product->save();
         if ( ! $product_id ) continue;
 
@@ -185,7 +186,8 @@ add_action( 'admin_post_slcat_seed_demo_catalogue', function () {
         update_post_meta( $product_id, '_slcat_demo_seed', '1' );
         update_post_meta( $product_id, '_slcat_demo_key', $key );
     }
-    delete_transient( 'slcat_top_categories_v1' );
+    update_option( 'slcat_demo_seed_version', '2', false );
+    slcat_clear_category_cache();
     wp_safe_redirect( add_query_arg( [ 'page' => 'sl-catalogue', 'slcat_demo_created' => $created, 'slcat_demo_updated' => $updated ], admin_url( 'admin.php' ) ) );
     exit;
 } );

@@ -107,7 +107,15 @@ function slcat_categories() {
         'orderby'    => 'name',
         'order'      => 'ASC',
     ] );
-    $terms = is_wp_error( $terms ) ? [] : $terms;
+    $terms = is_wp_error( $terms ) ? [] : array_values( array_filter( $terms, static function ( $term ) {
+        $name = remove_accents( strtolower( trim( (string) $term->name ) ) );
+        $slug = sanitize_title( (string) $term->slug );
+
+        // Do not expose WooCommerce placeholder departments in the customer UI.
+        return 'uncategorized' !== $slug
+            && 'non classe' !== $name
+            && 'produit frais et transforme' !== $name;
+    } ) );
     set_transient( 'slcat_top_categories_v1', $terms, 15 * MINUTE_IN_SECONDS );
     return $terms;
 }
