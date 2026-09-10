@@ -1,7 +1,7 @@
 <?php
 /**
  * Contacts / Prospects collectes par Lucie pendant les chats.
- * CPT prive `sl_lucie_lead` (nom, telephone, quartier, anniversaire), liste admin sous le
+ * CPT prive `sl_lucie_lead` (nom, telephone, quartier, agence, anniversaire), liste admin sous le
  * menu Lucie + export CSV. Rempli par l'outil enregistrer_contact.
  */
 
@@ -45,6 +45,7 @@ function sl_lucie_lead_details_box( $post ) {
         'Nom / prénom'       => get_post_meta( $post->ID, '_sll_nom', true ),
         'Téléphone / WhatsApp' => get_post_meta( $post->ID, '_sll_tel', true ),
         'Ville / quartier'   => get_post_meta( $post->ID, '_sll_quartier', true ),
+        'Agence choisie'     => get_post_meta( $post->ID, '_sll_agence', true ),
         'Date d’anniversaire' => get_post_meta( $post->ID, '_sll_anniversaire', true ),
         'Session de conversation' => get_post_meta( $post->ID, '_sll_session', true ),
     ];
@@ -68,15 +69,21 @@ function sl_lucie_lead_details_box( $post ) {
  * Enregistre (ou met a jour) un contact. Dedoublonne par session de chat.
  * Retourne l'ID du post, ou false.
  */
-function sl_lucie_save_lead( $nom, $tel, $quartier, $session = '', $anniversaire = '' ) {
+function sl_lucie_normalize_phone( $tel ) {
+    $tel = preg_replace( '/\D+/', '', (string) $tel );
+    if ( strlen( $tel ) === 9 && strpos( $tel, '6' ) === 0 ) $tel = '237' . $tel;
+    return $tel;
+}
+
+function sl_lucie_save_lead( $nom, $tel, $quartier, $session = '', $anniversaire = '', $agence = '' ) {
     $nom      = sanitize_text_field( (string) $nom );
     $tel      = sanitize_text_field( (string) $tel );
     // Compare les formats courants comme le même numéro (+237 6xx… / 2376xx…
     // / 6xx…). Le numéro est proprement stocké en chiffres pour éviter les
     // doublons liés uniquement aux espaces, au + ou aux tirets.
-    $tel = preg_replace( '/\D+/', '', $tel );
-    if ( strlen( $tel ) === 9 && strpos( $tel, '6' ) === 0 ) $tel = '237' . $tel;
+    $tel = sl_lucie_normalize_phone( $tel );
     $quartier = sanitize_text_field( (string) $quartier );
+    $agence   = sanitize_title( (string) $agence );
     $session  = sanitize_text_field( (string) $session );
     $anniversaire = sanitize_text_field( (string) $anniversaire );
     if ( preg_match( '/^(\d{2})[\/-](\d{2})[\/-](\d{4})$/', $anniversaire, $parts ) ) {
@@ -110,12 +117,16 @@ function sl_lucie_save_lead( $nom, $tel, $quartier, $session = '', $anniversaire
         $hit = get_posts( [
             'post_type'   => 'sl_lucie_lead',
             'post_status' => 'any',
-            'numberposts' => 1,
+            'numberposts' => -1,
             'fields'      => 'ids',
             'meta_key'    => '_sll_tel',
-            'meta_value'  => $tel,
         ] );
-        if ( ! empty( $hit ) ) $existing = (int) $hit[0];
+        foreach ( $hit as $candidate ) {
+            if ( sl_lucie_normalize_phone( get_post_meta( $candidate, '_sll_tel', true ) ) === $tel ) {
+                $existing = (int) $candidate;
+                break;
+            }
+        }
     }
 
     $titre = $nom !== '' ? $nom : ( $tel !== '' ? $tel : 'Visiteur' );
@@ -135,6 +146,7 @@ function sl_lucie_save_lead( $nom, $tel, $quartier, $session = '', $anniversaire
     if ( $nom !== '' )      update_post_meta( $id, '_sll_nom', $nom );
     if ( $tel !== '' )      update_post_meta( $id, '_sll_tel', $tel );
     if ( $quartier !== '' ) update_post_meta( $id, '_sll_quartier', $quartier );
+    if ( $agence !== '' )   update_post_meta( $id, '_sll_agence', $agence );
     if ( $anniversaire !== '' ) update_post_meta( $id, '_sll_anniversaire', $anniversaire );
     if ( $session !== '' ) {
         update_post_meta( $id, '_sll_session', $session );
@@ -147,7 +159,15 @@ function sl_lucie_save_lead( $nom, $tel, $quartier, $session = '', $anniversaire
 }
 
 /** Retourne les coordonnees deja enregistrees pour une session, ou null. */
-function sl_lucie_lead_for_session( $session ) {
+function sl_lucie_extract_phone( $text ) {
+    if ( preg_match( '/(?<!\d)(?:\+?237[\s.-]?)?6(?:[\s.-]?\d){8}(?!\d)/', (string) $text, $match ) ) {
+        return sl_lucie_normalize_phone( $match[0] );
+    }
+    return '';
+}
+
+/** Retourne les coordonnées d'une session ou d'un visiteur reconnu par téléphone. */
+function sl_lucie_lead_for_session( $session, $phone = '' ) {
     $session = sanitize_text_field( (string) $session );
     if ( $session === '' ) return null;
     $hit = get_posts( [
@@ -158,12 +178,20 @@ function sl_lucie_lead_for_session( $session ) {
             [ 'key' => '_sll_sessions', 'value' => $session, 'compare' => 'LIKE' ],
         ],
     ] );
-    if ( empty( $hit ) ) return null;
-    $id = $hit[0];
+    $id = ! empty( $hit ) ? (int) $hit[0] : 0;
+    if ( ! $id && $phone !== '' ) {
+        $phone = sl_lucie_normalize_phone( $phone );
+        $candidates = get_posts( [ 'post_type' => 'sl_lucie_lead', 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids', 'meta_key' => '_sll_tel' ] );
+        foreach ( $candidates as $candidate ) {
+            if ( sl_lucie_normalize_phone( get_post_meta( $candidate, '_sll_tel', true ) ) === $phone ) { $id = (int) $candidate; break; }
+        }
+    }
+    if ( ! $id ) return null;
     return [
         'nom'      => (string) get_post_meta( $id, '_sll_nom', true ),
         'tel'      => (string) get_post_meta( $id, '_sll_tel', true ),
         'quartier' => (string) get_post_meta( $id, '_sll_quartier', true ),
+        'agence'   => (string) get_post_meta( $id, '_sll_agence', true ),
         'anniversaire' => (string) get_post_meta( $id, '_sll_anniversaire', true ),
     ];
 }
@@ -175,6 +203,7 @@ add_filter( 'manage_sl_lucie_lead_posts_columns', function ( $cols ) {
         'title'         => 'Nom',
         'sll_tel'       => 'Telephone',
         'sll_quartier'  => 'Quartier / Ville',
+        'sll_agence'    => 'Agence',
         'sll_anniversaire' => 'Anniversaire',
         'sll_session'   => 'Session',
         'date'          => 'Recu le',
@@ -187,6 +216,9 @@ add_action( 'manage_sl_lucie_lead_posts_custom_column', function ( $col, $id ) {
     } elseif ( $col === 'sll_quartier' ) {
         $q = get_post_meta( $id, '_sll_quartier', true );
         echo $q ? esc_html( $q ) : '—';
+    } elseif ( $col === 'sll_agence' ) {
+        $agence = get_post_meta( $id, '_sll_agence', true );
+        echo $agence ? esc_html( $agence ) : '—';
     } elseif ( $col === 'sll_anniversaire' ) {
         $date = get_post_meta( $id, '_sll_anniversaire', true );
         echo $date ? esc_html( mysql2date( 'd/m/Y', $date ) ) : '—';
@@ -223,12 +255,13 @@ add_action( 'admin_init', function () {
     header( 'Content-Disposition: attachment; filename=contacts-lucie-' . date( 'Y-m-d' ) . '.csv' );
     $out = fopen( 'php://output', 'w' );
     fprintf( $out, "\xEF\xBB\xBF" ); // BOM UTF-8 pour Excel
-    fputcsv( $out, [ 'Nom', 'Telephone', 'Quartier/Ville', 'Anniversaire', 'Date' ] );
+    fputcsv( $out, [ 'Nom', 'Telephone', 'Quartier/Ville', 'Agence', 'Anniversaire', 'Date' ] );
     foreach ( $leads as $l ) {
         fputcsv( $out, [
             get_post_meta( $l->ID, '_sll_nom', true ),
             get_post_meta( $l->ID, '_sll_tel', true ),
             get_post_meta( $l->ID, '_sll_quartier', true ),
+            get_post_meta( $l->ID, '_sll_agence', true ),
             get_post_meta( $l->ID, '_sll_anniversaire', true ),
             get_the_date( 'Y-m-d H:i', $l ),
         ] );
