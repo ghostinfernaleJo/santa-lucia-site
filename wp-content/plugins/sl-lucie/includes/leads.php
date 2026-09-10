@@ -69,12 +69,6 @@ function sl_lucie_lead_details_box( $post ) {
  * Enregistre (ou met a jour) un contact. Dedoublonne par session de chat.
  * Retourne l'ID du post, ou false.
  */
-function sl_lucie_normalize_phone( $tel ) {
-    $tel = preg_replace( '/\D+/', '', (string) $tel );
-    if ( strlen( $tel ) === 9 && strpos( $tel, '6' ) === 0 ) $tel = '237' . $tel;
-    return $tel;
-}
-
 function sl_lucie_save_lead( $nom, $tel, $quartier, $session = '', $anniversaire = '', $agence = '' ) {
     $nom      = sanitize_text_field( (string) $nom );
     $tel      = sanitize_text_field( (string) $tel );

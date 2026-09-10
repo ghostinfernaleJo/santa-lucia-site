@@ -232,6 +232,23 @@ function sl_lucie_tools_defs() {
                 ],
             ],
         ],
+        [
+            'name' => 'enregistrer_reclamation',
+            'description' => 'Enregistre une plainte après avoir écouté le visiteur, recueilli les détails utiles et obtenu sa confirmation. Aucun humour dans ce parcours.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'message' => [ 'type' => 'string', 'description' => 'Résumé fidèle de la plainte et des faits.' ],
+                    'nom' => [ 'type' => 'string', 'description' => 'Nom du visiteur s’il l’a donné.' ],
+                    'telephone' => [ 'type' => 'string', 'description' => 'Téléphone ou WhatsApp s’il l’a donné.' ],
+                    'ville' => [ 'type' => 'string', 'description' => 'Ville ou quartier.' ],
+                    'agence' => [ 'type' => 'string', 'description' => 'Slug exact de l’agence concernée.' ],
+                    'numero_commande' => [ 'type' => 'string', 'description' => 'Numéro de commande si la plainte concerne une commande.' ],
+                    'service' => [ 'type' => 'string', 'description' => 'Slug exact du service concerné si connu.' ],
+                ],
+                'required' => [ 'message' ],
+            ],
+        ],
     ];
 }
 
@@ -645,6 +662,10 @@ function sl_lucie_run_tool( $name, $input ) {
                 ? sl_lucie_save_lead( $input['nom'] ?? '', $input['telephone'] ?? '', $input['quartier'] ?? '', $GLOBALS['sl_lucie_session_id'] ?? '', $input['date_anniversaire'] ?? '', $input['agence'] ?? '' )
                 : false;
             $d  = $id ? [ 'ok' => true, 'message' => 'Coordonnees enregistrees, merci.' ] : [ 'ok' => false, 'message' => 'Aucune donnee a enregistrer.' ];
+            break;
+        case 'enregistrer_reclamation':
+            $id = function_exists( 'sl_lucie_save_complaint' ) ? sl_lucie_save_complaint( $input['message'] ?? '', $input['nom'] ?? '', $input['telephone'] ?? '', $input['ville'] ?? '', $input['agence'] ?? '', $input['numero_commande'] ?? '', $input['service'] ?? '' ) : false;
+            $d = $id ? [ 'ok' => true, 'reclamation_id' => $id, 'message' => 'Votre réclamation est enregistrée dans notre service client.' ] : [ 'ok' => false, 'message' => 'La réclamation n’a pas pu être enregistrée.' ];
             break;
         default:
             return wp_json_encode( [ 'erreur' => 'Outil inconnu.' ] );

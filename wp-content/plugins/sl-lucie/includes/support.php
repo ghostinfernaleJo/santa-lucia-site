@@ -102,3 +102,43 @@ function sl_lucie_whatsapp_support_url() {
     $prefill = "Bonjour Santa Lucia, je viens de Lucie.\nMa demande :\n" . ( $summary ?: 'Je souhaite être aidé par un conseiller.' );
     return [ 'ok' => true, 'url' => 'https://wa.me/' . $number . '?text=' . rawurlencode( $prefill ), 'message' => 'Le résumé de votre demande est prêt. Ouvrez WhatsApp pour poursuivre avec un conseiller.' ];
 }
+
+/** Enregistre une réclamation Lucie dans le module Avis & Réclamations. */
+function sl_lucie_save_complaint( $message, $nom = '', $telephone = '', $ville = '', $agence = '', $commande = '', $service = '' ) {
+    $message = trim( sanitize_textarea_field( (string) $message ) );
+    $nom = sanitize_text_field( (string) $nom );
+    $telephone = sl_lucie_normalize_phone( $telephone );
+    $ville = sanitize_text_field( (string) $ville );
+    $agence = sanitize_title( (string) $agence );
+    $commande = sanitize_text_field( (string) $commande );
+    $service = sanitize_title( (string) $service );
+    $session = sanitize_text_field( (string) ( $GLOBALS['sl_lucie_session_id'] ?? '' ) );
+    if ( $message === '' || ! post_type_exists( 'sl_feedback' ) ) return false;
+
+    if ( $session !== '' ) {
+        $previous = get_posts( [ 'post_type' => 'sl_feedback', 'post_status' => 'any', 'numberposts' => 1, 'fields' => 'ids', 'meta_key' => '_sl_lucie_session', 'meta_value' => $session ] );
+        if ( ! empty( $previous ) ) return (int) $previous[0];
+    }
+
+    $agency_term = $agence ? get_term_by( 'slug', $agence, 'sl_agence_promo' ) : null;
+    $service_term = $service ? get_term_by( 'slug', $service, 'sl_feedback_service' ) : null;
+    $title = '[Plainte] ' . ( $nom ?: 'Visiteur' ) . ( $agency_term ? ' — ' . $agency_term->name : '' );
+    $details = $message;
+    if ( $ville !== '' ) $details .= "\n\nVille / quartier : " . $ville;
+    if ( $commande !== '' ) $details .= "\nNuméro de commande : " . $commande;
+    $post_id = wp_insert_post( [ 'post_type' => 'sl_feedback', 'post_status' => 'private', 'post_title' => $title, 'post_content' => $details ], true );
+    if ( is_wp_error( $post_id ) ) return false;
+
+    $type_term = get_term_by( 'name', 'Plainte', 'sl_feedback_type' );
+    $status_term = get_term_by( 'name', 'Nouveau', 'sl_feedback_statut' );
+    if ( $type_term ) wp_set_object_terms( $post_id, [ (int) $type_term->term_id ], 'sl_feedback_type' );
+    if ( $service_term ) wp_set_object_terms( $post_id, [ (int) $service_term->term_id ], 'sl_feedback_service' );
+    if ( $agency_term ) wp_set_object_terms( $post_id, [ (int) $agency_term->term_id ], 'sl_agence_promo' );
+    if ( $status_term ) wp_set_object_terms( $post_id, [ (int) $status_term->term_id ], 'sl_feedback_statut' );
+    update_post_meta( $post_id, '_slf_nom', $nom );
+    update_post_meta( $post_id, '_slf_tel', $telephone );
+    update_post_meta( $post_id, '_slf_agence', $agence );
+    update_post_meta( $post_id, '_sl_lucie_session', $session );
+    update_post_meta( $post_id, '_sl_lucie_commande', $commande );
+    return (int) $post_id;
+}
