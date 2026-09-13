@@ -1,5 +1,8 @@
 /* Paiement MMGate : le champ reste disponible sans JavaScript. */
 .mmgate-checkout--js .mmgate-payment-phone-field { display:none; }
+.mmgate-orange-consent-field { font-size:13px; line-height:1.45; }
+.mmgate-orange-consent-field input { margin-right:7px; }
+.mmgate-confirm-duplicate { margin-top:8px; }
 .mmgate-modal-open { overflow:hidden; }
 .mmgate-confirmation-modal[hidden] { display:none; }
 .mmgate-confirmation-modal { position:fixed; z-index:100000; inset:0; display:grid; place-items:center; padding:18px; }

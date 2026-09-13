@@ -156,5 +156,22 @@
                 closeModal();
             }
         } );
+        document.addEventListener( 'click', function( event ) {
+            var confirm = event.target.closest( '.mmgate-confirm-duplicate' );
+            if ( ! confirm ) return;
+            var form = document.querySelector( 'form.checkout, form#order_review' );
+            if ( ! form ) return;
+            var field = form.querySelector( 'input[name="mmgate_confirm_duplicate"]' );
+            if ( ! field ) {
+                field = document.createElement( 'input' );
+                field.type = 'hidden';
+                field.name = 'mmgate_confirm_duplicate';
+                form.appendChild( field );
+            }
+            field.value = '1';
+            var button = form.querySelector( '#place_order' );
+            if ( form.requestSubmit ) form.requestSubmit( button || undefined );
+            else if ( button ) button.click();
+        } );
     } );
 }() );

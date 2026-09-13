@@ -28,6 +28,10 @@ class MMGate_Waiting {
 		}
 
 		$msisdn = (string) $order->get_meta( '_mmgate_msisdn' );
+		$orange_passive = 'CLIENT_INITIE' === (string) $order->get_meta( '_mmgate_mode_orange' );
+		$ussd = (string) $order->get_meta( '_mmgate_ussd_client' );
+		$tel_uri = (string) $order->get_meta( '_mmgate_tel_uri' );
+		$amount_to_compose = (string) $order->get_meta( '_mmgate_amount_to_compose' );
 		?>
 		<div id="mmgate-wait" class="mmgate-wait"
 		     data-order="<?php echo esc_attr( $order_id ); ?>"
@@ -35,7 +39,7 @@ class MMGate_Waiting {
 		     data-nonce="<?php echo esc_attr( wp_create_nonce( 'mmgate_poll' ) ); ?>"
 		     data-ajax="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>">
 			<div class="mmgate-wait-spin" aria-hidden="true"></div>
-			<h2><?php esc_html_e( 'Validez le paiement sur votre téléphone', 'mmgate-woocommerce' ); ?></h2>
+			<h2><?php echo $orange_passive ? esc_html__( 'Validez votre paiement Orange', 'mmgate-woocommerce' ) : esc_html__( 'Validez le paiement sur votre téléphone', 'mmgate-woocommerce' ); ?></h2>
 			<p>
 				<?php
 				printf(
@@ -45,6 +49,12 @@ class MMGate_Waiting {
 				);
 				?>
 			</p>
+			<?php if ( $orange_passive ) : ?>
+				<p class="mmgate-orange-instructions"><strong><?php esc_html_e( 'Mode Orange :', 'mmgate-woocommerce' ); ?></strong> <?php esc_html_e( 'composez le code USSD ci-dessous sur votre téléphone pour valider le paiement.', 'mmgate-woocommerce' ); ?></p>
+				<?php if ( $ussd ) : ?><code class="mmgate-orange-ussd"><?php echo esc_html( $ussd ); ?></code><?php endif; ?>
+				<?php if ( $amount_to_compose ) : ?><p class="mmgate-orange-amount"><?php printf( esc_html__( 'Montant à composer : %s FCFA', 'mmgate-woocommerce' ), esc_html( $amount_to_compose ) ); ?></p><?php endif; ?>
+				<?php if ( $tel_uri ) : ?><a class="button mmgate-orange-launch" href="<?php echo esc_url( $tel_uri ); ?>"><?php esc_html_e( 'Ouvrir le clavier Orange', 'mmgate-woocommerce' ); ?></a><?php endif; ?>
+			<?php endif; ?>
 			<p class="mmgate-wait-state" role="status" aria-live="polite">
 				<?php esc_html_e( 'En attente de votre validation…', 'mmgate-woocommerce' ); ?>
 			</p>
@@ -64,6 +74,10 @@ class MMGate_Waiting {
 		.mmgate-wait.is-paid .mmgate-wait-state{color:#16a34a;}
 		.mmgate-wait.is-failed .mmgate-wait-spin{border-color:#b32d2e;animation:none;}
 		.mmgate-wait.is-failed .mmgate-wait-state{color:#b32d2e;}
+		.mmgate-orange-instructions{margin:16px 0 8px;font-size:14px;line-height:1.5;}
+		.mmgate-orange-ussd{display:block;margin:10px auto;padding:12px 14px;border-radius:8px;background:#172033;color:#fff;font-size:16px;letter-spacing:.04em;}
+		.mmgate-orange-amount{font-weight:700;}
+		.mmgate-orange-launch{display:inline-block;margin:6px 0 14px;}
 		@media (prefers-reduced-motion:reduce){.mmgate-wait-spin{animation:none;}}
 		</style>
 
@@ -120,6 +134,9 @@ class MMGate_Waiting {
 			}
 
 			setTimeout(poll, 2500);
+			<?php if ( $orange_passive && $tel_uri ) : ?>
+			setTimeout(function(){ window.location.href = <?php echo wp_json_encode( $tel_uri ); ?>; }, 700);
+			<?php endif; ?>
 		})();
 		</script>
 		<?php

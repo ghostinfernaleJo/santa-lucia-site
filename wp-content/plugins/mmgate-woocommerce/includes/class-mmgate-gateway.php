@@ -111,9 +111,9 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 			'confirm_duplicate' => [
 				'title'       => __( 'Doublons', 'mmgate-woocommerce' ),
 				'type'        => 'checkbox',
-				'label'       => __( 'Rejouer automatiquement après un ETAT 600', 'mmgate-woocommerce' ),
-				'default'     => 'yes',
-				'description' => __( 'MMGate refuse (ETAT 600) une opération identique — même numéro, même montant — dans une fenêtre d\'environ 10 minutes. Sur une boutique, ce cas est <strong>légitime</strong> : deux clients peuvent acheter le même article au même prix à quelques minutes d\'écart. Coché, la commande est rejouée avec l\'en-tête de confirmation. Le garde-fou reste l\'identifiant de commande : une même commande n\'est jamais initiée deux fois.', 'mmgate-woocommerce' ),
+				'label'       => __( 'Autoriser la confirmation manuelle d’un ETAT 600', 'mmgate-woocommerce' ),
+				'default'     => 'no',
+				'description' => __( 'Un ETAT 600 est toujours présenté au client avec une confirmation explicite avant de rejouer l’opération. Cette option conserve le réglage de compatibilité mais ne supprime jamais la confirmation utilisateur.', 'mmgate-woocommerce' ),
 			],
 			'debug' => [
 				'title'       => __( 'Journalisation', 'mmgate-woocommerce' ),
@@ -278,6 +278,10 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 			<span style="font-size:12px;opacity:.75;display:block;margin-top:4px;">'
 			. esc_html__( 'Ce numéro peut être différent du téléphone de contact. Il est demandé après la validation de la commande.', 'mmgate-woocommerce' )
 			. '</span></p>';
+		echo '<p class="form-row form-row-wide mmgate-orange-consent-field">
+			<label><input type="checkbox" name="mmgate_orange_consent" value="1" required> '
+			. esc_html__( 'J’ai lu et j’accepte les conditions de validation Mobile Money. Si mon numéro est Orange, je composerai le code USSD affiché.', 'mmgate-woocommerce' )
+			. '</label></p>';
 	}
 
 	public function validate_fields() {
@@ -287,6 +291,10 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 		$err = MMGate_Client::msisdn_error( $raw );
 		if ( $err !== '' ) {
 			wc_add_notice( esc_html( $err ), 'error' );
+			return false;
+		}
+		if ( empty( $_POST['mmgate_orange_consent'] ) ) {
+			wc_add_notice( esc_html__( 'Veuillez accepter les conditions de validation Mobile Money.', 'mmgate-woocommerce' ), 'error' );
 			return false;
 		}
 		return true;
@@ -322,6 +330,11 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 			$order->delete_meta_data( '_mmgate_idoper' );
 			$order->delete_meta_data( '_mmgate_started' );
 			$order->delete_meta_data( '_mmgate_fail_reason' );
+			$order->delete_meta_data( '_mmgate_duplicate_pending' );
+			$order->delete_meta_data( '_mmgate_mode_orange' );
+			$order->delete_meta_data( '_mmgate_ussd_client' );
+			$order->delete_meta_data( '_mmgate_tel_uri' );
+			$order->delete_meta_data( '_mmgate_amount_to_compose' );
 			$order->save();
 			$order->add_order_note( sprintf(
 				/* translators: %s: identifiant de l'ancienne transaction */
@@ -331,23 +344,24 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 		}
 
 		$montant = (int) round( (float) $order->get_total() );
-		$confirm = 'yes' === $this->get_option( 'confirm_duplicate', 'yes' );
 		$method  = 'DEPOTP' === $this->get_option( 'endpoint', 'PAIEMENTP' ) ? 'depot' : 'paiement';
 
-		$res = $client->$method( $msisdn, $montant, false );
+		$confirm_requested = ! empty( $_POST['mmgate_confirm_duplicate'] );
+		$res = $client->$method( $msisdn, $montant, $confirm_requested );
 
 		// ETAT 600 : aucune operation creee. Sur une boutique, deux clients qui
 		// paient le meme montant a 10 min d'ecart est un cas normal -> on rejoue
 		// avec l'en-tete de confirmation. L'idempotence reste assuree par le
 		// garde _mmgate_idoper ci-dessus, pas par la fenetre anti-doublon MMGate.
 		if ( ! is_wp_error( $res ) && isset( $res['ETAT'] ) && MMGate_Client::ETAT_DOUBLON === (int) $res['ETAT'] ) {
-			if ( $confirm ) {
-				$order->add_order_note( __( 'MMGate : opération similaire récente (ETAT 600) — rejeu confirmé.', 'mmgate-woocommerce' ) );
-				$res = $client->$method( $msisdn, $montant, true );
-			} else {
-				wc_add_notice( __( 'Un paiement identique vient d\'être enregistré. Patientez quelques minutes avant de réessayer.', 'mmgate-woocommerce' ), 'error' );
+			if ( ! $confirm_requested ) {
+				$order->update_meta_data( '_mmgate_duplicate_pending', '1' );
+				$order->save();
+				wc_add_notice( __( 'MMGate a détecté une opération similaire récente. Vérifiez que vous souhaitez bien relancer ce paiement, puis confirmez ci-dessous.', 'mmgate-woocommerce' ) . ' <button type="button" class="button mmgate-confirm-duplicate">Confirmer le nouveau paiement</button>', 'notice' );
 				return [ 'result' => 'failure' ];
 			}
+			$order->delete_meta_data( '_mmgate_duplicate_pending' );
+			$order->add_order_note( __( 'MMGate : opération similaire récente (ETAT 600) — rejeu confirmé par le client.', 'mmgate-woocommerce' ) );
 		}
 
 		if ( is_wp_error( $res ) ) {
@@ -378,6 +392,12 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 		$order->update_meta_data( '_sl_collect_payment_phone', $msisdn );
 		$order->update_meta_data( '_mmgate_msisdn', $msisdn );
 		$order->update_meta_data( '_mmgate_started', time() );
+		if ( isset( $res['MODE_ORANGE'] ) && 'CLIENT_INITIE' === (string) $res['MODE_ORANGE'] ) {
+			$order->update_meta_data( '_mmgate_mode_orange', 'CLIENT_INITIE' );
+			$order->update_meta_data( '_mmgate_ussd_client', sanitize_text_field( (string) ( $res['USSD_CLIENT'] ?? '' ) ) );
+			$order->update_meta_data( '_mmgate_tel_uri', esc_url_raw( (string) ( $res['TEL_URI'] ?? '' ) ) );
+			$order->update_meta_data( '_mmgate_amount_to_compose', sanitize_text_field( (string) ( $res['MONTANT_A_COMPOSER'] ?? $montant ) ) );
+		}
 		$order->save();
 
 		$order->update_status( 'pending', sprintf(
