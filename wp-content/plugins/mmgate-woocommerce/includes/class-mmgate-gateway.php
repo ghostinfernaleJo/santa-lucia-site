@@ -69,6 +69,14 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 				'type'    => 'textarea',
 				'default' => __( 'Payez avec MTN MoMo ou Orange Money. Vous recevrez une demande de validation sur votre téléphone.', 'mmgate-woocommerce' ),
 			],
+			'payment_fee_percent' => [
+				'title'             => __( 'Frais de paiement', 'mmgate-woocommerce' ),
+				'type'              => 'number',
+				'default'           => '2',
+				'desc_tip'          => true,
+				'custom_attributes' => [ 'min' => '0', 'max' => '100', 'step' => '0.01' ],
+				'description'       => __( 'Pourcentage ajouté uniquement aux commandes payées par Mobile Money. Les frais sont inscrits comme ligne séparée dans la commande et la facture. Saisissez 0 pour désactiver.', 'mmgate-woocommerce' ),
+			],
 			'creds_title' => [
 				'title'       => __( 'Identifiants partenaire', 'mmgate-woocommerce' ),
 				'type'        => 'title',

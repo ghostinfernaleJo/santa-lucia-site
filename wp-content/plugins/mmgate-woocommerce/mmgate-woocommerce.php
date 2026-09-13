@@ -76,9 +76,31 @@ function mmgate_wc_boot() {
 		return $gateways;
 	}, 20 );
 
+	add_action( 'woocommerce_cart_calculate_fees', 'mmgate_wc_add_payment_fee', 20 );
+
 	add_action( 'init', function () {
 		load_plugin_textdomain( 'mmgate-woocommerce', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
 	} );
+}
+
+/** Pourcentage des frais Mobile Money, réglable dans les paramètres de la passerelle. */
+function mmgate_wc_payment_fee_percent() {
+	$settings = (array) get_option( 'woocommerce_mmgate_settings', [] );
+	$value = isset( $settings['payment_fee_percent'] ) ? str_replace( ',', '.', (string) $settings['payment_fee_percent'] ) : '2';
+	return min( 100, max( 0, (float) $value ) );
+}
+
+/** Ajoute les frais comme ligne WooCommerce : ils apparaissent dans la commande et la facture. */
+function mmgate_wc_add_payment_fee( $cart ) {
+	if ( is_admin() && ! wp_doing_ajax() ) return;
+	if ( ! function_exists( 'WC' ) || ! WC()->session || 'mmgate' !== WC()->session->get( 'chosen_payment_method' ) ) return;
+	$percent = mmgate_wc_payment_fee_percent();
+	if ( $percent <= 0 || ! $cart || ! method_exists( $cart, 'get_cart_contents_total' ) ) return;
+	$base = (float) $cart->get_cart_contents_total();
+	$fee  = round( $base * $percent / 100, 2 );
+	if ( $fee <= 0 ) return;
+	$label = sprintf( __( 'Frais de paiement Mobile Money (%s%%)', 'mmgate-woocommerce' ), rtrim( rtrim( number_format( $percent, 2, '.', '' ), '0' ), '.' ) );
+	$cart->add_fee( $label, $fee, false );
 }
 
 /** Charge l'interface de confirmation Mobile Money sur le checkout uniquement. */
