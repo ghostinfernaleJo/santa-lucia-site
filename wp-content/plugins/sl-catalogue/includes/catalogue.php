@@ -73,7 +73,7 @@ function slcat_enqueue_assets() {
     $js  = SL_CATALOGUE_PATH . 'assets/catalogue.js';
     // A distinct revision prevents a page-optimizer/CDN from serving an old
     // catalogue stylesheet after a deployment.
-    $asset_revision = SL_CATALOGUE_VERSION . '-20260913-sidebar-left-v2';
+    $asset_revision = SL_CATALOGUE_VERSION . '-20260913-sidebar-left-v3';
     wp_enqueue_style( 'sl-catalogue', SL_CATALOGUE_URL . 'assets/catalogue.css', [], $asset_revision );
     wp_enqueue_script( 'sl-catalogue', SL_CATALOGUE_URL . 'assets/catalogue.js', [], $asset_revision, true );
 
