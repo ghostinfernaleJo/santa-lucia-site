@@ -17,7 +17,10 @@
   var reset = root.querySelector('.slcat__reset');
   var toast = root.querySelector('.slcat__toast');
   var availability = root.querySelector('.slcat__availability');
+  var pagination = root.querySelector('.slcat__pagination');
   var selectedCategory = '';
+  var currentPage = 1;
+  var totalPages = 1;
   var timer;
 
   function endpoint(name) { return config.ajax.replace('%endpoint%', name); }
@@ -29,16 +32,34 @@
     showToast.timeout = window.setTimeout(function () { toast.hidden = true; }, 4200);
   }
   function empty(message) { results.innerHTML = '<p class="slcat__empty">' + message + '</p>'; }
-  function loadProducts() {
-    if (!selectedAgency()) { empty(config.emptyCopy); return; }
+  function renderPagination() {
+    if (!pagination || totalPages <= 1) { if (pagination) pagination.innerHTML = ''; return; }
+    var pages = [];
+    for (var i = 1; i <= totalPages; i++) if (i === 1 || i === totalPages || Math.abs(i - currentPage) <= 2) pages.push(i);
+    var html = '<ul class="slcat-pagination">';
+    if (currentPage > 1) html += '<li><button type="button" class="slcat-pagination__prev" data-page="' + (currentPage - 1) + '">← Précédent</button></li>';
+    var previous = 0;
+    pages.forEach(function (page) {
+      if (previous && page - previous > 1) html += '<li class="slcat-pagination__gap" aria-hidden="true">…</li>';
+      html += '<li><button type="button" class="' + (page === currentPage ? 'is-current' : '') + '" data-page="' + page + '" aria-current="' + (page === currentPage ? 'page' : 'false') + '">' + page + '</button></li>';
+      previous = page;
+    });
+    if (currentPage < totalPages) html += '<li><button type="button" class="slcat-pagination__next" data-page="' + (currentPage + 1) + '">Suivant →</button></li>';
+    pagination.innerHTML = html + '</ul>';
+  }
+  function loadProducts(page) {
+    if (!selectedAgency()) { currentPage = 1; totalPages = 1; renderPagination(); empty(config.emptyCopy); return; }
+    currentPage = Math.max(1, parseInt(page || 1, 10));
     empty('Chargement des produits…');
-    var body = new URLSearchParams({agency: selectedAgency(), category: selectedCategory, search: search.value.trim()});
+    var body = new URLSearchParams({agency: selectedAgency(), category: selectedCategory, search: search.value.trim(), page: currentPage});
     fetch(endpoint('products'), {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:body.toString()})
       .then(function (res) { return res.json(); })
       .then(function (res) {
         if (!res.success) throw new Error();
-        if (res.data.empty) { empty('Aucun produit disponible pour cette recherche dans cette agence.'); return; }
+        totalPages = Math.max(1, parseInt(res.data.pages || 1, 10));
+        if (res.data.empty) { empty('Aucun produit disponible pour cette recherche dans cette agence.'); renderPagination(); return; }
         results.innerHTML = '<div class="slcat__product-grid">' + res.data.html + '</div>';
+        renderPagination();
       }).catch(function () { empty(config.errorCopy); });
   }
   function updateAgencyState() {
@@ -56,6 +77,7 @@
     updateAgencyState();
     if (value) localStorage.setItem('sl_catalogue_agency', value);
     selectedCategory = '';
+    currentPage = 1;
     reset.hidden = true;
     loadProducts();
   }
@@ -65,7 +87,8 @@
       button.classList.toggle('is-active', button === activeButton);
     });
     reset.hidden = !selectedCategory;
-    loadProducts();
+    currentPage = 1;
+    loadProducts(1);
   }
   var saved = localStorage.getItem('sl_catalogue_agency');
   if (!agency.value && saved && agency.querySelector('option[value="' + CSS.escape(saved) + '"]')) agency.value = saved;
@@ -74,7 +97,7 @@
   // immédiatement son catalogue, sans obliger le client à la re-sélectionner.
   if (agency.value) loadProducts();
   agency.addEventListener('change', setAgency);
-  search.addEventListener('input', function () { window.clearTimeout(timer); timer = window.setTimeout(loadProducts, 280); });
+  search.addEventListener('input', function () { window.clearTimeout(timer); timer = window.setTimeout(function () { currentPage = 1; loadProducts(1); }, 280); });
   root.querySelectorAll('.slcat__category').forEach(function (button) {
     button.addEventListener('click', function () {
       if (!selectedAgency()) { agency.focus(); showToast('Choisissez votre agence avant de consulter ce rayon.'); return; }
@@ -84,6 +107,12 @@
   });
   root.querySelector('.slcat__all-cats').addEventListener('click', function () { setCategory('', root.querySelector('.slcat__all-cats')); });
   reset.addEventListener('click', function () { setCategory('', root.querySelector('.slcat__all-cats')); });
+  if (pagination) pagination.addEventListener('click', function (event) {
+    var button = event.target.closest('button[data-page]');
+    if (!button) return;
+    loadProducts(parseInt(button.dataset.page, 10));
+    root.querySelector('.slcat__results').scrollIntoView({behavior:'smooth', block:'start'});
+  });
   root.addEventListener('click', function (event) {
     var button = event.target.closest('.slcat-product__add');
     if (!button) return;

@@ -73,7 +73,7 @@ function slcat_enqueue_assets() {
     $js  = SL_CATALOGUE_PATH . 'assets/catalogue.js';
     // A distinct revision prevents a page-optimizer/CDN from serving an old
     // catalogue stylesheet after a deployment.
-    $asset_revision = SL_CATALOGUE_VERSION . '-20260913-sidebar-left-v3';
+    $asset_revision = SL_CATALOGUE_VERSION . '-20260914-pagination-v1';
     wp_enqueue_style( 'sl-catalogue', SL_CATALOGUE_URL . 'assets/catalogue.css', [], $asset_revision );
     wp_enqueue_script( 'sl-catalogue', SL_CATALOGUE_URL . 'assets/catalogue.js', [], $asset_revision, true );
 
@@ -204,6 +204,7 @@ function slcat_render_catalogue() {
                     <button class="slcat__reset" type="button" hidden>Tout afficher</button>
                 </div>
                 <div class="slcat__results-content" aria-live="polite"><p class="slcat__empty">Choisissez une agence pour voir les produits, les prix et le stock disponibles.</p></div>
+                <nav class="slcat__pagination" aria-label="Pages de produits"></nav>
             </section>
         </div>
         <div class="slcat__toast" role="status" aria-live="polite" hidden></div>
@@ -223,11 +224,13 @@ function slcat_ajax_products() {
 
     $category = isset( $_REQUEST['category'] ) ? absint( $_REQUEST['category'] ) : 0;
     $search   = isset( $_REQUEST['search'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['search'] ) ) : '';
+    $page = max( 1, absint( $_REQUEST['page'] ?? 1 ) );
     $query = new WP_Query( [
         'post_type'              => 'product',
         'post_status'            => 'publish',
         'posts_per_page'         => 12,
-        'no_found_rows'          => true,
+        'paged'                  => $page,
+        'no_found_rows'          => false,
         'ignore_sticky_posts'    => true,
         's'                      => $search,
         'meta_query'             => [ [ 'key' => SLCAT_AGENCIES_META, 'value' => '"' . $agency . '"', 'compare' => 'LIKE' ] ],
@@ -243,7 +246,7 @@ function slcat_ajax_products() {
     }
     wp_reset_postdata();
     $html = trim( ob_get_clean() );
-    wp_send_json_success( [ 'html' => $html, 'empty' => $html === '' ] );
+    wp_send_json_success( [ 'html' => $html, 'empty' => $html === '', 'page' => $page, 'pages' => (int) $query->max_num_pages ] );
 }
 
 function slcat_render_product_card( WC_Product $product, $agency ) {
