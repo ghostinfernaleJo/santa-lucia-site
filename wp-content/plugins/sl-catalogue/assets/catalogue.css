@@ -8,3 +8,6 @@ body:has(.slcat) .klb-page-title{display:none}
 
 /* Priorité à l'alignement gauche malgré les styles hérités du thème. */
 .slcat__sidebar,.slcat__sidebar > *,.slcat__sidebar .slcat__categories,.slcat__sidebar .slcat__category,.slcat__sidebar .slcat__all-cats{align-items:flex-start;text-align:left!important}.slcat__sidebar > *{margin-left:0;margin-right:0}.slcat__sidebar .slcat__categories{justify-items:stretch}.slcat__sidebar .slcat__category,.slcat__sidebar .slcat__all-cats{display:block;justify-self:stretch;text-align:left!important}
+
+/* Elementor peut transformer les boutons en flex et recentrer leur contenu. */
+body .slcat__sidebar,body .slcat__sidebar > *,body .slcat__sidebar .slcat__categories,body .slcat__sidebar .slcat__category,body .slcat__sidebar .slcat__all-cats{margin-left:0!important;margin-right:0!important;text-align:left!important}.slcat__sidebar .slcat__category,.slcat__sidebar .slcat__all-cats{display:block!important;justify-content:flex-start!important;justify-self:stretch!important}
