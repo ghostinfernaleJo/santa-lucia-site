@@ -77,6 +77,13 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 				'custom_attributes' => [ 'min' => '0', 'max' => '100', 'step' => '0.01' ],
 				'description'       => __( 'Pourcentage ajouté uniquement aux commandes payées par Mobile Money. Les frais sont inscrits comme ligne séparée dans la commande et la facture. Saisissez 0 pour désactiver.', 'mmgate-woocommerce' ),
 			],
+			'store_paused' => [
+				'title'       => __( 'Commandes', 'mmgate-woocommerce' ),
+				'type'        => 'checkbox',
+				'label'       => __( 'Suspendre temporairement les ajouts au panier et les paiements', 'mmgate-woocommerce' ),
+				'default'     => 'no',
+				'description' => __( '<strong>Interrupteur temporaire :</strong> lorsqu’il est coché, les produits ne peuvent plus être ajoutés au panier, les moyens de paiement sont masqués et la validation de commande est bloquée. Décochez-le pour remettre les commandes en service.', 'mmgate-woocommerce' ),
+			],
 			'creds_title' => [
 				'title'       => __( 'Identifiants partenaire', 'mmgate-woocommerce' ),
 				'type'        => 'title',

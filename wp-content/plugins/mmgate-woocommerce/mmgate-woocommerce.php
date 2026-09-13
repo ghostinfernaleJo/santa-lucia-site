@@ -70,17 +70,66 @@ function mmgate_wc_boot() {
 	// Mobile Money en tête de liste au checkout : paiement immédiat, on le
 	// propose avant "confirmer par téléphone" (qui reste un repli manuel).
 	add_filter( 'woocommerce_available_payment_gateways', function ( $gateways ) {
+		if ( mmgate_wc_is_store_paused() ) {
+			return [];
+		}
 		if ( isset( $gateways['mmgate'] ) ) {
 			$gateways = [ 'mmgate' => $gateways['mmgate'] ] + $gateways;
 		}
 		return $gateways;
 	}, 20 );
 
+	add_filter( 'woocommerce_is_purchasable', 'mmgate_wc_pause_purchasable', 20, 2 );
+	add_filter( 'woocommerce_add_to_cart_validation', 'mmgate_wc_pause_add_to_cart', 20, 5 );
+	add_action( 'woocommerce_check_cart_items', 'mmgate_wc_block_paused_cart' );
+	add_action( 'woocommerce_checkout_process', 'mmgate_wc_block_paused_checkout' );
+	add_action( 'woocommerce_before_cart', 'mmgate_wc_pause_notice' );
+	add_action( 'woocommerce_before_checkout_form', 'mmgate_wc_pause_notice' );
 	add_action( 'woocommerce_cart_calculate_fees', 'mmgate_wc_add_payment_fee', 20 );
 
 	add_action( 'init', function () {
 		load_plugin_textdomain( 'mmgate-woocommerce', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
 	} );
+}
+
+/** Interrupteur global de mise en pause des commandes et paiements. */
+function mmgate_wc_is_store_paused() {
+	$settings = (array) get_option( 'woocommerce_mmgate_settings', [] );
+	return ! empty( $settings['store_paused'] ) && 'yes' === $settings['store_paused'];
+}
+
+function mmgate_wc_pause_message() {
+	return __( 'Les commandes et paiements sont temporairement suspendus. Merci de revenir un peu plus tard.', 'mmgate-woocommerce' );
+}
+
+function mmgate_wc_pause_purchasable( $purchasable, $product ) {
+	return mmgate_wc_is_store_paused() ? false : $purchasable;
+}
+
+function mmgate_wc_pause_add_to_cart( $passed ) {
+	if ( mmgate_wc_is_store_paused() ) {
+		wc_add_notice( mmgate_wc_pause_message(), 'error' );
+		return false;
+	}
+	return $passed;
+}
+
+function mmgate_wc_block_paused_cart() {
+	if ( mmgate_wc_is_store_paused() && function_exists( 'WC' ) && WC()->cart && ! WC()->cart->is_empty() ) {
+		wc_add_notice( mmgate_wc_pause_message(), 'error' );
+	}
+}
+
+function mmgate_wc_block_paused_checkout() {
+	if ( mmgate_wc_is_store_paused() ) {
+		wc_add_notice( mmgate_wc_pause_message(), 'error' );
+	}
+}
+
+function mmgate_wc_pause_notice() {
+	if ( mmgate_wc_is_store_paused() ) {
+		wc_print_notice( mmgate_wc_pause_message(), 'notice' );
+	}
 }
 
 /** Pourcentage des frais Mobile Money, réglable dans les paramètres de la passerelle. */
@@ -93,6 +142,7 @@ function mmgate_wc_payment_fee_percent() {
 /** Ajoute les frais comme ligne WooCommerce : ils apparaissent dans la commande et la facture. */
 function mmgate_wc_add_payment_fee( $cart ) {
 	if ( is_admin() && ! wp_doing_ajax() ) return;
+	if ( mmgate_wc_is_store_paused() ) return;
 	if ( ! function_exists( 'WC' ) || ! WC()->session || 'mmgate' !== WC()->session->get( 'chosen_payment_method' ) ) return;
 	$percent = mmgate_wc_payment_fee_percent();
 	if ( $percent <= 0 || ! $cart || ! method_exists( $cart, 'get_cart_contents_total' ) ) return;
