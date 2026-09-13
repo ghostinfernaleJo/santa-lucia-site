@@ -98,6 +98,48 @@ function mmgate_wc_is_store_paused() {
 	return ! empty( $settings['store_paused'] ) && 'yes' === $settings['store_paused'];
 }
 
+/** Accès au contrôle rapide réservé aux administrateurs du site. */
+function mmgate_wc_can_toggle_store() {
+	return current_user_can( 'manage_options' );
+}
+
+/** Bascule l'état depuis le bouton de la barre d'administration. */
+add_action( 'admin_init', function () {
+	if ( ! isset( $_GET['mmgate_store_toggle'] ) || ! mmgate_wc_can_toggle_store() ) {
+		return;
+	}
+
+	if ( ! wp_verify_nonce( $_GET['_mmgate_nonce'] ?? '', 'mmgate_store_toggle' ) ) {
+		return;
+	}
+
+	$settings                  = (array) get_option( 'woocommerce_mmgate_settings', [] );
+	$settings['store_paused'] = mmgate_wc_is_store_paused() ? 'no' : 'yes';
+	update_option( 'woocommerce_mmgate_settings', $settings );
+
+	wp_safe_redirect( remove_query_arg( [ 'mmgate_store_toggle', '_mmgate_nonce' ], wp_get_referer() ?: admin_url() ) );
+	exit;
+} );
+
+function mmgate_wc_store_toggle_url() {
+	return wp_nonce_url( add_query_arg( 'mmgate_store_toggle', '1' ), 'mmgate_store_toggle', '_mmgate_nonce' );
+}
+
+/** Raccourci ON/OFF dans la barre d'administration, sur toutes les pages. */
+add_action( 'admin_bar_menu', function ( $bar ) {
+	if ( ! mmgate_wc_can_toggle_store() ) {
+		return;
+	}
+
+	$paused = mmgate_wc_is_store_paused();
+	$bar->add_node( [
+		'id'    => 'mmgate-store-toggle',
+		'title' => 'Paiements : ' . ( $paused ? '🔴 OFF' : '🟢 ON' ),
+		'href'  => esc_url( mmgate_wc_store_toggle_url() ),
+		'meta'  => [ 'title' => $paused ? 'Cliquer pour réactiver les paiements' : 'Cliquer pour suspendre les paiements' ],
+	] );
+}, 101 );
+
 function mmgate_wc_pause_message() {
 	return __( 'Les commandes et paiements sont temporairement suspendus. Merci de revenir un peu plus tard.', 'mmgate-woocommerce' );
 }
