@@ -188,13 +188,13 @@ function slcat_render_catalogue() {
         <p class="slcat__availability" aria-live="polite"><span></span>Choisissez votre agence : les prix et le stock peuvent varier selon le magasin.</p>
 
         <div class="slcat__body">
-            <aside class="slcat__sidebar" aria-labelledby="slcat-departments-title">
+            <aside class="slcat__sidebar" style="text-align:left!important" aria-labelledby="slcat-departments-title">
                 <p class="slcat__eyebrow">Navigation</p>
                 <h2 id="slcat-departments-title">Rayons</h2>
-                <div class="slcat__categories">
-                    <button class="slcat__all-cats is-active" type="button">Tous les produits</button>
+                <div class="slcat__categories" style="display:grid;grid-template-columns:1fr;justify-items:stretch;text-align:left!important">
+                    <button class="slcat__all-cats is-active" style="display:block;width:100%;text-align:left!important" type="button">Tous les produits</button>
                     <?php foreach ( $categories as $category ) : ?>
-                        <button class="slcat__category" type="button" data-category="<?php echo esc_attr( $category->term_id ); ?>"><?php echo esc_html( $category->name ); ?></button>
+                        <button class="slcat__category" style="display:block;width:100%;text-align:left!important" type="button" data-category="<?php echo esc_attr( $category->term_id ); ?>"><?php echo esc_html( $category->name ); ?></button>
                     <?php endforeach; ?>
                 </div>
             </aside>
