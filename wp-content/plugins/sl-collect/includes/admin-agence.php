@@ -41,10 +41,17 @@ function slc_admin_styles() {
         .slc-order-details { margin-top:8px; }
         .slc-order-details summary { display:inline-flex; align-items:center; gap:4px; cursor:pointer; color:#2271b1; font-weight:600; }
         .slc-order-details summary:hover { color:#135e96; }
-        .slc-order-detail-box { min-width:560px; margin-top:10px; padding:10px; background:#f6f7f7; border:1px solid #dcdcde; border-radius:6px; }
-        .slc-order-detail-box table { background:#fff; }
+        .slc-order-detail-box { width:100%; max-width:820px; min-width:0; margin-top:10px; padding:14px; background:#f6f7f7; border:1px solid #dcdcde; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,.04); }
+        .slc-order-detail-box table { width:100%; table-layout:fixed; background:#fff; }
         .slc-order-detail-box th { font-size:11px; text-transform:uppercase; }
-        .slc-order-detail-box td, .slc-order-detail-box th { padding:8px; }
+        .slc-order-detail-box td, .slc-order-detail-box th { padding:9px 8px; vertical-align:top; overflow-wrap:anywhere; }
+        .slc-order-detail-box th:nth-child(1) { width:28%; }
+        .slc-order-detail-box th:nth-child(2) { width:22%; }
+        .slc-order-detail-box th:nth-child(3) { width:8%; }
+        .slc-order-detail-box th:nth-child(4) { width:18%; }
+        .slc-order-detail-box th:nth-child(5) { width:24%; }
+        .slc-order-detail-box details { max-width:100%; }
+        .slc-order-detail-box details form select, .slc-order-detail-box details form textarea { max-width:100% !important; box-sizing:border-box; }
         .slc-total { font-weight:700; white-space:nowrap; }
         .slc-status { display:inline-flex; align-items:center; min-height:24px; padding:3px 9px; border-radius:999px; background:#eef0f2; color:#50575e; font-size:12px; font-weight:700; white-space:nowrap; }
         .slc-status-processing { background:#e7f3ff; color:#075985; }
@@ -57,8 +64,8 @@ function slc_admin_styles() {
         .slc-status-failed, .slc-status-cancelled, .slc-status-refunded { background:#fbeaea; color:#b32d2e; }
         .slc-status-meta { display:block; margin-top:6px; color:#646970; font-size:11px; line-height:1.5; }
         .slc-status-meta code { padding:2px 4px; background:#f0f0f1; }
-        .slc-actions { display:flex; flex-direction:column; align-items:flex-start; gap:7px; min-width:240px; }
-        .slc-actions .button { margin:0; }
+        .slc-actions { display:flex; flex-direction:column; align-items:stretch; gap:8px; min-width:220px; }
+        .slc-actions .button { margin:0; min-height:38px; justify-content:center; }
         .slc-actions form { display:flex; gap:7px; align-items:center; margin:0; }
         .slc-actions input[name="code"] { width:120px; min-height:34px; text-transform:uppercase; }
         .slc-ticket-row td { background:#f6f7f7; }
@@ -67,6 +74,11 @@ function slc_admin_styles() {
             .slc-filter-bar { align-items:stretch; }
             .slc-filter-bar label, .slc-filter-bar input[type="search"], .slc-filter-bar select, .slc-filter-bar .button { width:100%; box-sizing:border-box; }
             .slc-filter-bar .button { text-align:center; }
+            .slc-orders-table { min-width:960px; }
+            .slc-order-detail-box { max-width:100%; padding:10px; }
+            .slc-order-detail-box table { min-width:0; font-size:12px; }
+            .slc-order-detail-box td, .slc-order-detail-box th { padding:7px 5px; }
+            .slc-actions { min-width:190px; }
         }
     </style>
     <?php

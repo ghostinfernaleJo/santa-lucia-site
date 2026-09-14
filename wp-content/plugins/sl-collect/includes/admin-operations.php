@@ -75,7 +75,7 @@ function slc_admin_substitution_control( WC_Order $order, $item_id, WC_Order_Ite
     $candidates = slc_substitution_candidates( $item, $order );
     ?>
     <details style="margin-top:7px;">
-        <summary style="cursor:pointer;color:#2271b1;">Produit indisponible</summary>
+        <summary style="cursor:pointer;color:#2271b1;">Signaler une indisponibilité</summary>
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:block;margin-top:8px;min-width:260px;">
             <?php wp_nonce_field( 'slc_action_' . $order->get_id() ); ?>
             <input type="hidden" name="action" value="slc_propose_substitution">
