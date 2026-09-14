@@ -38,11 +38,15 @@ function slc_admin_styles() {
         .slc-customer-name { font-weight:600; color:#1d2327; }
         .slc-customer-phone { white-space:nowrap; }
         .slc-items-summary { max-width:290px; line-height:1.45; }
-        .slc-order-details { margin-top:8px; }
-        .slc-order-details summary { display:inline-flex; align-items:center; gap:4px; cursor:pointer; color:#2271b1; font-weight:600; }
-        .slc-order-details summary:hover { color:#135e96; }
-        .slc-order-detail-box { width:100%; max-width:820px; min-width:0; margin-top:10px; padding:14px; background:#f6f7f7; border:1px solid #dcdcde; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,.04); }
-        .slc-order-detail-box table { width:100%; table-layout:fixed; background:#fff; }
+        .slc-order-details-toggle { margin-top:8px; padding:0; color:#2271b1; font-weight:600; text-decoration:none; }
+        .slc-order-details-toggle:hover, .slc-order-details-toggle[aria-expanded="true"] { color:#135e96; text-decoration:underline; }
+        .slc-order-detail-row[hidden] { display:none; }
+        .slc-order-detail-row > td { padding:0 !important; border-top:0 !important; }
+        .slc-order-detail-box { margin:0 10px 14px; padding:16px; background:#f6f7f7; border:1px solid #dcdcde; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,.04); }
+        .slc-order-detail-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; color:#1d2327; }
+        .slc-order-detail-heading span { color:#646970; font-size:12px; }
+        .slc-order-detail-scroll { overflow-x:auto; }
+        .slc-order-detail-box table { width:100%; min-width:680px; background:#fff; }
         .slc-order-detail-box th { font-size:11px; text-transform:uppercase; }
         .slc-order-detail-box td, .slc-order-detail-box th { padding:9px 8px; vertical-align:top; overflow-wrap:anywhere; }
         .slc-order-detail-box th:nth-child(1) { width:28%; }
@@ -52,6 +56,7 @@ function slc_admin_styles() {
         .slc-order-detail-box th:nth-child(5) { width:24%; }
         .slc-order-detail-box details { max-width:100%; }
         .slc-order-detail-box details form select, .slc-order-detail-box details form textarea { max-width:100% !important; box-sizing:border-box; }
+        .slc-order-detail-note { margin:10px 0 0; color:#646970; font-size:12px; line-height:1.5; }
         .slc-total { font-weight:700; white-space:nowrap; }
         .slc-status { display:inline-flex; align-items:center; min-height:24px; padding:3px 9px; border-radius:999px; background:#eef0f2; color:#50575e; font-size:12px; font-weight:700; white-space:nowrap; }
         .slc-status-processing { background:#e7f3ff; color:#075985; }
@@ -75,8 +80,8 @@ function slc_admin_styles() {
             .slc-filter-bar label, .slc-filter-bar input[type="search"], .slc-filter-bar select, .slc-filter-bar .button { width:100%; box-sizing:border-box; }
             .slc-filter-bar .button { text-align:center; }
             .slc-orders-table { min-width:960px; }
-            .slc-order-detail-box { max-width:100%; padding:10px; }
-            .slc-order-detail-box table { min-width:0; font-size:12px; }
+            .slc-order-detail-box { margin:0 6px 12px; padding:10px; }
+            .slc-order-detail-box table { min-width:680px; font-size:12px; }
             .slc-order-detail-box td, .slc-order-detail-box th { padding:7px 5px; }
             .slc-actions { min-width:190px; }
         }
@@ -275,50 +280,7 @@ function slc_admin_page() {
                     <td><a class="slc-customer-phone" href="tel:<?php echo esc_attr( $o->get_billing_phone() ); ?>"><?php echo esc_html( $o->get_billing_phone() ); ?></a></td>
                     <td class="slc-items-summary">
                         <?php echo esc_html( implode( ', ', array_slice( $items, 0, 3 ) ) . ( count( $items ) > 3 ? '…' : '' ) ); ?>
-                        <details class="slc-order-details">
-                            <summary>Voir les <?php echo count( $line_items ); ?> ligne(s)</summary>
-                            <div class="slc-order-detail-box">
-                                <table class="widefat striped" style="margin:0;">
-                                    <thead><tr><th>Article</th><th>Options</th><th>Qté</th><th>Total ligne</th><th>Gestion</th></tr></thead>
-                                    <tbody>
-                                    <?php foreach ( $line_items as $item_id => $item ) :
-                                        $meta_rows = [];
-                                        foreach ( $item->get_formatted_meta_data( '', true ) as $meta ) {
-                                            $meta_rows[] = esc_html( wp_strip_all_tags( $meta->display_key ) . ': ' . wp_strip_all_tags( $meta->display_value ) );
-                                        }
-                                        $product = $item->get_product();
-                                        $sku = $product && $product->get_sku() ? 'SKU: ' . $product->get_sku() : '';
-                                        if ( $sku !== '' ) $meta_rows[] = esc_html( $sku );
-                                        $can_remove = in_array( $st, [ 'pending', 'processing', 'slc-acceptee', 'slc-prep', 'slc-attente', 'sl-prete' ], true )
-                                            && ( ! function_exists( 'slc_pending_substitution_for_item' ) || ! slc_pending_substitution_for_item( $o, $item_id ) );
-                                    ?>
-                                        <tr>
-                                            <td><strong><?php echo esc_html( $item->get_name() ); ?></strong></td>
-                                            <td><?php echo $meta_rows ? implode( '<br>', $meta_rows ) : '—'; ?></td>
-                                            <td><?php echo (int) $item->get_quantity(); ?></td>
-                                            <td><?php echo wp_kses_post( $o->get_formatted_line_subtotal( $item ) ); ?></td>
-                                            <td>
-                                                <?php if ( $can_remove ) : ?>
-                                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('Supprimer cette ligne ? Le stock sera libéré et, si la commande est payée, un remboursement à traiter sera créé.');">
-                                                        <?php wp_nonce_field( 'slc_action_' . $o->get_id() ); ?>
-                                                        <input type="hidden" name="action" value="slc_remove_order_item">
-                                                        <input type="hidden" name="order_id" value="<?php echo (int) $o->get_id(); ?>">
-                                                        <input type="hidden" name="item_id" value="<?php echo (int) $item_id; ?>">
-                                                        <button type="submit" class="button-link-delete">Supprimer</button>
-                                                    </form>
-                                                <?php else : ?>
-                                                    <span style="color:#777;">—</span>
-                                                <?php endif; ?>
-                                                <?php if ( function_exists( 'slc_admin_substitution_control' ) ) slc_admin_substitution_control( $o, $item_id, $item ); ?>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                                <p style="margin:8px 0 0;color:#666;font-size:12px;">Une suppression libère le stock. Sur une commande payée, le montant à rembourser est suivi jusqu'à sa confirmation.</p>
-                                <?php if ( function_exists( 'slc_admin_order_operations_panel' ) ) slc_admin_order_operations_panel( $o ); ?>
-                            </div>
-                        </details>
+                        <button type="button" class="button-link slc-order-details-toggle" aria-expanded="false" aria-controls="slc-order-detail-<?php echo (int) $o->get_id(); ?>">Voir les <?php echo count( $line_items ); ?> ligne(s)</button>
                     </td>
                     <td class="slc-total"><?php echo wp_kses_post( $o->get_formatted_order_total() ); ?></td>
                     <?php if ( $is_admin && $agence_sel === '' ) : ?>
@@ -390,6 +352,54 @@ function slc_admin_page() {
                         </div>
                     </td>
                 </tr>
+                <tr id="slc-order-detail-<?php echo (int) $o->get_id(); ?>" class="slc-order-detail-row" hidden>
+                    <td colspan="<?php echo (int) ( 8 + ( $is_admin && $agence_sel === '' ? 1 : 0 ) ); ?>">
+                        <div class="slc-order-detail-box">
+                            <div class="slc-order-detail-heading"><strong>Détail de la commande n°<?php echo esc_html( $o->get_order_number() ); ?></strong><span><?php echo count( $line_items ); ?> article(s)</span></div>
+                            <div class="slc-order-detail-scroll">
+                                <table class="widefat striped">
+                                    <thead><tr><th>Article</th><th>Options</th><th>Qté</th><th>Total ligne</th><th>Gestion</th></tr></thead>
+                                    <tbody>
+                                    <?php foreach ( $line_items as $item_id => $item ) :
+                                        $meta_rows = [];
+                                        foreach ( $item->get_formatted_meta_data( '', true ) as $meta ) {
+                                            $meta_rows[] = esc_html( wp_strip_all_tags( $meta->display_key ) . ': ' . wp_strip_all_tags( $meta->display_value ) );
+                                        }
+                                        $product = $item->get_product();
+                                        $sku = $product && $product->get_sku() ? 'SKU: ' . $product->get_sku() : '';
+                                        if ( $sku !== '' ) $meta_rows[] = esc_html( $sku );
+                                        $can_remove = in_array( $st, [ 'pending', 'processing', 'slc-acceptee', 'slc-prep', 'slc-attente', 'sl-prete' ], true )
+                                            && ( ! function_exists( 'slc_pending_substitution_for_item' ) || ! slc_pending_substitution_for_item( $o, $item_id ) );
+                                    ?>
+                                        <tr>
+                                            <td><strong><?php echo esc_html( $item->get_name() ); ?></strong></td>
+                                            <td><?php echo $meta_rows ? implode( '<br>', $meta_rows ) : '—'; ?></td>
+                                            <td><?php echo (int) $item->get_quantity(); ?></td>
+                                            <td><?php echo wp_kses_post( $o->get_formatted_line_subtotal( $item ) ); ?></td>
+                                            <td>
+                                                <?php if ( $can_remove ) : ?>
+                                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('Supprimer cette ligne ? Le stock sera libéré et, si la commande est payée, un remboursement à traiter sera créé.');">
+                                                        <?php wp_nonce_field( 'slc_action_' . $o->get_id() ); ?>
+                                                        <input type="hidden" name="action" value="slc_remove_order_item">
+                                                        <input type="hidden" name="order_id" value="<?php echo (int) $o->get_id(); ?>">
+                                                        <input type="hidden" name="item_id" value="<?php echo (int) $item_id; ?>">
+                                                        <button type="submit" class="button-link-delete">Supprimer</button>
+                                                    </form>
+                                                <?php else : ?>
+                                                    <span style="color:#777;">—</span>
+                                                <?php endif; ?>
+                                                <?php if ( function_exists( 'slc_admin_substitution_control' ) ) slc_admin_substitution_control( $o, $item_id, $item ); ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p class="slc-order-detail-note">Une suppression libère le stock. Sur une commande payée, le montant à rembourser est suivi jusqu'à sa confirmation.</p>
+                            <?php if ( function_exists( 'slc_admin_order_operations_panel' ) ) slc_admin_order_operations_panel( $o ); ?>
+                        </div>
+                    </td>
+                </tr>
                 <?php
                 $ticket_qr_url      = function_exists( 'slc_facture_qr_url' ) ? slc_facture_qr_url( $o ) : '';
                 $ticket_package_code = function_exists( 'slc_package_code' ) ? slc_package_code( $o ) : 'CMD-' . $o->get_order_number();
@@ -431,6 +441,17 @@ function slc_print_ticket_script() {
     if ( ! isset( $_GET['page'] ) || 'sl-collect' !== sanitize_key( wp_unslash( $_GET['page'] ) ) ) return;
     ?>
     <script>
+    document.addEventListener('click', function(event) {
+        var toggle = event.target.closest('.slc-order-details-toggle');
+        if (!toggle) return;
+        var row = document.getElementById(toggle.getAttribute('aria-controls'));
+        if (!row) return;
+        var opening = row.hidden;
+        row.hidden = !opening;
+        toggle.setAttribute('aria-expanded', opening ? 'true' : 'false');
+        toggle.textContent = opening ? 'Masquer le détail' : 'Voir les lignes';
+    });
+
     function slcPrintTicket(orderId) {
         var source = document.getElementById('slc-ticket-' + orderId);
         if (!source) return;
