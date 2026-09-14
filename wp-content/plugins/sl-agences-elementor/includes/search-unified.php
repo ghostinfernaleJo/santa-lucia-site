@@ -38,6 +38,17 @@ function sl_search_broaden_query( $q ) {
     $meta['relation'] = 'AND';
     $meta[] = [ 'key' => '_sl_bp_source_id', 'compare' => 'NOT EXISTS' ];
     $meta[] = [ 'key' => '_sl_ff_source_id', 'compare' => 'NOT EXISTS' ];
+
+    // Un bon plan expiré ne doit pas rester trouvable via la recherche globale.
+    // Les autres types de contenu n'ont normalement pas cette méta ; l'option
+    // NOT EXISTS les laisse donc apparaître normalement.
+    $today = current_time( 'Y-m-d' );
+    $meta[] = [
+        'relation' => 'OR',
+        [ 'key' => '_sl_bp_date_fin', 'compare' => 'NOT EXISTS' ],
+        [ 'key' => '_sl_bp_date_fin', 'value' => '', 'compare' => '=' ],
+        [ 'key' => '_sl_bp_date_fin', 'value' => $today, 'compare' => '>=', 'type' => 'DATE' ],
+    ];
     $q->set( 'meta_query', $meta );
 }
 
