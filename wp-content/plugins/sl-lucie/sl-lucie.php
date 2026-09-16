@@ -17,6 +17,7 @@ require_once SL_LUCIE_PATH . 'includes/gemini-client.php';
 require_once SL_LUCIE_PATH . 'includes/provider.php';
 require_once SL_LUCIE_PATH . 'includes/knowledge.php';
 require_once SL_LUCIE_PATH . 'includes/site-index.php';
+require_once SL_LUCIE_PATH . 'includes/security.php';
 require_once SL_LUCIE_PATH . 'includes/commerce.php';
 require_once SL_LUCIE_PATH . 'includes/tools.php';
 require_once SL_LUCIE_PATH . 'includes/rest-chat.php';

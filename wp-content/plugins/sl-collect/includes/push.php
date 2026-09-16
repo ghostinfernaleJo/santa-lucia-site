@@ -268,7 +268,20 @@ function slp_daily_digest() {
 
 add_action( 'wp_ajax_sl_push_sub', 'slp_ajax_subscribe' );
 add_action( 'wp_ajax_nopriv_sl_push_sub', 'slp_ajax_subscribe' );
+function slp_same_origin_request() {
+    $origin = isset( $_SERVER['HTTP_ORIGIN'] ) ? wp_unslash( $_SERVER['HTTP_ORIGIN'] ) : '';
+    if ( $origin === '' ) return false;
+    $origin_host = strtolower( (string) wp_parse_url( $origin, PHP_URL_HOST ) );
+    $site_host   = strtolower( (string) wp_parse_url( home_url( '/' ), PHP_URL_HOST ) );
+    return $origin_host !== '' && hash_equals( $site_host, $origin_host );
+}
+
+function slp_unsubscribe_token( $endpoint ) {
+    return hash_hmac( 'sha256', (string) $endpoint, wp_salt( 'auth' ) );
+}
+
 function slp_ajax_subscribe() {
+    if ( ! slp_same_origin_request() ) wp_send_json_error( [ 'message' => 'Origine non autorisée.' ], 403 );
     $ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) $_SERVER['REMOTE_ADDR'] : '';
     $key = 'slp_rl_' . md5( $ip );
     $n   = (int) get_transient( $key );
@@ -290,13 +303,25 @@ function slp_ajax_subscribe() {
          ON DUPLICATE KEY UPDATE last_seen = VALUES(last_seen)',
         $endpoint, md5( $endpoint ), $now, $now
     ) );
-    wp_send_json_success();
+    wp_send_json_success( [ 'unsubscribe_token' => slp_unsubscribe_token( $endpoint ) ] );
 }
 
 add_action( 'wp_ajax_sl_push_unsub', 'slp_ajax_unsubscribe' );
 add_action( 'wp_ajax_nopriv_sl_push_unsub', 'slp_ajax_unsubscribe' );
 function slp_ajax_unsubscribe() {
+    if ( ! slp_same_origin_request() ) wp_send_json_error( [ 'message' => 'Origine non autorisée.' ], 403 );
     $endpoint = isset( $_POST['endpoint'] ) ? esc_url_raw( wp_unslash( $_POST['endpoint'] ) ) : '';
+    $token    = isset( $_POST['token'] ) ? sanitize_text_field( wp_unslash( $_POST['token'] ) ) : '';
+    if ( $endpoint === '' || $token === '' || ! hash_equals( slp_unsubscribe_token( $endpoint ), $token ) ) {
+        wp_send_json_error( [ 'message' => 'Jeton de désabonnement invalide.' ], 403 );
+    }
+
+    $ip       = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) $_SERVER['REMOTE_ADDR'] : '';
+    $rate_key = 'slp_unsub_rl_' . md5( $ip );
+    $rate     = (int) get_transient( $rate_key );
+    if ( $rate >= 20 ) wp_send_json_error( [ 'message' => 'Trop de demandes.' ], 429 );
+    set_transient( $rate_key, $rate + 1, HOUR_IN_SECONDS );
+
     if ( $endpoint !== '' ) {
         global $wpdb;
         $wpdb->delete( slp_table(), [ 'endpoint_hash' => md5( $endpoint ) ] );
@@ -360,7 +385,10 @@ function slp_print_front_js() {
                 if ( src.indexOf('sw-push.js') === -1 ) return;
                 r.pushManager.getSubscription().then(function(s){
                     if ( s ) {
-                        var body = 'action=sl_push_unsub&endpoint=' + encodeURIComponent(s.endpoint);
+                        var saved = {};
+                        try { saved = JSON.parse(localStorage.getItem('slpSubscription') || '{}'); } catch(e) {}
+                        var body = 'action=sl_push_unsub&endpoint=' + encodeURIComponent(s.endpoint)
+                            + '&token=' + encodeURIComponent(saved.endpoint === s.endpoint ? (saved.token || '') : '');
                         fetch(AJAX, { method:'POST', credentials:'same-origin',
                             headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body });
                         s.unsubscribe();
@@ -409,6 +437,13 @@ function slp_print_front_js() {
                     var body = 'action=sl_push_sub&endpoint=' + encodeURIComponent(sub.endpoint);
                     return fetch(AJAX, { method:'POST', credentials:'same-origin',
                         headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body });
+                }).then(function(response){ return response.json(); }).then(function(result){
+                    if ( ! result || ! result.success || ! result.data || ! result.data.unsubscribe_token ) throw new Error('subscription');
+                    return navigator.serviceWorker.getRegistration(SW).then(function(reg){
+                        return reg && reg.pushManager.getSubscription();
+                    }).then(function(current){
+                        if ( current ) localStorage.setItem('slpSubscription', JSON.stringify({ endpoint: current.endpoint, token: result.data.unsubscribe_token }));
+                    });
                 }).then(function(){
                     cta.textContent = '✔ Alertes activées';
                     setTimeout(function(){ btn.remove(); }, 2200);

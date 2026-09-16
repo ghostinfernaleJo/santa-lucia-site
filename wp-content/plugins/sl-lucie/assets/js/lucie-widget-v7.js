@@ -234,7 +234,10 @@
     return fetch(url, {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-WP-Nonce': slLucie.nonce || ''
+      },
       body: JSON.stringify(payload)
     }).then(function (response) {
       return response.json().then(function (data) {

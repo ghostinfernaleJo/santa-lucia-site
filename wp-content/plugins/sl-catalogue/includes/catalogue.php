@@ -283,7 +283,18 @@ function slcat_validate_cart_agency( $product_id, $agency ) {
 
 add_action( 'wc_ajax_sl_catalogue_add', 'slcat_ajax_add' );
 add_action( 'wc_ajax_nopriv_sl_catalogue_add', 'slcat_ajax_add' );
+function slcat_same_origin_cart_request() {
+    $fetch_site = isset( $_SERVER['HTTP_SEC_FETCH_SITE'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['HTTP_SEC_FETCH_SITE'] ) ) ) : '';
+    if ( 'cross-site' === $fetch_site ) return false;
+    $origin = isset( $_SERVER['HTTP_ORIGIN'] ) ? wp_unslash( $_SERVER['HTTP_ORIGIN'] ) : '';
+    if ( $origin === '' ) return false;
+    $origin_host = strtolower( (string) wp_parse_url( $origin, PHP_URL_HOST ) );
+    $site_host   = strtolower( (string) wp_parse_url( home_url( '/' ), PHP_URL_HOST ) );
+    return $origin_host !== '' && hash_equals( $site_host, $origin_host );
+}
+
 function slcat_ajax_add() {
+    if ( ! slcat_same_origin_cart_request() ) wp_send_json_error( [ 'message' => 'Requête non autorisée.' ], 403 );
     $product_id = isset( $_POST['product_id'] ) ? absint( $_POST['product_id'] ) : 0;
     $agency     = isset( $_POST['agency'] ) ? sanitize_title( wp_unslash( $_POST['agency'] ) ) : '';
     $product    = $product_id ? wc_get_product( $product_id ) : false;

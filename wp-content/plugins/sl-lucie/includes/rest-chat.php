@@ -12,7 +12,7 @@ add_action( 'rest_api_init', function () {
     register_rest_route( 'santa-lucia/v1', '/lucie/chat', [
         'methods'             => 'POST',
         'callback'            => 'sl_lucie_chat_handler',
-        'permission_callback' => '__return_true', // public ; protege par rate-limit + nonce souple
+        'permission_callback' => 'sl_lucie_rest_write_permission',
     ] );
 } );
 
@@ -76,6 +76,14 @@ function sl_lucie_rate_ok() {
     $n   = (int) get_transient( $key );
     if ( $n >= 20 ) return false; // 20 messages / 10 min / IP
     set_transient( $key, $n + 1, 10 * MINUTE_IN_SECONDS );
+
+    // Coupe les consommations anormales distribuees avant qu'elles ne vident
+    // le quota du fournisseur IA. Le plafond peut etre ajuste sans redeployer.
+    $global_key = 'sl_lucie_rl_global';
+    $global     = (int) get_transient( $global_key );
+    $limit      = max( 100, (int) get_option( 'sl_lucie_global_rate_limit', 500 ) );
+    if ( $global >= $limit ) return false;
+    set_transient( $global_key, $global + 1, 10 * MINUTE_IN_SECONDS );
     return true;
 }
 

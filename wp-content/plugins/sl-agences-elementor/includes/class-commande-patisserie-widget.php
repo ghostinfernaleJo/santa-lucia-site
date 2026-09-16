@@ -76,6 +76,11 @@ function sl_submit_cake_request() {
     if ( ! check_ajax_referer( 'sl_cake_request', 'nonce', false ) ) wp_send_json_error( [ 'message' => 'Session expirée. Rechargez la page puis réessayez.' ], 403 );
     if ( ! empty( $_POST['website'] ) ) wp_send_json_error( [ 'message' => 'Demande invalide.' ], 400 );
 
+    $ip       = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+    $ip_key   = 'slg_rate_ip_' . md5( $ip );
+    $ip_count = (int) get_transient( $ip_key );
+    if ( $ip_count >= 5 ) wp_send_json_error( [ 'message' => 'Trop de demandes ont été envoyées. Réessayez dans 30 minutes.' ], 429 );
+
     $name = sanitize_text_field( wp_unslash( $_POST['nom'] ?? '' ) );
     $phone = sanitize_text_field( wp_unslash( $_POST['telephone'] ?? '' ) );
     $type = sanitize_text_field( wp_unslash( $_POST['type'] ?? '' ) );
@@ -87,12 +92,29 @@ function sl_submit_cake_request() {
     $budget = sanitize_text_field( wp_unslash( $_POST['budget'] ?? '' ) );
     $message = sanitize_textarea_field( wp_unslash( $_POST['message'] ?? '' ) );
     if ( $name === '' || $phone === '' || $type === '' || $date === '' || $agency === '' ) wp_send_json_error( [ 'message' => 'Veuillez renseigner les champs obligatoires.' ], 422 );
+    $phone_digits = preg_replace( '/\D+/', '', $phone );
+    if ( strlen( $phone_digits ) < 9 || strlen( $phone_digits ) > 15 ) wp_send_json_error( [ 'message' => 'Le numéro de téléphone n’est pas valide.' ], 422 );
+    $allowed_types = [ 'Anniversaire', 'Mariage', 'Baptême', 'Communion', 'Événement professionnel', 'Autre' ];
+    if ( ! in_array( $type, $allowed_types, true ) ) wp_send_json_error( [ 'message' => 'Le type de demande n’est pas valide.' ], 422 );
+    $agency_term = taxonomy_exists( 'sl_agence_promo' ) ? get_term_by( 'name', $agency, 'sl_agence_promo' ) : false;
+    if ( ! $agency_term || is_wp_error( $agency_term ) ) wp_send_json_error( [ 'message' => 'Choisissez une agence Santa Lucia valide.' ], 422 );
+    $agency = $agency_term->name;
     $date_obj = DateTime::createFromFormat( '!Y-m-d', $date );
     if ( ! $date_obj || $date_obj->format( 'Y-m-d' ) !== $date || $date < current_time( 'Y-m-d' ) ) wp_send_json_error( [ 'message' => 'Choisissez une date future valide.' ], 422 );
     if ( $email !== '' && ! is_email( $email ) ) wp_send_json_error( [ 'message' => 'L’adresse e-mail n’est pas valide.' ], 422 );
 
+    $phone_key   = 'slg_rate_phone_' . md5( $phone_digits );
+    $phone_count = (int) get_transient( $phone_key );
+    if ( $phone_count >= 3 ) wp_send_json_error( [ 'message' => 'Ce numéro a déjà envoyé plusieurs demandes aujourd’hui. Notre équipe vous recontactera.' ], 429 );
+    $global_key   = 'slg_rate_global';
+    $global_count = (int) get_transient( $global_key );
+    if ( $global_count >= 100 ) wp_send_json_error( [ 'message' => 'Le service reçoit beaucoup de demandes. Réessayez un peu plus tard.' ], 429 );
+
     $post_id = wp_insert_post( [ 'post_type' => 'sl_demande_gateau', 'post_status' => 'private', 'post_title' => $name . ' — ' . $type . ' — ' . $date ], true );
     if ( is_wp_error( $post_id ) ) wp_send_json_error( [ 'message' => 'La demande n’a pas pu être enregistrée.' ], 500 );
+    set_transient( $ip_key, $ip_count + 1, 30 * MINUTE_IN_SECONDS );
+    set_transient( $phone_key, $phone_count + 1, DAY_IN_SECONDS );
+    set_transient( $global_key, $global_count + 1, HOUR_IN_SECONDS );
     $values = compact( 'type', 'date', 'agency', 'qty', 'flavor', 'budget', 'phone', 'email', 'message' );
     foreach ( $values as $key => $value ) update_post_meta( $post_id, '_slg_' . ( [ 'agency' => 'agence', 'qty' => 'quantite', 'phone' => 'telephone' ][ $key ] ?? $key ), $value );
 

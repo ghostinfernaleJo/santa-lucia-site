@@ -290,7 +290,7 @@ add_action( 'rest_api_init', function () {
     register_rest_route( 'santa-lucia/v1', '/lucie/cart', [
         'methods'             => 'POST',
         'callback'            => 'sl_lucie_cart_rest_handler',
-        'permission_callback' => '__return_true',
+        'permission_callback' => 'sl_lucie_rest_write_permission',
     ] );
 } );
 

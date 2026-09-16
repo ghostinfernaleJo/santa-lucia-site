@@ -418,7 +418,18 @@ function sl_bp_one_agency_validation( $passed, $product_id ) {
 
 /** AJAX (bouton des cartes) : ajoute au panier avec message d'agence clair. */
 add_action( 'wc_ajax_sl_bp_add', 'sl_bp_ajax_add_to_cart' );
+function sl_bp_same_origin_cart_request() {
+    $fetch_site = isset( $_SERVER['HTTP_SEC_FETCH_SITE'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['HTTP_SEC_FETCH_SITE'] ) ) ) : '';
+    if ( 'cross-site' === $fetch_site ) return false;
+    $origin = isset( $_SERVER['HTTP_ORIGIN'] ) ? wp_unslash( $_SERVER['HTTP_ORIGIN'] ) : '';
+    if ( $origin === '' ) return false;
+    $origin_host = strtolower( (string) wp_parse_url( $origin, PHP_URL_HOST ) );
+    $site_host   = strtolower( (string) wp_parse_url( home_url( '/' ), PHP_URL_HOST ) );
+    return $origin_host !== '' && hash_equals( $site_host, $origin_host );
+}
+
 function sl_bp_ajax_add_to_cart() {
+    if ( ! sl_bp_same_origin_cart_request() ) wp_send_json_error( [ 'msg' => 'Requête non autorisée.' ], 403 );
     $pid = isset( $_POST['product_id'] ) ? intval( $_POST['product_id'] ) : 0;
     // Quantite optionnelle (par defaut 1, comme avant) : utilisee par la fiche
     // repas Fast Food qui propose un selecteur de quantite. Aucun appelant
@@ -467,6 +478,7 @@ function sl_bp_ajax_add_to_cart() {
  */
 add_action( 'wc_ajax_sl_bp_clear_cart', 'sl_bp_ajax_clear_cart' );
 function sl_bp_ajax_clear_cart() {
+    if ( ! sl_bp_same_origin_cart_request() ) wp_send_json_error( [ 'msg' => 'Requête non autorisée.' ], 403 );
     if ( ! function_exists( 'WC' ) || ! WC()->cart ) {
         wp_send_json( [ 'ok' => false, 'msg' => 'Panier indisponible.' ] );
     }
