@@ -94,3 +94,36 @@ function sl_security_send_headers() {
         . "frame-src 'self' https:; form-action 'self' https:; upgrade-insecure-requests";
     header( 'Content-Security-Policy-Report-Only: ' . $csp );
 }
+
+/* ============================================================
+ *  6. PURGE UNIQUE DES REPONSES ANTERIEURES AU DURCISSEMENT
+ * ============================================================ */
+add_action( 'init', 'sl_security_schedule_hardening_purge', 2 );
+function sl_security_schedule_hardening_purge() {
+    if ( get_option( 'sl_security_hardening_purge_v1' ) ) return;
+    update_option( 'sl_security_hardening_purge_v1', 'scheduled', false );
+    wp_schedule_single_event( time() + 5, 'sl_security_hardening_purge' );
+}
+
+add_action( 'sl_security_hardening_purge', 'sl_security_run_hardening_purge' );
+function sl_security_run_hardening_purge() {
+    $urls = [
+        home_url( '/' ),
+        home_url( '/bon-plans/' ),
+        add_query_arg( 'page_id', '17088', home_url( '/' ) ),
+        rest_url( 'wp/v2/users' ),
+        add_query_arg( 'per_page', '1', rest_url( 'wp/v2/users' ) ),
+        rest_url( 'santa-lucia/v1/lucie/chat' ),
+        rest_url( 'santa-lucia/v1/lucie/cart' ),
+    ];
+    foreach ( array_unique( $urls ) as $url ) {
+        do_action( 'litespeed_purge_url', $url );
+        wp_remote_request( $url, [
+            'method'    => 'PURGE',
+            'timeout'   => 5,
+            'blocking'  => true,
+            'sslverify' => false,
+        ] );
+    }
+    update_option( 'sl_security_hardening_purge_v1', 'done', false );
+}
