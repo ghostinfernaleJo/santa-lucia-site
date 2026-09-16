@@ -21,7 +21,7 @@ class MMGate_Poller {
 	const CRON_ONE   = 'mmgate_check_order';
 	const CRON_SWEEP = 'mmgate_sweep';
 
-	/** Delai au-dela duquel une validation non faite est abandonnee (2 min). */
+	/** Délai après lequel la commande passe en vérification manuelle, sans autoriser un nouveau débit. */
 	const TIMEOUT = 2 * MINUTE_IN_SECONDS;
 
 	public static function init() {
@@ -84,10 +84,18 @@ class MMGate_Poller {
 		}
 
 		$etato = isset( $res['ETATO'] ) ? (int) $res['ETATO'] : 0;
+		$returned_idoper = isset( $res['IDOPER'] ) ? (string) $res['IDOPER'] : '';
+		if ( $returned_idoper !== '' && ! hash_equals( $idoper, $returned_idoper ) ) {
+			$order->add_order_note( __( 'MMGate : réponse de suivi ignorée car l’identifiant de transaction ne correspond pas.', 'mmgate-woocommerce' ) );
+			self::requeue( $order );
+			return 'pending';
+		}
 
 		switch ( $etato ) {
 			case MMGate_Client::ETATO_OK:
 				// payment_complete() decremente le stock et declenche les emails.
+				$order->delete_meta_data( '_mmgate_fail_reason' );
+				$order->save();
 				$order->add_order_note( sprintf( __( 'MMGate : paiement confirmé (IDOPER %s).', 'mmgate-woocommerce' ), $idoper ) );
 				$order->payment_complete( $idoper );
 				return 'paid';
@@ -127,10 +135,14 @@ class MMGate_Poller {
 			default:
 				$started = (int) $order->get_meta( '_mmgate_started' );
 				if ( $started && ( time() - $started ) > self::TIMEOUT ) {
-					$order->update_meta_data( '_mmgate_fail_reason', __( 'Délai dépassé : 2 min sans validation sur le téléphone', 'mmgate-woocommerce' ) );
-					$order->save();
-					$order->update_status( 'failed', __( 'MMGate : délai de validation dépassé, aucune confirmation du client.', 'mmgate-woocommerce' ) );
-					return 'failed';
+					$order->update_meta_data( '_mmgate_fail_reason', __( 'Validation retardée : vérification automatique toujours en cours', 'mmgate-woocommerce' ) );
+					if ( ! $order->has_status( 'on-hold' ) ) {
+						$order->update_status( 'on-hold', __( 'MMGate : confirmation retardée, commande conservée pour éviter tout double débit.', 'mmgate-woocommerce' ) );
+					} else {
+						$order->save();
+					}
+					self::requeue( $order );
+					return 'pending';
 				}
 				self::requeue( $order );
 				return 'pending';
@@ -177,6 +189,14 @@ class MMGate_Poller {
 		if ( ! $order || ! hash_equals( $order->get_order_key(), $key ) ) {
 			wp_send_json_error( [ 'message' => __( 'Commande introuvable.', 'mmgate-woocommerce' ) ], 404 );
 		}
+
+		$ip       = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+		$rate_key = 'mmgate_poll_' . md5( $order_id . '|' . $ip );
+		$rate     = (int) get_transient( $rate_key );
+		if ( $rate >= 80 ) {
+			wp_send_json_error( [ 'message' => __( 'Trop de vérifications. Patientez quelques instants.', 'mmgate-woocommerce' ) ], 429 );
+		}
+		set_transient( $rate_key, $rate + 1, 5 * MINUTE_IN_SECONDS );
 
 		$state = self::check( $order_id );
 		$order = wc_get_order( $order_id ); // relire : check() a pu changer le statut

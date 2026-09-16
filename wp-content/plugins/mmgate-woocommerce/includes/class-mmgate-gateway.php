@@ -320,6 +320,29 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 	 * On ne passe JAMAIS la commande en payee ici : seul ETATO 400 le fera.
 	 */
 	public function process_payment( $order_id ) {
+		$order = wc_get_order( $order_id );
+		if ( ! $order || 'mmgate' !== $order->get_payment_method() ) {
+			wc_add_notice( __( 'Cette commande ne peut pas être réglée avec Mobile Money.', 'mmgate-woocommerce' ), 'error' );
+			return [ 'result' => 'failure' ];
+		}
+		if ( function_exists( 'mmgate_wc_is_store_paused' ) && mmgate_wc_is_store_paused() ) {
+			wc_add_notice( mmgate_wc_pause_message(), 'error' );
+			return [ 'result' => 'failure' ];
+		}
+		if ( ! $this->acquire_payment_lock( $order_id ) ) {
+			wc_add_notice( __( 'Une demande de paiement est déjà en cours pour cette commande. Patientez quelques secondes.', 'mmgate-woocommerce' ), 'notice' );
+			return [ 'result' => 'failure' ];
+		}
+
+		try {
+			return $this->process_payment_locked( $order_id );
+		} finally {
+			$this->release_payment_lock( $order_id );
+		}
+	}
+
+	/** Exécute le paiement sous verrou afin d'empêcher deux initiations concurrentes. */
+	private function process_payment_locked( $order_id ) {
 		$order  = wc_get_order( $order_id );
 		$client = $this->client();
 
@@ -424,6 +447,25 @@ class MMGate_Gateway extends WC_Payment_Gateway {
 		MMGate_Poller::schedule( $order->get_id() );
 
 		return [ 'result' => 'success', 'redirect' => $this->waiting_url( $order ) ];
+	}
+
+	/** Verrou atomique stocké dans wp_options ; add_option repose sur une clé unique. */
+	private function acquire_payment_lock( $order_id ) {
+		$key = 'mmgate_payment_lock_' . absint( $order_id );
+		$now = time();
+		if ( add_option( $key, $now, '', 'no' ) ) {
+			return true;
+		}
+		$started = (int) get_option( $key, 0 );
+		if ( $started > 0 && ( $now - $started ) > 90 ) {
+			delete_option( $key );
+			return add_option( $key, $now, '', 'no' );
+		}
+		return false;
+	}
+
+	private function release_payment_lock( $order_id ) {
+		delete_option( 'mmgate_payment_lock_' . absint( $order_id ) );
 	}
 
 	private function waiting_url( $order ) {

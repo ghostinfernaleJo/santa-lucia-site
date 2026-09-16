@@ -15,6 +15,14 @@ class MMGate_Waiting {
 
 	public static function init() {
 		add_action( 'woocommerce_thankyou_mmgate', [ __CLASS__, 'render' ], 5 );
+		add_action( 'template_redirect', [ __CLASS__, 'send_privacy_headers' ], 1 );
+	}
+
+	public static function send_privacy_headers() {
+		if ( function_exists( 'is_checkout' ) && is_checkout() ) {
+			header( 'Referrer-Policy: no-referrer' );
+			header( 'Cache-Control: no-store, private' );
+		}
 	}
 
 	public static function render( $order_id ) {
@@ -28,6 +36,7 @@ class MMGate_Waiting {
 		}
 
 		$msisdn = (string) $order->get_meta( '_mmgate_msisdn' );
+		$masked_msisdn = strlen( $msisdn ) >= 5 ? substr( $msisdn, 0, 3 ) . '••••' . substr( $msisdn, -2 ) : '•••••••••';
 		$orange_passive = 'CLIENT_INITIE' === (string) $order->get_meta( '_mmgate_mode_orange' );
 		$ussd = (string) $order->get_meta( '_mmgate_ussd_client' );
 		$tel_uri = (string) $order->get_meta( '_mmgate_tel_uri' );
@@ -45,7 +54,7 @@ class MMGate_Waiting {
 				printf(
 					/* translators: %s: numero de telephone */
 					esc_html__( 'Une demande de validation a été envoyée au %s. Composez votre code secret Mobile Money pour confirmer.', 'mmgate-woocommerce' ),
-					'<strong>' . esc_html( $msisdn ) . '</strong>'
+					'<strong>' . esc_html( $masked_msisdn ) . '</strong>'
 				);
 				?>
 			</p>
