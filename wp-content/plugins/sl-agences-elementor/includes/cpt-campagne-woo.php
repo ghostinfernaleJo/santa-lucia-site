@@ -1,6 +1,36 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+/** Capacites dediees au module Campagnes, sans donner manage_options. */
+function sl_cwoo_campaign_caps() {
+    return [
+        'manage_sl_campagnes',
+        'read_sl_campagne', 'read_private_sl_campagnes',
+        'edit_sl_campagne', 'edit_sl_campagnes', 'edit_others_sl_campagnes',
+        'edit_private_sl_campagnes', 'edit_published_sl_campagnes',
+        'publish_sl_campagnes', 'delete_sl_campagne', 'delete_sl_campagnes',
+        'delete_private_sl_campagnes', 'delete_published_sl_campagnes', 'delete_others_sl_campagnes',
+    ];
+}
+
+function sl_cwoo_can_manage_campaigns() {
+    return current_user_can( 'manage_options' ) || current_user_can( 'manage_sl_campagnes' );
+}
+
+/** Attribution aux logins WordPress exacts felix et freddy uniquement. */
+add_action( 'init', 'sl_cwoo_grant_campaign_caps', 1 );
+function sl_cwoo_grant_campaign_caps() {
+    $caps = sl_cwoo_campaign_caps();
+    $admin = get_role( 'administrator' );
+    if ( $admin ) foreach ( $caps as $cap ) $admin->add_cap( $cap );
+
+    foreach ( [ 'felix', 'freddy' ] as $login ) {
+        $user = get_user_by( 'login', $login );
+        if ( ! $user ) continue;
+        foreach ( $caps as $cap ) $user->add_cap( $cap );
+    }
+}
+
 // 1. Enregistrement du CPT
 add_action( 'init', 'sl_cwoo_register_cpt' );
 function sl_cwoo_register_cpt() {
@@ -16,6 +46,8 @@ function sl_cwoo_register_cpt() {
         'menu_icon'       => 'dashicons-megaphone',
         'menu_position'   => 26,
         'supports'        => [ 'title', 'thumbnail' ], // Thumbnail used as Banner
+        'capability_type' => [ 'sl_campagne', 'sl_campagnes' ],
+        'map_meta_cap'    => true,
     ]);
 }
 
@@ -73,7 +105,7 @@ function sl_cwoo_render_products_metabox( $post ) {
     }
     ?>
     <p>Recherchez et ajoutez manuellement des produits existants à cette campagne.</p>
-    <select class="wc-product-search" multiple="multiple" style="width: 100%;" name="sl_cwoo_manual_products[]" data-placeholder="Rechercher des produits..." data-action="woocommerce_json_search_products_and_variations">
+    <select class="wc-product-search" multiple="multiple" style="width: 100%;" name="sl_cwoo_manual_products[]" data-placeholder="Rechercher des produits..." data-action="sl_cwoo_search_campaign_products">
         <?php
         if ( ! empty( $product_ids ) && function_exists('wc_get_product') ) {
             foreach ( $product_ids as $product_id ) {
@@ -94,10 +126,36 @@ function sl_cwoo_render_products_metabox( $post ) {
     }
 }
 
+/** Recherche de produits limitee a l'interface Campagnes. */
+add_action( 'wp_ajax_sl_cwoo_search_campaign_products', 'sl_cwoo_search_campaign_products' );
+function sl_cwoo_search_campaign_products() {
+    if ( ! sl_cwoo_can_manage_campaigns() ) wp_send_json_error( [ 'message' => 'Accès refusé.' ], 403 );
+    $term = sanitize_text_field( wp_unslash( $_GET['term'] ?? $_POST['term'] ?? '' ) );
+    if ( mb_strlen( $term ) < 2 ) wp_send_json( [] );
+
+    $ids = get_posts( [
+        'post_type'      => [ 'product', 'product_variation' ],
+        'post_status'    => [ 'publish', 'draft', 'pending', 'private' ],
+        'posts_per_page' => 30,
+        's'              => $term,
+        'orderby'        => 'title',
+        'order'          => 'ASC',
+        'fields'         => 'ids',
+    ] );
+    $results = [];
+    foreach ( $ids as $id ) {
+        $product = function_exists( 'wc_get_product' ) ? wc_get_product( $id ) : null;
+        if ( ! $product ) continue;
+        $results[] = [ 'id' => (string) $id, 'text' => wp_strip_all_tags( $product->get_formatted_name() ) ];
+    }
+    wp_send_json( $results );
+}
+
 // 3. Save post -> sync with product_cat
 add_action( 'save_post_sl_campagne_woo', 'sl_cwoo_save_post', 10, 2 );
 function sl_cwoo_save_post( $post_id, $post ) {
     if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
+    if ( ! sl_cwoo_can_manage_campaigns() ) return;
     if ( ! isset( $_POST['sl_cwoo_nonce'] ) || ! wp_verify_nonce( $_POST['sl_cwoo_nonce'], 'sl_cwoo_save' ) ) return;
 
     $date_debut = sanitize_text_field( $_POST['sl_cwoo_date_debut'] ?? '' );
