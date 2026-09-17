@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Santa Lucia - CRM Patisserie
  * Description: Enrichit les demandes de patisserie avec un suivi CRM, les informations completes et un raccourci WhatsApp.
- * Version: 1.3.0
+ * Version: 1.4.0
  * Author: Santa Lucia
  * Text Domain: sl-patisserie-crm
  */
@@ -20,6 +20,7 @@ final class SL_Patisserie_CRM {
 	private const META_CATEGORY = '_sl_crm_category';
 	private const META_AMOUNT = '_sl_crm_amount';
 	private const META_AGENCY = '_sl_crm_agency';
+	private const META_PURCHASE_DATE = '_sl_crm_purchase_date';
 	private const META_REMINDER = '_sl_crm_reminder';
 	private const META_NOTES = '_sl_crm_notes';
 	private const META_HISTORY = '_sl_crm_history';
@@ -92,6 +93,15 @@ final class SL_Patisserie_CRM {
 			'sl-patisserie-crm',
 			array( __CLASS__, 'render_crm_page' )
 		);
+
+		add_submenu_page(
+			'edit.php?post_type=' . self::POST_TYPE,
+			'Rapport financier pâtisserie',
+			'Rapport financier',
+			'edit_slg_requests',
+			'sl-patisserie-finance',
+			array( __CLASS__, 'render_financial_report' )
+		);
 	}
 
 	public static function render_crm_page(): void {
@@ -123,6 +133,7 @@ final class SL_Patisserie_CRM {
 			echo '</form></aside></div>';
 		} else {
 			echo '<h1>Suivi CRM pâtisserie</h1>';
+			echo '<p><a class="button" href="' . esc_url( admin_url( 'edit.php?post_type=' . self::POST_TYPE . '&page=sl-patisserie-finance' ) ) . '"><span class="dashicons dashicons-chart-area" aria-hidden="true"></span> Rapport financier</a></p>';
 			echo '<p>Ouvrez une demande pour renseigner son montant, programmer un rappel et suivre les échanges avec le client.</p>';
 			$requests = get_posts( array( 'post_type' => self::POST_TYPE, 'post_status' => 'any', 'numberposts' => 100, 'orderby' => 'date', 'order' => 'DESC' ) );
 			echo '<div class="sl-crm-table-wrap"><table class="widefat striped"><thead><tr><th>Client</th><th>Téléphone</th><th>Message</th><th>Statut</th><th>Rappel</th><th>Montant</th><th>Action</th></tr></thead><tbody>';
@@ -148,6 +159,86 @@ final class SL_Patisserie_CRM {
 		}
 
 		echo '</div>';
+	}
+
+	public static function render_financial_report(): void {
+		if ( ! self::can_manage_crm() ) {
+			wp_die( 'Vous ne pouvez pas accéder à cette page.' );
+		}
+
+		$from = self::sanitize_report_date( $_GET['sl_from'] ?? '' );
+		$to   = self::sanitize_report_date( $_GET['sl_to'] ?? '' );
+		$orders = get_posts( array(
+			'post_type'   => self::POST_TYPE,
+			'post_status' => 'any',
+			'numberposts' => -1,
+			'meta_query'  => array(
+				array( 'key' => self::META_STATUS, 'value' => 'achetee_agence' ),
+				array( 'key' => self::META_AMOUNT, 'value' => 0, 'compare' => '>', 'type' => 'NUMERIC' ),
+			),
+		) );
+
+		$rows = array();
+		$total = 0;
+		$by_agency = array();
+		foreach ( $orders as $order ) {
+			$purchase_date = get_post_meta( $order->ID, self::META_PURCHASE_DATE, true );
+			if ( ! $purchase_date ) {
+				$purchase_date = get_post_modified_time( 'Y-m-d', false, $order );
+			}
+			if ( ( $from && $purchase_date < $from ) || ( $to && $purchase_date > $to ) ) {
+				continue;
+			}
+
+			$amount = (int) get_post_meta( $order->ID, self::META_AMOUNT, true );
+			$agency = get_post_meta( $order->ID, self::META_AGENCY, true ) ?: 'Agence non renseignée';
+			$total += $amount;
+			$by_agency[ $agency ] = ( $by_agency[ $agency ] ?? 0 ) + $amount;
+			$rows[] = array( 'post' => $order, 'date' => $purchase_date, 'amount' => $amount, 'agency' => $agency );
+		}
+
+		usort( $rows, static fn( array $a, array $b ): int => strcmp( $b['date'], $a['date'] ) );
+		arsort( $by_agency );
+		$count = count( $rows );
+		$average = $count ? (int) round( $total / $count ) : 0;
+
+		echo '<div class="wrap sl-crm-page sl-finance-page">';
+		echo '<div class="sl-finance-heading"><div><h1>Rapport financier pâtisserie</h1><p>Commandes achetées en agence avec un montant payé.</p></div><button type="button" class="button button-primary sl-print-button" onclick="window.print()"><span class="dashicons dashicons-printer" aria-hidden="true"></span> Imprimer le rapport</button></div>';
+		echo '<form method="get" class="sl-finance-filters">';
+		echo '<input type="hidden" name="post_type" value="' . esc_attr( self::POST_TYPE ) . '"><input type="hidden" name="page" value="sl-patisserie-finance">';
+		echo '<label>Du <input type="date" name="sl_from" value="' . esc_attr( $from ) . '"></label>';
+		echo '<label>Au <input type="date" name="sl_to" value="' . esc_attr( $to ) . '"></label>';
+		echo '<button type="submit" class="button">Filtrer</button><a class="button" href="' . esc_url( admin_url( 'edit.php?post_type=' . self::POST_TYPE . '&page=sl-patisserie-finance' ) ) . '">Réinitialiser</a>';
+		echo '</form>';
+		echo '<p class="sl-report-period">Période : <strong>' . esc_html( $from ? wp_date( 'd/m/Y', strtotime( $from ) ) : 'Toutes les dates' ) . '</strong>' . ( $to ? ' au <strong>' . esc_html( wp_date( 'd/m/Y', strtotime( $to ) ) ) . '</strong>' : '' ) . '</p>';
+
+		echo '<div class="sl-finance-kpis">';
+		echo '<div><span>Chiffre d’affaires</span><strong>' . esc_html( number_format_i18n( $total ) ) . ' FCFA</strong></div>';
+		echo '<div><span>Commandes payées</span><strong>' . esc_html( (string) $count ) . '</strong></div>';
+		echo '<div><span>Panier moyen</span><strong>' . esc_html( number_format_i18n( $average ) ) . ' FCFA</strong></div>';
+		echo '</div>';
+
+		if ( $by_agency ) {
+			echo '<h2>Chiffre d’affaires par agence</h2><div class="sl-finance-agencies">';
+			foreach ( $by_agency as $agency => $agency_total ) {
+				echo '<div><span>' . esc_html( $agency ) . '</span><strong>' . esc_html( number_format_i18n( $agency_total ) ) . ' FCFA</strong></div>';
+			}
+			echo '</div>';
+		}
+
+		echo '<h2>Détail des commandes</h2><div class="sl-crm-table-wrap"><table class="widefat striped"><thead><tr><th>Date d’achat</th><th>Client</th><th>Agence</th><th>Montant</th></tr></thead><tbody>';
+		foreach ( $rows as $row ) {
+			echo '<tr><td>' . esc_html( wp_date( 'd/m/Y', strtotime( $row['date'] ) ) ) . '</td><td>' . esc_html( self::get_client_name( $row['post']->ID ) ?: $row['post']->post_title ) . '</td><td>' . esc_html( $row['agency'] ) . '</td><td><strong>' . esc_html( number_format_i18n( $row['amount'] ) ) . ' FCFA</strong></td></tr>';
+		}
+		if ( ! $rows ) {
+			echo '<tr><td colspan="4">Aucune commande payée sur cette période.</td></tr>';
+		}
+		echo '</tbody><tfoot><tr><th colspan="3">Total</th><th>' . esc_html( number_format_i18n( $total ) ) . ' FCFA</th></tr></tfoot></table></div></div>';
+	}
+
+	private static function sanitize_report_date( $value ): string {
+		$value = sanitize_text_field( wp_unslash( (string) $value ) );
+		return preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ? $value : '';
 	}
 
 	public static function save_crm_page(): void {
@@ -227,6 +318,7 @@ final class SL_Patisserie_CRM {
 		$category = get_post_meta( $post->ID, self::META_CATEGORY, true ) ?: 'nouveau';
 		$amount   = get_post_meta( $post->ID, self::META_AMOUNT, true );
 		$agency   = get_post_meta( $post->ID, self::META_AGENCY, true );
+		$purchase_date = get_post_meta( $post->ID, self::META_PURCHASE_DATE, true );
 		$reminder = get_post_meta( $post->ID, self::META_REMINDER, true );
 		$notes    = get_post_meta( $post->ID, self::META_NOTES, true );
 		$phone    = self::get_client_phone( $post->ID );
@@ -258,6 +350,11 @@ final class SL_Patisserie_CRM {
 		<div class="sl-crm-field">
 			<label for="sl_crm_agency">Agence d'achat</label>
 			<input type="text" id="sl_crm_agency" name="sl_crm_agency" value="<?php echo esc_attr( $agency ); ?>" placeholder="Nom de l'agence">
+		</div>
+
+		<div class="sl-crm-field">
+			<label for="sl_crm_purchase_date">Date d'achat</label>
+			<input type="date" id="sl_crm_purchase_date" name="sl_crm_purchase_date" value="<?php echo esc_attr( $purchase_date ); ?>">
 		</div>
 
 		<div class="sl-crm-field">
@@ -321,6 +418,7 @@ final class SL_Patisserie_CRM {
 		$old_status = get_post_meta( $post_id, self::META_STATUS, true ) ?: 'nouvelle';
 		$old_amount = get_post_meta( $post_id, self::META_AMOUNT, true );
 		$old_notes  = get_post_meta( $post_id, self::META_NOTES, true );
+		$old_purchase_date = get_post_meta( $post_id, self::META_PURCHASE_DATE, true );
 
 		$status = isset( $_POST['sl_crm_status'] ) ? sanitize_key( wp_unslash( $_POST['sl_crm_status'] ) ) : 'nouvelle';
 		$status = array_key_exists( $status, self::$statuses ) ? $status : 'nouvelle';
@@ -331,6 +429,10 @@ final class SL_Patisserie_CRM {
 		$amount = isset( $_POST['sl_crm_amount'] ) ? preg_replace( '/[^0-9]/', '', wp_unslash( $_POST['sl_crm_amount'] ) ) : '';
 		$agency = isset( $_POST['sl_crm_agency'] ) ? sanitize_text_field( wp_unslash( $_POST['sl_crm_agency'] ) ) : '';
 		$notes  = isset( $_POST['sl_crm_notes'] ) ? sanitize_textarea_field( wp_unslash( $_POST['sl_crm_notes'] ) ) : '';
+		$purchase_date = self::sanitize_report_date( $_POST['sl_crm_purchase_date'] ?? '' );
+		if ( 'achetee_agence' === $status && ! $purchase_date ) {
+			$purchase_date = current_time( 'Y-m-d' );
+		}
 
 		$reminder = isset( $_POST['sl_crm_reminder'] ) ? sanitize_text_field( wp_unslash( $_POST['sl_crm_reminder'] ) ) : '';
 		if ( $reminder && ! preg_match( '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $reminder ) ) {
@@ -341,6 +443,7 @@ final class SL_Patisserie_CRM {
 		update_post_meta( $post_id, self::META_CATEGORY, $category );
 		update_post_meta( $post_id, self::META_AMOUNT, $amount );
 		update_post_meta( $post_id, self::META_AGENCY, $agency );
+		update_post_meta( $post_id, self::META_PURCHASE_DATE, $purchase_date );
 		update_post_meta( $post_id, self::META_REMINDER, $reminder );
 		update_post_meta( $post_id, self::META_NOTES, $notes );
 
@@ -350,6 +453,10 @@ final class SL_Patisserie_CRM {
 
 		if ( (string) $old_amount !== (string) $amount && '' !== $amount ) {
 			self::add_history( $post_id, 'Montant enregistre : ' . number_format_i18n( (int) $amount ) . ' FCFA' );
+		}
+
+		if ( $purchase_date && $purchase_date !== $old_purchase_date ) {
+			self::add_history( $post_id, 'Date d’achat enregistrée : ' . wp_date( 'd/m/Y', strtotime( $purchase_date ) ) );
 		}
 
 		if ( $notes && $notes !== $old_notes ) {
@@ -497,12 +604,13 @@ final class SL_Patisserie_CRM {
 
 	public static function admin_assets( string $hook ): void {
 		$screen = get_current_screen();
-		$is_crm_page = isset( $_GET['page'] ) && 'sl-patisserie-crm' === sanitize_key( wp_unslash( $_GET['page'] ) );
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+		$is_crm_page = in_array( $page, array( 'sl-patisserie-crm', 'sl-patisserie-finance' ), true );
 		if ( ! $screen || ( self::POST_TYPE !== $screen->post_type && ! $is_crm_page ) ) {
 			return;
 		}
 
-		wp_enqueue_style( 'sl-patisserie-crm', plugin_dir_url( __FILE__ ) . 'assets/admin.css', array(), '1.2.0' );
+		wp_enqueue_style( 'sl-patisserie-crm', plugin_dir_url( __FILE__ ) . 'assets/admin.css', array(), '1.4.0' );
 	}
 
 	public static function open_whatsapp(): void {

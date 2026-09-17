@@ -102,10 +102,62 @@
 .sl-crm-history li::before { position: absolute; top: 2px; left: -6px; width: 10px; height: 10px; border-radius: 50%; background: #2271b1; content: ''; }
 .sl-crm-history span { display: block; margin-top: 3px; color: #646970; font-size: 12px; }
 
+.sl-finance-heading {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 20px;
+}
+
+.sl-finance-heading h1 { margin-bottom: 4px; }
+.sl-print-button { display: inline-flex !important; align-items: center; gap: 6px; margin-top: 10px !important; }
+.sl-finance-filters { display: flex; align-items: end; gap: 12px; margin: 20px 0; padding: 16px; border: 1px solid #dcdcde; background: #fff; }
+.sl-finance-filters label { display: grid; gap: 5px; font-weight: 600; }
+.sl-report-period { margin-bottom: 16px; }
+
+.sl-finance-kpis {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 16px;
+	margin-bottom: 28px;
+}
+
+.sl-finance-kpis > div,
+.sl-finance-agencies > div { padding: 18px; border: 1px solid #dcdcde; border-radius: 4px; background: #fff; }
+.sl-finance-kpis span,
+.sl-finance-agencies span { display: block; margin-bottom: 8px; color: #50575e; }
+.sl-finance-kpis strong { display: block; font-size: 24px; line-height: 1.2; }
+.sl-finance-agencies { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 28px; }
+.sl-finance-agencies strong { font-size: 16px; }
+.sl-finance-page table tfoot th { border-top: 2px solid #8c8f94; font-size: 15px; }
+
 @media (max-width: 782px) {
 	.sl-crm-page-grid { grid-template-columns: 1fr; }
 	.sl-crm-page-side { position: static; }
 	.sl-crm-details { grid-template-columns: 1fr; }
 	.sl-crm-detail,
 	.sl-crm-detail:nth-child(2n) { border-right: 0; }
+	.sl-finance-heading { display: block; }
+	.sl-finance-filters { align-items: stretch; flex-direction: column; }
+	.sl-finance-kpis,
+	.sl-finance-agencies { grid-template-columns: 1fr; }
+}
+
+@media print {
+	#adminmenumain,
+	#wpadminbar,
+	#screen-meta-links,
+	#wpfooter,
+	.notice,
+	.sl-print-button,
+	.sl-finance-filters { display: none !important; }
+	#wpcontent,
+	#wpfooter { margin-left: 0 !important; }
+	.sl-finance-page { margin: 0 !important; color: #000; }
+	.sl-finance-kpis,
+	.sl-finance-agencies { break-inside: avoid; }
+	.sl-finance-kpis > div,
+	.sl-finance-agencies > div { border-color: #777; }
+	.sl-crm-table-wrap { overflow: visible; }
+	.sl-crm-table-wrap table { min-width: 0; }
 }
