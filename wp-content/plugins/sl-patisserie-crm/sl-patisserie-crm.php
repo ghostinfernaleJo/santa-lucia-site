@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Santa Lucia - CRM Patisserie
  * Description: Enrichit les demandes de patisserie avec un suivi CRM, les informations completes et un raccourci WhatsApp.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: Santa Lucia
  * Text Domain: sl-patisserie-crm
  */
@@ -602,7 +602,7 @@ final class SL_Patisserie_CRM {
 
 		if ( ! $name ) {
 			$title = get_the_title( $post_id );
-			$name  = preg_match( '/^Demande\s*[-:#]?\s*\d*$/i', $title ) ? '' : $title;
+			$name  = preg_match( '/^Demande\s*[-:#]?\s*\d*$/i', $title ) ? '' : trim( preg_split( '/\s+[—–-]\s+/', $title )[0] ?? $title );
 		}
 
 		return $name;
@@ -673,18 +673,40 @@ final class SL_Patisserie_CRM {
 	}
 
 	private static function get_whatsapp_message( int $post_id ): string {
-		$name     = self::get_client_name( $post_id );
-		$occasion = self::find_meta_value( $post_id, array( 'type', 'occasion', 'type_gateau' ) );
-		$date     = self::find_meta_value( $post_id, array( 'date', 'date_evenement', 'date_souhaitee' ) );
-		$agency   = self::find_meta_value( $post_id, array( 'agence', 'agency' ) );
-		$greeting = $name ? 'Bonjour ' . $name . ',' : 'Bonjour,';
-		$details  = array_filter( array(
-			$occasion ? 'Occasion : ' . $occasion : '',
-			$date ? 'Date souhaitée : ' . $date : '',
-			$agency ? 'Agence : ' . $agency : '',
+		$name       = self::get_client_name( $post_id );
+		$occasion   = self::find_meta_value( $post_id, array( 'type', 'occasion', 'type_gateau' ) );
+		$date       = self::find_meta_value( $post_id, array( 'date', 'date_evenement', 'date_souhaitee' ) );
+		$agency     = self::find_meta_value( $post_id, array( 'agence', 'agency' ) );
+		$quantity   = self::find_meta_value( $post_id, array( 'quantite', 'nombre_personnes', 'parts' ) );
+		$flavor     = self::find_meta_value( $post_id, array( 'saveur', 'flavor', 'parfum' ) );
+		$budget     = self::find_meta_value( $post_id, array( 'budget', 'budget_indicatif' ) );
+		$client_msg = self::get_client_message( $post_id );
+		$greeting   = $name ? 'Bonjour *' . $name . '*,' : 'Bonjour,';
+
+		$lines = array_filter( array(
+			$occasion ? '• *Occasion :* ' . $occasion : '',
+			$date ? '• *Date souhaitée :* ' . self::format_whatsapp_date( $date ) : '',
+			$agency ? '• *Agence :* ' . $agency : '',
+			$quantity ? '• *Nombre de parts :* ' . $quantity : '',
+			$flavor ? '• *Saveur / parfum :* ' . $flavor : '',
+			$budget ? '• *Budget indicatif :* ' . $budget . ' FCFA' : '',
+			$client_msg ? '• *Détails / décoration :* ' . $client_msg : '',
 		) );
-		$summary = $details ? "\n\n" . implode( "\n", $details ) : '';
-		return $greeting . "\n\nNous vous contactons au sujet de votre demande de pâtisserie auprès du Complexe Santa Lucia." . $summary . "\n\nPouvez-vous nous confirmer que votre commande est toujours d’actualité ?\n\nMerci.";
+
+		return $greeting
+			. "\n\nNous avons bien reçu votre demande de pâtisserie auprès du *Complexe Santa Lucia*."
+			. "\n\n*RÉCAPITULATIF DE VOTRE COMMANDE*"
+			. "\n" . implode( "\n", $lines )
+			. "\n\nMerci de nous répondre avec l’un des choix suivants :"
+			. "\n*1. Je confirme ma commande*"
+			. "\n*2. Je souhaite modifier ma commande*"
+			. "\n\nNotre équipe vous contactera pour finaliser le prix et les modalités de retrait."
+			. "\n\n*Complexe Santa Lucia*";
+	}
+
+	private static function format_whatsapp_date( string $date ): string {
+		$timestamp = strtotime( $date );
+		return $timestamp ? wp_date( 'd/m/Y', $timestamp ) : $date;
 	}
 
 	private static function get_whatsapp_url( int $post_id ): string {
