@@ -10,6 +10,14 @@
 .post-type-sl_demande_gateau .column-sl_whatsapp { width: 72px; text-align: center; }
 .post-type-sl_demande_gateau .column-sl_manage { width: 74px; }
 
+.sl-crm-table-wrap {
+	max-width: 100%;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+.sl-crm-table-wrap table { min-width: 920px; }
+
 .sl-crm-page-grid {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) 340px;

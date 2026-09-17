@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Santa Lucia - CRM Patisserie
  * Description: Enrichit les demandes de patisserie avec un suivi CRM, les informations completes et un raccourci WhatsApp.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: Santa Lucia
  * Text Domain: sl-patisserie-crm
  */
@@ -40,6 +40,10 @@ final class SL_Patisserie_CRM {
 		'fidele'      => 'Client fidele',
 		'vip'         => 'VIP',
 	);
+
+	private static function can_manage_crm(): bool {
+		return current_user_can( 'manage_options' ) || current_user_can( 'edit_slg_requests' );
+	}
 
 	public static function init(): void {
 		add_filter( 'register_post_type_args', array( __CLASS__, 'add_menu_icon' ), 10, 2 );
@@ -84,14 +88,14 @@ final class SL_Patisserie_CRM {
 			'edit.php?post_type=' . self::POST_TYPE,
 			'Suivi CRM pâtisserie',
 			'Suivi CRM',
-			'manage_options',
+			'edit_slg_requests',
 			'sl-patisserie-crm',
 			array( __CLASS__, 'render_crm_page' )
 		);
 	}
 
 	public static function render_crm_page(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage_crm() ) {
 			wp_die( 'Vous ne pouvez pas accéder à cette page.' );
 		}
 
@@ -121,7 +125,7 @@ final class SL_Patisserie_CRM {
 			echo '<h1>Suivi CRM pâtisserie</h1>';
 			echo '<p>Ouvrez une demande pour renseigner son montant, programmer un rappel et suivre les échanges avec le client.</p>';
 			$requests = get_posts( array( 'post_type' => self::POST_TYPE, 'post_status' => 'any', 'numberposts' => 100, 'orderby' => 'date', 'order' => 'DESC' ) );
-			echo '<table class="widefat fixed striped"><thead><tr><th>Client</th><th>Téléphone</th><th>Message</th><th>Statut</th><th>Rappel</th><th>Montant</th><th>Action</th></tr></thead><tbody>';
+			echo '<div class="sl-crm-table-wrap"><table class="widefat striped"><thead><tr><th>Client</th><th>Téléphone</th><th>Message</th><th>Statut</th><th>Rappel</th><th>Montant</th><th>Action</th></tr></thead><tbody>';
 			foreach ( $requests as $request ) {
 				$status   = get_post_meta( $request->ID, self::META_STATUS, true ) ?: 'nouvelle';
 				$reminder = get_post_meta( $request->ID, self::META_REMINDER, true );
@@ -140,14 +144,14 @@ final class SL_Patisserie_CRM {
 			if ( ! $requests ) {
 				echo '<tr><td colspan="7">Aucune demande enregistrée.</td></tr>';
 			}
-			echo '</tbody></table>';
+			echo '</tbody></table></div>';
 		}
 
 		echo '</div>';
 	}
 
 	public static function save_crm_page(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage_crm() ) {
 			wp_die( 'Vous ne pouvez pas modifier cette demande.' );
 		}
 
@@ -354,22 +358,18 @@ final class SL_Patisserie_CRM {
 	}
 
 	public static function columns( array $columns ): array {
-		$new = array();
-		foreach ( $columns as $key => $label ) {
-			$new[ $key ] = $label;
-			if ( 'title' === $key ) {
-				$new['sl_client']   = 'Client';
-				$new['sl_phone']    = 'Telephone';
-				$new['sl_message']  = 'Message';
-				$new['sl_status']   = 'Statut';
-				$new['sl_reminder'] = 'Rappel';
-				$new['sl_amount']   = 'Montant';
-				$new['sl_whatsapp'] = 'WhatsApp';
-				$new['sl_manage']   = 'Gérer';
-			}
-		}
-
-		return $new;
+		return array(
+			'cb'           => $columns['cb'] ?? '<input type="checkbox">',
+			'title'        => 'Client',
+			'sl_message'   => 'Message',
+			'slg_agence'   => 'Agence',
+			'sl_status'    => 'Statut',
+			'sl_reminder'  => 'Rappel',
+			'sl_amount'    => 'Montant',
+			'sl_whatsapp'  => 'WhatsApp',
+			'sl_manage'    => 'Gérer',
+			'date'         => 'Reçue le',
+		);
 	}
 
 	public static function column_content( string $column, int $post_id ): void {
@@ -497,23 +497,24 @@ final class SL_Patisserie_CRM {
 
 	public static function admin_assets( string $hook ): void {
 		$screen = get_current_screen();
-		if ( ! $screen || self::POST_TYPE !== $screen->post_type ) {
+		$is_crm_page = isset( $_GET['page'] ) && 'sl-patisserie-crm' === sanitize_key( wp_unslash( $_GET['page'] ) );
+		if ( ! $screen || ( self::POST_TYPE !== $screen->post_type && ! $is_crm_page ) ) {
 			return;
 		}
 
-		wp_enqueue_style( 'sl-patisserie-crm', plugin_dir_url( __FILE__ ) . 'assets/admin.css', array(), '1.1.0' );
+		wp_enqueue_style( 'sl-patisserie-crm', plugin_dir_url( __FILE__ ) . 'assets/admin.css', array(), '1.2.0' );
 	}
 
 	public static function open_whatsapp(): void {
 		$post_id = isset( $_GET['post_id'] ) ? absint( $_GET['post_id'] ) : 0;
-		if ( ! $post_id || self::POST_TYPE !== get_post_type( $post_id ) || ! current_user_can( 'edit_post', $post_id ) ) {
+		if ( ! $post_id || self::POST_TYPE !== get_post_type( $post_id ) || ! self::can_manage_crm() ) {
 			wp_die( 'Vous ne pouvez pas acceder a cette demande.' );
 		}
 
 		check_admin_referer( 'sl_patisserie_whatsapp_' . $post_id );
 		$url = self::get_whatsapp_url( $post_id );
 		if ( ! $url ) {
-			wp_safe_redirect( add_query_arg( 'sl_crm_notice', 'phone', get_edit_post_link( $post_id, 'url' ) ) );
+			wp_safe_redirect( add_query_arg( array( 'post_type' => self::POST_TYPE, 'page' => 'sl-patisserie-crm', 'post_id' => $post_id, 'sl_crm_notice' => 'phone' ), admin_url( 'edit.php' ) ) );
 			exit;
 		}
 
@@ -672,9 +673,18 @@ final class SL_Patisserie_CRM {
 	}
 
 	private static function get_whatsapp_message( int $post_id ): string {
-		$name = self::get_client_name( $post_id );
+		$name     = self::get_client_name( $post_id );
+		$occasion = self::find_meta_value( $post_id, array( 'type', 'occasion', 'type_gateau' ) );
+		$date     = self::find_meta_value( $post_id, array( 'date', 'date_evenement', 'date_souhaitee' ) );
+		$agency   = self::find_meta_value( $post_id, array( 'agence', 'agency' ) );
 		$greeting = $name ? 'Bonjour ' . $name . ',' : 'Bonjour,';
-		return $greeting . "\n\nNous vous contactons au sujet de votre demande de patisserie aupres du Complexe Santa Lucia. Pouvez-vous nous confirmer que votre commande est toujours d'actualite ?\n\nMerci.";
+		$details  = array_filter( array(
+			$occasion ? 'Occasion : ' . $occasion : '',
+			$date ? 'Date souhaitée : ' . $date : '',
+			$agency ? 'Agence : ' . $agency : '',
+		) );
+		$summary = $details ? "\n\n" . implode( "\n", $details ) : '';
+		return $greeting . "\n\nNous vous contactons au sujet de votre demande de pâtisserie auprès du Complexe Santa Lucia." . $summary . "\n\nPouvez-vous nous confirmer que votre commande est toujours d’actualité ?\n\nMerci.";
 	}
 
 	private static function get_whatsapp_url( int $post_id ): string {
