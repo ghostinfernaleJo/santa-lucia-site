@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Santa Lucia - CRM Patisserie
  * Description: Enrichit les demandes de patisserie avec un suivi CRM, les informations completes et un raccourci WhatsApp.
- * Version: 1.5.0
+ * Version: 1.5.1
  * Author: Santa Lucia
  * Text Domain: sl-patisserie-crm
  */
@@ -716,7 +716,9 @@ final class SL_Patisserie_CRM {
 		}
 
 		self::add_history( $post_id, 'Conversation WhatsApp ouverte' );
-		wp_redirect( $url );
+		// wp_redirect() supprime les %0A, indispensables aux retours à la ligne WhatsApp.
+		nocache_headers();
+		header( 'Location: ' . $url, true, 302 );
 		exit;
 	}
 
