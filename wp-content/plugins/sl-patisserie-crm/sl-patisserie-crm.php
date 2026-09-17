@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Santa Lucia - CRM Patisserie
  * Description: Enrichit les demandes de patisserie avec un suivi CRM, les informations completes et un raccourci WhatsApp.
- * Version: 1.4.0
+ * Version: 1.5.0
  * Author: Santa Lucia
  * Text Domain: sl-patisserie-crm
  */
@@ -24,6 +24,8 @@ final class SL_Patisserie_CRM {
 	private const META_REMINDER = '_sl_crm_reminder';
 	private const META_NOTES = '_sl_crm_notes';
 	private const META_HISTORY = '_sl_crm_history';
+	private const META_ARCHIVED = '_sl_crm_archived';
+	private const META_UNDESIRABLE = '_sl_crm_undesirable';
 
 	private static array $statuses = array(
 		'nouvelle'        => 'Nouvelle',
@@ -61,6 +63,7 @@ final class SL_Patisserie_CRM {
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'admin_assets' ) );
 		add_action( 'admin_post_sl_patisserie_whatsapp', array( __CLASS__, 'open_whatsapp' ) );
 		add_action( 'admin_post_sl_patisserie_crm_save', array( __CLASS__, 'save_crm_page' ) );
+		add_action( 'admin_post_sl_patisserie_client_action', array( __CLASS__, 'handle_client_action' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'admin_notices' ) );
 	}
 
@@ -131,11 +134,31 @@ final class SL_Patisserie_CRM {
 			self::render_crm_box( $post );
 			echo '<p><button type="submit" class="button button-primary button-large">Enregistrer le suivi</button></p>';
 			echo '</form></aside></div>';
+			self::render_client_actions( $post_id );
 		} else {
 			echo '<h1>Suivi CRM pâtisserie</h1>';
 			echo '<p><a class="button" href="' . esc_url( admin_url( 'edit.php?post_type=' . self::POST_TYPE . '&page=sl-patisserie-finance' ) ) . '"><span class="dashicons dashicons-chart-area" aria-hidden="true"></span> Rapport financier</a></p>';
+			$view = isset( $_GET['sl_view'] ) ? sanitize_key( wp_unslash( $_GET['sl_view'] ) ) : 'active';
+			$view = in_array( $view, array( 'active', 'archived', 'undesirable' ), true ) ? $view : 'active';
+			$base_url = admin_url( 'edit.php?post_type=' . self::POST_TYPE . '&page=sl-patisserie-crm' );
+			echo '<nav class="nav-tab-wrapper sl-crm-tabs">';
+			foreach ( array( 'active' => 'Clients actifs', 'archived' => 'Archives', 'undesirable' => 'Indésirables' ) as $key => $label ) {
+				echo '<a class="nav-tab ' . ( $view === $key ? 'nav-tab-active' : '' ) . '" href="' . esc_url( add_query_arg( 'sl_view', $key, $base_url ) ) . '">' . esc_html( $label ) . '</a>';
+			}
+			echo '</nav>';
 			echo '<p>Ouvrez une demande pour renseigner son montant, programmer un rappel et suivre les échanges avec le client.</p>';
 			$requests = get_posts( array( 'post_type' => self::POST_TYPE, 'post_status' => 'any', 'numberposts' => 100, 'orderby' => 'date', 'order' => 'DESC' ) );
+			$requests = array_values( array_filter( $requests, static function ( WP_Post $request ) use ( $view ): bool {
+				$archived = '1' === get_post_meta( $request->ID, self::META_ARCHIVED, true );
+				$undesirable = '1' === get_post_meta( $request->ID, self::META_UNDESIRABLE, true );
+				if ( 'archived' === $view ) {
+					return $archived;
+				}
+				if ( 'undesirable' === $view ) {
+					return $undesirable;
+				}
+				return ! $archived && ! $undesirable;
+			} ) );
 			echo '<div class="sl-crm-table-wrap"><table class="widefat striped"><thead><tr><th>Client</th><th>Téléphone</th><th>Message</th><th>Statut</th><th>Rappel</th><th>Montant</th><th>Action</th></tr></thead><tbody>';
 			foreach ( $requests as $request ) {
 				$status   = get_post_meta( $request->ID, self::META_STATUS, true ) ?: 'nouvelle';
@@ -159,6 +182,72 @@ final class SL_Patisserie_CRM {
 		}
 
 		echo '</div>';
+	}
+
+	private static function render_client_actions( int $post_id ): void {
+		$archived = '1' === get_post_meta( $post_id, self::META_ARCHIVED, true );
+		$undesirable = '1' === get_post_meta( $post_id, self::META_UNDESIRABLE, true );
+		$action_url = admin_url( 'admin-post.php' );
+
+		echo '<section class="sl-client-actions"><h2>Gestion du client</h2><div class="sl-client-action-buttons">';
+		self::render_client_action_form( $action_url, $post_id, $archived ? 'unarchive' : 'archive', $archived ? 'Restaurer des archives' : 'Archiver le client', 'dashicons-archive', false );
+		self::render_client_action_form( $action_url, $post_id, $undesirable ? 'allow' : 'undesirable', $undesirable ? 'Retirer des indésirables' : 'Marquer indésirable', 'dashicons-warning', ! $undesirable );
+		self::render_client_action_form( $action_url, $post_id, 'trash', 'Mettre à la corbeille', 'dashicons-trash', true );
+		echo '</div></section>';
+	}
+
+	private static function render_client_action_form( string $url, int $post_id, string $client_action, string $label, string $icon, bool $confirm ): void {
+		echo '<form method="post" action="' . esc_url( $url ) . '" class="sl-client-action-form"' . ( $confirm ? ' onsubmit="return confirm(\'Confirmer cette action ?\')"' : '' ) . '>';
+		echo '<input type="hidden" name="action" value="sl_patisserie_client_action"><input type="hidden" name="post_id" value="' . esc_attr( $post_id ) . '"><input type="hidden" name="client_action" value="' . esc_attr( $client_action ) . '">';
+		wp_nonce_field( 'sl_patisserie_client_action_' . $post_id );
+		echo '<button type="submit" class="button ' . ( in_array( $client_action, array( 'undesirable', 'trash' ), true ) ? 'sl-button-danger' : '' ) . '"><span class="dashicons ' . esc_attr( $icon ) . '" aria-hidden="true"></span> ' . esc_html( $label ) . '</button></form>';
+	}
+
+	public static function handle_client_action(): void {
+		if ( ! self::can_manage_crm() ) {
+			wp_die( 'Vous ne pouvez pas modifier ce client.' );
+		}
+
+		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+		if ( ! $post_id || self::POST_TYPE !== get_post_type( $post_id ) ) {
+			wp_die( 'Cette demande est introuvable.' );
+		}
+		check_admin_referer( 'sl_patisserie_client_action_' . $post_id );
+		$client_action = isset( $_POST['client_action'] ) ? sanitize_key( wp_unslash( $_POST['client_action'] ) ) : '';
+		$redirect_args = array( 'post_type' => self::POST_TYPE, 'page' => 'sl-patisserie-crm' );
+
+		switch ( $client_action ) {
+			case 'archive':
+				update_post_meta( $post_id, self::META_ARCHIVED, '1' );
+				self::add_history( $post_id, 'Client archivé' );
+				$redirect_args['sl_view'] = 'archived';
+				break;
+			case 'unarchive':
+				delete_post_meta( $post_id, self::META_ARCHIVED );
+				self::add_history( $post_id, 'Client restauré des archives' );
+				$redirect_args['post_id'] = $post_id;
+				break;
+			case 'undesirable':
+				update_post_meta( $post_id, self::META_UNDESIRABLE, '1' );
+				update_post_meta( $post_id, self::META_STATUS, 'annulee' );
+				self::add_history( $post_id, 'Client marqué comme indésirable' );
+				$redirect_args['sl_view'] = 'undesirable';
+				break;
+			case 'allow':
+				delete_post_meta( $post_id, self::META_UNDESIRABLE );
+				self::add_history( $post_id, 'Client retiré des indésirables' );
+				$redirect_args['post_id'] = $post_id;
+				break;
+			case 'trash':
+				wp_trash_post( $post_id );
+				$redirect_args['trashed'] = 1;
+				break;
+			default:
+				wp_die( 'Action inconnue.' );
+		}
+
+		wp_safe_redirect( add_query_arg( $redirect_args, admin_url( 'edit.php' ) ) );
+		exit;
 	}
 
 	public static function render_financial_report(): void {
@@ -610,7 +699,7 @@ final class SL_Patisserie_CRM {
 			return;
 		}
 
-		wp_enqueue_style( 'sl-patisserie-crm', plugin_dir_url( __FILE__ ) . 'assets/admin.css', array(), '1.4.0' );
+		wp_enqueue_style( 'sl-patisserie-crm', plugin_dir_url( __FILE__ ) . 'assets/admin.css', array(), '1.5.0' );
 	}
 
 	public static function open_whatsapp(): void {

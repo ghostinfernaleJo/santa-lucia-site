@@ -130,6 +130,15 @@
 .sl-finance-agencies { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 28px; }
 .sl-finance-agencies strong { font-size: 16px; }
 .sl-finance-page table tfoot th { border-top: 2px solid #8c8f94; font-size: 15px; }
+.sl-crm-tabs { margin: 20px 0 0; }
+.sl-client-actions { margin-top: 24px; padding: 20px; border: 1px solid #dcdcde; border-radius: 4px; background: #fff; }
+.sl-client-actions h2 { margin-top: 0; }
+.sl-client-action-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.sl-client-action-form { margin: 0; }
+.sl-client-action-form .button { display: inline-flex; align-items: center; gap: 5px; }
+.sl-button-danger { border-color: #b32d2e !important; color: #b32d2e !important; }
+.sl-button-danger:hover,
+.sl-button-danger:focus { border-color: #8a2424 !important; color: #8a2424 !important; }
 
 @media (max-width: 782px) {
 	.sl-crm-page-grid { grid-template-columns: 1fr; }
@@ -141,6 +150,10 @@
 	.sl-finance-filters { align-items: stretch; flex-direction: column; }
 	.sl-finance-kpis,
 	.sl-finance-agencies { grid-template-columns: 1fr; }
+	.sl-client-action-buttons,
+	.sl-client-action-form,
+	.sl-client-action-form .button { width: 100%; }
+	.sl-client-action-form .button { justify-content: center; }
 }
 
 @media print {
