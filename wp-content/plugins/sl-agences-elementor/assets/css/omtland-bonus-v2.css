@@ -7,6 +7,9 @@
 .sl-omtland-campaign .klb-page > .container > .row > [class*="col-"] { max-width: 100%; flex: 0 0 100%; margin: 0; padding: 0; }
 .sl-omtland-campaign { overflow-x: hidden; }
 .sl-omtland-page { width: 100vw; margin-left: calc(50% - 50vw); color: #171923; font-family: inherit; }
+.elementor-widget-sl_omitland_bonus,
+.elementor-widget-sl_omitland_bonus > .elementor-widget-container { width: 100%; margin: 0; }
+.elementor-widget-sl_omitland_bonus .sl-omtland-page { width: 100%; margin-left: 0; }
 .sl-omtland-inner { width: min(1160px, calc(100% - 40px)); margin: 0 auto; }
 .sl-omtland-hero { min-height: min(720px, 78vh); display: flex; align-items: center; background-color: #101421; background-position: center; background-size: cover; color: #fff; }
 .sl-omtland-hero-inner { width: min(1160px, calc(100% - 40px)); margin: 0 auto; padding: 72px 0; }

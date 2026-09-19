@@ -2,6 +2,7 @@
 .sl-omitland-dashboard-heading { display:flex; justify-content:space-between; gap:24px; align-items:flex-end; margin:24px 0 28px; padding:28px 32px; color:#fff; background:#171c2b; border-radius:8px; }
 .sl-omitland-dashboard-heading h1 { margin:0; color:#fff; font-size:32px; line-height:1.1; }
 .sl-omitland-dashboard-heading .button { color:#171c2b; background:#fff; border-color:#fff; }
+.sl-omitland-dashboard-actions { display:flex; flex-wrap:wrap; gap:10px; }
 .sl-omitland-admin-kicker { margin:0 0 8px; color:#f1c84b; font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
 .sl-omitland-admin-intro { max-width:640px; margin:10px 0 0; color:#c9cfdd; font-size:14px; }
 .sl-omitland-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; margin:0 0 32px; }
@@ -30,6 +31,18 @@
 .sl-omitland-status.status-verified { color:#075e54; background:#dcf8f1; }
 .sl-omitland-status.status-redeemed { color:#135b24; background:#dff4e4; }
 .sl-omitland-status.status-rejected { color:#9f1c1c; background:#fde7e7; }
+.sl-omitland-status.status-active { color:#135b24; background:#dff4e4; }
+.sl-omitland-status.status-inactive { color:#646970; background:#eef0f3; }
+.sl-omitland-activity { margin-top:24px; padding-top:18px; border-top:1px solid #dcdcde; }
+.sl-omitland-activity h3 { margin:0 0 12px; color:#171c2b; font-size:14px; }
+.sl-omitland-activity ul { margin:0; }
+.sl-omitland-activity li { display:grid; grid-template-columns:118px 1fr auto; gap:12px; padding:10px 0; border-top:1px solid #eef0f3; }
+.sl-omitland-activity small { color:#646970; }
+.sl-omitland-code-editor label { display:inline-grid; gap:6px; margin-right:16px; color:#2c333a; font-weight:600; }
+.sl-omitland-code-editor input, .sl-omitland-code-editor select { margin-top:4px; }
+.sl-omitland-code-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; max-width:520px; margin-top:22px; }
+.sl-omitland-code-metrics span { display:grid; gap:3px; padding:14px; color:#646970; background:#f6f7f7; border-radius:4px; }
+.sl-omitland-code-metrics b { color:#171c2b; font-size:22px; }
 @media (max-width: 900px) {
   .sl-omitland-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .sl-omitland-dashboard-heading { align-items:flex-start; flex-direction:column; }
@@ -39,4 +52,6 @@
   .sl-omitland-dashboard-heading { padding:22px; }
   .sl-omitland-dashboard-heading h1 { font-size:26px; }
   .sl-omitland-detail-table th { width:110px; }
+  .sl-omitland-activity li { grid-template-columns:1fr; gap:4px; }
+  .sl-omitland-code-metrics { grid-template-columns:1fr; }
 }

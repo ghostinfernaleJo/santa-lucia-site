@@ -177,11 +177,17 @@ function sl_omtland_campaign_body_class( $classes ) {
 }
 add_filter( 'body_class', 'sl_omtland_campaign_body_class' );
 
+function sl_omtland_register_campaign_assets() {
+	wp_register_style( 'sl-omtland-bonus', SL_AGENCES_URL . 'assets/css/omtland-bonus-v2.css', array(), '1.0.4' );
+}
+add_action( 'wp_enqueue_scripts', 'sl_omtland_register_campaign_assets', 20 );
+add_action( 'elementor/frontend/after_register_styles', 'sl_omtland_register_campaign_assets' );
+add_action( 'elementor/editor/after_enqueue_styles', 'sl_omtland_register_campaign_assets' );
+
 function sl_omtland_campaign_assets() {
-	if ( ! is_page( 'bonus-omtland-odza' ) ) {
-		return;
+	if ( is_page( 'bonus-omtland-odza' ) ) {
+		wp_enqueue_style( 'sl-omtland-bonus' );
 	}
-	wp_enqueue_style( 'sl-omtland-bonus', SL_AGENCES_URL . 'assets/css/omtland-bonus-v2.css', array(), '1.0.3' );
 }
 add_action( 'wp_enqueue_scripts', 'sl_omtland_campaign_assets', 110 );
 
@@ -204,7 +210,10 @@ function sl_omtland_promotion_is_open() {
 }
 
 function sl_omtland_bonus_shortcode() {
-	sl_omitland_track_visit();
+	$is_elementor_editor = class_exists( '\\Elementor\\Plugin' ) && \Elementor\Plugin::$instance->editor->is_edit_mode();
+	if ( ! $is_elementor_editor ) {
+		sl_omitland_track_visit();
+	}
 	$state = isset( $_GET['claim'] ) ? sanitize_key( wp_unslash( $_GET['claim'] ) ) : '';
 	$reference = isset( $_GET['ref'] ) ? sanitize_text_field( wp_unslash( $_GET['ref'] ) ) : '';
 	$requested_code = isset( $_GET['promo'] ) ? strtoupper( preg_replace( '/[^A-Z0-9]/', '', sanitize_text_field( wp_unslash( $_GET['promo'] ) ) ) ) : '';
@@ -267,6 +276,7 @@ function sl_omtland_bonus_shortcode() {
 					<?php if ( sl_omtland_promotion_is_open() && 'success' !== $state ) : ?>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="sl-omtland-form">
 						<input type="hidden" name="action" value="sl_omtland_claim">
+						<input type="hidden" name="return_url" value="<?php echo esc_url( get_permalink() ); ?>">
 						<?php wp_nonce_field( 'sl_omtland_claim', 'sl_omtland_nonce' ); ?>
 						<div class="sl-omtland-hp" aria-hidden="true"><label>Site web<input name="website" tabindex="-1" autocomplete="off"></label></div>
 						<label>Nom complet *<input name="full_name" required autocomplete="name" maxlength="120"></label>
@@ -302,6 +312,9 @@ function sl_omtland_normalize_phone( $phone ) {
 
 function sl_omtland_claim_redirect( $state, $reference = '' ) {
 	$url = home_url( '/bonus-omtland-odza/' );
+	if ( isset( $_POST['return_url'] ) ) {
+		$url = wp_validate_redirect( esc_url_raw( wp_unslash( $_POST['return_url'] ) ), $url );
+	}
 	$args = array( 'claim' => $state );
 	if ( $reference ) {
 		$args['ref'] = $reference;
@@ -361,6 +374,7 @@ function sl_omtland_handle_claim() {
 	update_post_meta( $post_id, '_sl_omitland_referrer', sl_omitland_referrer_code() );
 	update_post_meta( $post_id, '_sl_omtland_reference', $reference );
 	update_post_meta( $post_id, '_sl_omtland_status', 'pending' );
+	sl_omitland_log_activity( $post_id, 'Réclamation créée depuis le formulaire public.' );
 	$code_post = sl_omitland_code_post( $code );
 	if ( $code_post ) {
 		update_post_meta( $code_post->ID, '_sl_omitland_code_claims', (int) get_post_meta( $code_post->ID, '_sl_omitland_code_claims', true ) + 1 );
@@ -397,6 +411,18 @@ function sl_omtland_claim_meta_boxes() {
 }
 add_action( 'add_meta_boxes_' . SL_OMTLAND_CLAIM_TYPE, 'sl_omtland_claim_meta_boxes' );
 
+function sl_omitland_log_activity( $post_id, $message ) {
+	$activity = get_post_meta( $post_id, '_sl_omitland_activity', true );
+	$activity = is_array( $activity ) ? $activity : array();
+	$user = wp_get_current_user();
+	array_unshift( $activity, array(
+		'time' => current_time( 'timestamp' ),
+		'user' => $user && $user->exists() ? $user->display_name : 'Formulaire public',
+		'message' => sanitize_text_field( $message ),
+	) );
+	update_post_meta( $post_id, '_sl_omitland_activity', array_slice( $activity, 0, 30 ) );
+}
+
 function sl_omtland_render_claim_box( $post ) {
 	wp_nonce_field( 'sl_omtland_save_claim', 'sl_omtland_admin_nonce' );
 	$fields = array(
@@ -423,6 +449,15 @@ function sl_omtland_render_claim_box( $post ) {
 	if ( $whatsapp_url ) {
 		echo '<p class="sl-omitland-whatsapp-action"><a class="button button-primary" href="' . esc_url( $whatsapp_url ) . '" target="_blank" rel="noopener noreferrer">Ouvrir le message WhatsApp</a><span>Le message est prérempli avec les informations de cette réclamation.</span></p>';
 	}
+	$activity = get_post_meta( $post->ID, '_sl_omitland_activity', true );
+	if ( is_array( $activity ) && $activity ) {
+		echo '<div class="sl-omitland-activity"><h3>Historique</h3><ul>';
+		foreach ( $activity as $entry ) {
+			$time = isset( $entry['time'] ) ? wp_date( 'd/m/Y H:i', (int) $entry['time'] ) : '';
+			echo '<li><strong>' . esc_html( $time ) . '</strong><span>' . esc_html( $entry['message'] ?? '' ) . '</span><small>' . esc_html( $entry['user'] ?? '' ) . '</small></li>';
+		}
+		echo '</ul></div>';
+	}
 }
 
 function sl_omtland_save_claim( $post_id ) {
@@ -434,6 +469,10 @@ function sl_omtland_save_claim( $post_id ) {
 	$status = isset( $_POST['sl_omtland_status'] ) ? sanitize_key( wp_unslash( $_POST['sl_omtland_status'] ) ) : 'pending';
 	if ( in_array( $status, $allowed, true ) ) {
 		update_post_meta( $post_id, '_sl_omtland_status', $status );
+		if ( $status !== $old_status ) {
+			$labels = array( 'pending' => 'À vérifier', 'verified' => 'Éligible', 'redeemed' => '50 unités remises', 'rejected' => 'Refusée' );
+			sl_omitland_log_activity( $post_id, 'Statut modifié : ' . ( $labels[ $old_status ] ?? $old_status ) . ' → ' . ( $labels[ $status ] ?? $status ) . '.' );
+		}
 		if ( 'redeemed' === $status && 'redeemed' !== $old_status ) {
 			$code_post = sl_omitland_code_post( get_post_meta( $post_id, '_sl_omitland_code', true ) );
 			if ( $code_post ) {
@@ -473,6 +512,30 @@ function sl_omtland_claim_column( $column, $post_id ) {
 }
 add_action( 'manage_' . SL_OMTLAND_CLAIM_TYPE . '_posts_custom_column', 'sl_omtland_claim_column', 10, 2 );
 
+function sl_omitland_claim_code_filter() {
+	global $typenow;
+	if ( SL_OMTLAND_CLAIM_TYPE !== $typenow ) {
+		return;
+	}
+	$selected = isset( $_GET['sl_omitland_code'] ) ? sanitize_text_field( wp_unslash( $_GET['sl_omitland_code'] ) ) : '';
+	$codes = get_posts( array( 'post_type' => SL_OMTLAND_CODE_TYPE, 'post_status' => 'any', 'numberposts' => 200, 'orderby' => 'title', 'order' => 'ASC' ) );
+	echo '<select name="sl_omitland_code"><option value="">Tous les codes</option>';
+	foreach ( $codes as $code_post ) {
+		echo '<option value="' . esc_attr( $code_post->post_title ) . '" ' . selected( $selected, $code_post->post_title, false ) . '>' . esc_html( $code_post->post_title ) . '</option>';
+	}
+	echo '</select>';
+}
+add_action( 'restrict_manage_posts', 'sl_omitland_claim_code_filter' );
+
+function sl_omitland_filter_claims_by_code( $query ) {
+	if ( ! is_admin() || ! $query->is_main_query() || SL_OMTLAND_CLAIM_TYPE !== $query->get( 'post_type' ) || empty( $_GET['sl_omitland_code'] ) ) {
+		return;
+	}
+	$query->set( 'meta_key', '_sl_omitland_code' );
+	$query->set( 'meta_value', sanitize_text_field( wp_unslash( $_GET['sl_omitland_code'] ) ) );
+}
+add_action( 'pre_get_posts', 'sl_omitland_filter_claims_by_code' );
+
 function sl_omitland_register_cron_schedule( $schedules ) {
 	$schedules['sl_omitland_4days'] = array( 'interval' => 4 * DAY_IN_SECONDS, 'display' => 'Tous les 4 jours' );
 	return $schedules;
@@ -511,6 +574,36 @@ function sl_omitland_create_code( $code, $start, $end, $label = '' ) {
 	update_post_meta( $post_id, '_sl_omitland_code_uses', 0 );
 	return $post_id;
 }
+
+function sl_omitland_code_meta_boxes() {
+	add_meta_box( 'sl-omitland-code-settings', 'Réglages et performance', 'sl_omitland_render_code_box', SL_OMTLAND_CODE_TYPE, 'normal', 'high' );
+}
+add_action( 'add_meta_boxes_' . SL_OMTLAND_CODE_TYPE, 'sl_omitland_code_meta_boxes' );
+
+function sl_omitland_render_code_box( $post ) {
+	wp_nonce_field( 'sl_omitland_save_code', 'sl_omitland_code_admin_nonce' );
+	$start = get_post_meta( $post->ID, '_sl_omitland_code_start', true );
+	$end = get_post_meta( $post->ID, '_sl_omitland_code_end', true );
+	$status = get_post_meta( $post->ID, '_sl_omitland_code_status', true ) ?: 'active';
+	$label = get_post_meta( $post->ID, '_sl_omitland_code_label', true );
+	$link = add_query_arg( array( 'promo' => $post->post_title, 'ref' => $post->post_title ), home_url( '/bonus-omtland-odza/' ) );
+	echo '<div class="sl-omitland-code-editor"><p><label>Nom de l’ambassadeur<input type="text" name="sl_omitland_code_label" value="' . esc_attr( $label ) . '" maxlength="120" class="regular-text"></label></p><p><label>Début<input type="date" name="sl_omitland_code_start" value="' . esc_attr( $start ) . '"></label> <label>Fin<input type="date" name="sl_omitland_code_end" value="' . esc_attr( $end ) . '"></label></p><p><label>État <select name="sl_omitland_code_status"><option value="active" ' . selected( $status, 'active', false ) . '>Actif</option><option value="inactive" ' . selected( $status, 'inactive', false ) . '>Désactivé</option></select></label></p><p><label>Lien partageable<input type="text" readonly value="' . esc_attr( $link ) . '" class="large-text"></label></p><div class="sl-omitland-code-metrics"><span><b>' . esc_html( number_format_i18n( (int) get_post_meta( $post->ID, '_sl_omitland_code_clicks', true ) ) ) . '</b>Clics</span><span><b>' . esc_html( number_format_i18n( (int) get_post_meta( $post->ID, '_sl_omitland_code_claims', true ) ) ) . '</b>Réclamations</span><span><b>' . esc_html( number_format_i18n( (int) get_post_meta( $post->ID, '_sl_omitland_code_uses', true ) ) ) . '</b>Utilisations</span></div></div>';
+}
+
+function sl_omitland_save_code( $post_id ) {
+	if ( ! isset( $_POST['sl_omitland_code_admin_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['sl_omitland_code_admin_nonce'] ) ), 'sl_omitland_save_code' ) || ! current_user_can( 'edit_post', $post_id ) ) {
+		return;
+	}
+	$start = isset( $_POST['sl_omitland_code_start'] ) ? sanitize_text_field( wp_unslash( $_POST['sl_omitland_code_start'] ) ) : '';
+	$end = isset( $_POST['sl_omitland_code_end'] ) ? sanitize_text_field( wp_unslash( $_POST['sl_omitland_code_end'] ) ) : '';
+	if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $start ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $end ) && $start <= $end ) {
+		update_post_meta( $post_id, '_sl_omitland_code_start', $start );
+		update_post_meta( $post_id, '_sl_omitland_code_end', $end );
+	}
+	update_post_meta( $post_id, '_sl_omitland_code_label', isset( $_POST['sl_omitland_code_label'] ) ? sanitize_text_field( wp_unslash( $_POST['sl_omitland_code_label'] ) ) : '' );
+	update_post_meta( $post_id, '_sl_omitland_code_status', isset( $_POST['sl_omitland_code_status'] ) && 'inactive' === $_POST['sl_omitland_code_status'] ? 'inactive' : 'active' );
+}
+add_action( 'save_post_' . SL_OMTLAND_CODE_TYPE, 'sl_omitland_save_code' );
 
 function sl_omitland_rotate_code() {
 	if ( '1' !== (string) sl_omitland_get_setting( 'auto_enabled', '0' ) || '1' === (string) sl_omitland_get_setting( 'paused', '0' ) ) {
@@ -563,14 +656,14 @@ function sl_omitland_render_dashboard() {
 	$paused = '1' === (string) sl_omitland_get_setting( 'paused', '0' );
 	$notice = isset( $_GET['sl_omitland_notice'] ) ? sanitize_key( wp_unslash( $_GET['sl_omitland_notice'] ) ) : '';
 	$action_url = admin_url( 'admin-post.php' );
-	echo '<div class="wrap sl-omitland-dashboard"><div class="sl-omitland-dashboard-heading"><div><p class="sl-omitland-admin-kicker">Campagne et suivi</p><h1>Tableau de bord OMITLAND</h1><p class="sl-omitland-admin-intro">Pilote les codes promotionnels, les réclamations et les visites depuis un seul espace.</p></div><a class="button" href="' . esc_url( home_url( '/bonus-omtland-odza/' ) ) . '" target="_blank" rel="noopener noreferrer">Voir la page publique</a></div>';
+	echo '<div class="wrap sl-omitland-dashboard"><div class="sl-omitland-dashboard-heading"><div><p class="sl-omitland-admin-kicker">Campagne et suivi</p><h1>Tableau de bord OMITLAND</h1><p class="sl-omitland-admin-intro">Pilote les codes promotionnels, les réclamations et les visites depuis un seul espace.</p></div><div class="sl-omitland-dashboard-actions"><a class="button" href="' . esc_url( admin_url( 'admin-post.php?action=sl_omitland_export_claims' ) ) . '">Exporter les réclamations</a><a class="button" href="' . esc_url( home_url( '/bonus-omtland-odza/' ) ) . '" target="_blank" rel="noopener noreferrer">Voir la page publique</a></div></div>';
 	if ( 'saved' === $notice ) echo '<div class="notice notice-success is-dismissible"><p>Les réglages Omitland ont été enregistrés.</p></div>';
 	if ( 'generated' === $notice ) echo '<div class="notice notice-success is-dismissible"><p>Un nouveau code a été généré.</p></div>';
 	echo '<div class="sl-omitland-kpis">';
 	foreach ( array( 'Clics' => $clicks, 'Réclamations' => count( $claims ), 'Codes utilisés' => $uses ?: $used, 'Codes actifs' => count( array_filter( $codes, static fn( $p ) => 'active' === ( get_post_meta( $p->ID, '_sl_omitland_code_status', true ) ?: 'active' ) ) ) ) as $label => $value ) {
 		echo '<div class="sl-omitland-kpi"><span>' . esc_html( $label ) . '</span><strong>' . esc_html( number_format_i18n( $value ) ) . '</strong></div>';
 	}
-	echo '</div><h2>Automatisation</h2><form method="post" action="' . esc_url( $action_url ) . '" style="max-width:700px;padding:20px;background:#fff;border:1px solid #dcdcde">';
+	echo '</div><h2>Automatisation</h2><form method="post" action="' . esc_url( $action_url ) . '" class="sl-omitland-panel">';
 	echo '<input type="hidden" name="action" value="sl_omitland_save_settings">';
 	wp_nonce_field( 'sl_omitland_save_settings', 'sl_omitland_settings_nonce' );
 	echo '<p><label><input type="checkbox" name="auto_enabled" value="1" ' . checked( $auto_enabled, true, false ) . '> Générer automatiquement de nouveaux codes</label></p>';
@@ -580,12 +673,14 @@ function sl_omitland_render_dashboard() {
 	echo '<p><label><input type="checkbox" name="paused" value="1" ' . checked( $paused, true, false ) . '> Mettre la génération automatique en pause</label></p><p><button class="button button-primary">Enregistrer les réglages</button></p></form>';
 	echo '<h2>Créer un code personnel</h2><form method="post" action="' . esc_url( $action_url ) . '" class="sl-omitland-panel"><input type="hidden" name="action" value="sl_omitland_generate_code">';
 	wp_nonce_field( 'sl_omitland_generate_code', 'sl_omitland_code_nonce' );
-	echo '<p><label>Code (laisser vide pour générer) <input type="text" name="code" maxlength="24"></label></p><p><label>Nom de l’ambassadeur <input type="text" name="label" maxlength="120"></label></p><p><button class="button">Générer le code et le lien</button></p></form>';
+	echo '<p><label>Code (laisser vide pour générer) <input type="text" name="code" maxlength="24"></label></p><p><label>Nom de l’ambassadeur <input type="text" name="label" maxlength="120"></label></p><p><label>Début <input type="date" name="code_start" value="' . esc_attr( sl_omitland_start_date() ) . '"></label><label>Fin <input type="date" name="code_end" value="' . esc_attr( sl_omitland_end_date() ) . '"></label></p><p><button class="button">Générer le code et le lien</button></p></form>';
 	echo '<h2>Codes et performances</h2><div class="sl-omitland-table-wrap"><table class="widefat striped"><thead><tr><th>Code</th><th>Période</th><th>Clics</th><th>Réclamations</th><th>Utilisés</th><th>Lien partageable</th></tr></thead><tbody>';
 	foreach ( $codes as $code_post ) {
 		$code = $code_post->post_title;
 		$link = add_query_arg( array( 'promo' => $code, 'ref' => $code ), home_url( '/bonus-omtland-odza/' ) );
-		echo '<tr><td><strong>' . esc_html( $code ) . '</strong><br><small>' . esc_html( get_post_meta( $code_post->ID, '_sl_omitland_code_label', true ) ) . '</small></td><td>' . esc_html( get_post_meta( $code_post->ID, '_sl_omitland_code_start', true ) . ' → ' . get_post_meta( $code_post->ID, '_sl_omitland_code_end', true ) ) . '</td><td>' . esc_html( number_format_i18n( (int) get_post_meta( $code_post->ID, '_sl_omitland_code_clicks', true ) ) ) . '</td><td>' . esc_html( number_format_i18n( (int) get_post_meta( $code_post->ID, '_sl_omitland_code_claims', true ) ) ) . '</td><td>' . esc_html( number_format_i18n( (int) get_post_meta( $code_post->ID, '_sl_omitland_code_uses', true ) ) ) . '</td><td><input type="text" readonly value="' . esc_attr( $link ) . '" style="width:100%"></td></tr>';
+		$claim_url = add_query_arg( array( 'post_type' => SL_OMTLAND_CLAIM_TYPE, 'sl_omitland_code' => $code ), admin_url( 'edit.php' ) );
+		$state = get_post_meta( $code_post->ID, '_sl_omitland_code_status', true ) ?: 'active';
+		echo '<tr><td><strong>' . esc_html( $code ) . '</strong><br><small>' . esc_html( get_post_meta( $code_post->ID, '_sl_omitland_code_label', true ) ) . '</small><br><span class="sl-omitland-status status-' . esc_attr( sanitize_html_class( $state ) ) . '">' . esc_html( 'active' === $state ? 'Actif' : 'Désactivé' ) . '</span></td><td>' . esc_html( get_post_meta( $code_post->ID, '_sl_omitland_code_start', true ) . ' → ' . get_post_meta( $code_post->ID, '_sl_omitland_code_end', true ) ) . '</td><td>' . esc_html( number_format_i18n( (int) get_post_meta( $code_post->ID, '_sl_omitland_code_clicks', true ) ) ) . '</td><td><a href="' . esc_url( $claim_url ) . '">' . esc_html( number_format_i18n( (int) get_post_meta( $code_post->ID, '_sl_omitland_code_claims', true ) ) ) . '</a></td><td>' . esc_html( number_format_i18n( (int) get_post_meta( $code_post->ID, '_sl_omitland_code_uses', true ) ) ) . '</td><td><input type="text" readonly value="' . esc_attr( $link ) . '" style="width:100%"><a href="' . esc_url( get_edit_post_link( $code_post->ID, '' ) ) . '">Gérer ce code</a></td></tr>';
 	}
 	if ( ! $codes ) echo '<tr><td colspan="6">Aucun code enregistré.</td></tr>';
 	echo '</tbody></table></div></div>';
@@ -615,9 +710,42 @@ function sl_omitland_generate_code_admin() {
 	}
 	$code = sanitize_text_field( wp_unslash( $_POST['code'] ?? '' ) );
 	$code = $code ? strtoupper( preg_replace( '/[^A-Z0-9]/', '', $code ) ) : sl_omitland_generate_code_value();
-	if ( sl_omitland_create_code( $code, sl_omitland_start_date(), sl_omitland_end_date(), $_POST['label'] ?? '' ) ) {
+	$start = isset( $_POST['code_start'] ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $_POST['code_start'] ) ? sanitize_text_field( wp_unslash( $_POST['code_start'] ) ) : sl_omitland_start_date();
+	$end = isset( $_POST['code_end'] ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $_POST['code_end'] ) ? sanitize_text_field( wp_unslash( $_POST['code_end'] ) ) : sl_omitland_end_date();
+	if ( $start <= $end && sl_omitland_create_code( $code, $start, $end, $_POST['label'] ?? '' ) ) {
 		sl_omitland_admin_redirect( 'generated' );
 	}
 	sl_omitland_admin_redirect( 'error' );
 }
 add_action( 'admin_post_sl_omitland_generate_code', 'sl_omitland_generate_code_admin' );
+
+function sl_omitland_export_claims() {
+	if ( ! sl_omitland_can_manage() ) {
+		wp_die( 'Accès non autorisé.' );
+	}
+	$claims = get_posts( array( 'post_type' => SL_OMTLAND_CLAIM_TYPE, 'post_status' => 'any', 'numberposts' => -1, 'orderby' => 'date', 'order' => 'DESC' ) );
+	nocache_headers();
+	header( 'Content-Type: text/csv; charset=utf-8' );
+	header( 'Content-Disposition: attachment; filename=omitland-reclamations-' . gmdate( 'Y-m-d' ) . '.csv' );
+	$output = fopen( 'php://output', 'w' );
+	fwrite( $output, "\xEF\xBB\xBF" );
+	fputcsv( $output, array( 'Référence', 'Nom', 'Téléphone', 'E-mail', 'Source', 'Code', 'Référent', 'Statut', 'Demandée le' ), ';' );
+	$labels = array( 'pending' => 'À vérifier', 'verified' => 'Éligible', 'redeemed' => '50 unités remises', 'rejected' => 'Refusée' );
+	foreach ( $claims as $claim ) {
+		$status = get_post_meta( $claim->ID, '_sl_omtland_status', true ) ?: 'pending';
+		fputcsv( $output, array(
+			get_post_meta( $claim->ID, '_sl_omtland_reference', true ),
+			get_post_meta( $claim->ID, '_sl_omtland_name', true ),
+			get_post_meta( $claim->ID, '_sl_omtland_phone', true ),
+			get_post_meta( $claim->ID, '_sl_omtland_email', true ),
+			get_post_meta( $claim->ID, '_sl_omtland_source', true ),
+			get_post_meta( $claim->ID, '_sl_omitland_code', true ),
+			get_post_meta( $claim->ID, '_sl_omitland_referrer', true ),
+			$labels[ $status ] ?? $status,
+			get_the_date( 'd/m/Y H:i', $claim ),
+		), ';' );
+	}
+	fclose( $output );
+	exit;
+}
+add_action( 'admin_post_sl_omitland_export_claims', 'sl_omitland_export_claims' );
