@@ -27,7 +27,7 @@ function sl_omtland_register_claim_type() {
 		'show_in_menu'        => true,
 		'menu_icon'           => 'dashicons-games',
 		'supports'            => array( 'title' ),
-		'capability_type'     => 'post',
+		'capability_type'     => array( 'slg_request', 'slg_requests' ),
 		'map_meta_cap'        => true,
 		'exclude_from_search' => true,
 	) );
@@ -46,6 +46,8 @@ function sl_omitland_register_code_type() {
 		'show_ui'             => true,
 		'show_in_menu'        => 'edit.php?post_type=' . SL_OMTLAND_CLAIM_TYPE,
 		'supports'            => array( 'title' ),
+		'capability_type'     => array( 'slg_request', 'slg_requests' ),
+		'map_meta_cap'        => true,
 		'exclude_from_search' => true,
 	) );
 }
@@ -503,8 +505,12 @@ function sl_omitland_rotate_code() {
 }
 add_action( 'sl_omitland_rotate_code', 'sl_omitland_rotate_code' );
 
+function sl_omitland_can_manage() {
+	return current_user_can( 'manage_options' ) || current_user_can( 'edit_slg_requests' );
+}
+
 function sl_omitland_admin_menu() {
-	add_submenu_page( 'edit.php?post_type=' . SL_OMTLAND_CLAIM_TYPE, 'Tableau de bord Omitland', 'Tableau de bord', 'manage_options', 'sl-omitland-dashboard', 'sl_omitland_render_dashboard' );
+	add_submenu_page( 'edit.php?post_type=' . SL_OMTLAND_CLAIM_TYPE, 'Tableau de bord Omitland', 'Tableau de bord', 'edit_slg_requests', 'sl-omitland-dashboard', 'sl_omitland_render_dashboard' );
 }
 add_action( 'admin_menu', 'sl_omitland_admin_menu', 20 );
 
@@ -518,7 +524,7 @@ function sl_omitland_admin_redirect( $notice = '' ) {
 }
 
 function sl_omitland_render_dashboard() {
-	if ( ! current_user_can( 'manage_options' ) ) {
+	if ( ! sl_omitland_can_manage() ) {
 		wp_die( 'Accès non autorisé.' );
 	}
 	$claims = get_posts( array( 'post_type' => SL_OMTLAND_CLAIM_TYPE, 'post_status' => 'any', 'numberposts' => -1 ) );
@@ -568,7 +574,7 @@ function sl_omitland_render_dashboard() {
 }
 
 function sl_omitland_save_settings() {
-	if ( ! current_user_can( 'manage_options' ) || ! isset( $_POST['sl_omitland_settings_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['sl_omitland_settings_nonce'] ) ), 'sl_omitland_save_settings' ) ) {
+	if ( ! sl_omitland_can_manage() || ! isset( $_POST['sl_omitland_settings_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['sl_omitland_settings_nonce'] ) ), 'sl_omitland_save_settings' ) ) {
 		wp_die( 'Action non autorisée.' );
 	}
 	$code = strtoupper( preg_replace( '/[^A-Z0-9]/', '', sanitize_text_field( wp_unslash( $_POST['active_code'] ?? '' ) ) ) );
@@ -586,7 +592,7 @@ function sl_omitland_save_settings() {
 add_action( 'admin_post_sl_omitland_save_settings', 'sl_omitland_save_settings' );
 
 function sl_omitland_generate_code_admin() {
-	if ( ! current_user_can( 'manage_options' ) || ! isset( $_POST['sl_omitland_code_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['sl_omitland_code_nonce'] ) ), 'sl_omitland_generate_code' ) ) {
+	if ( ! sl_omitland_can_manage() || ! isset( $_POST['sl_omitland_code_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['sl_omitland_code_nonce'] ) ), 'sl_omitland_generate_code' ) ) {
 		wp_die( 'Action non autorisée.' );
 	}
 	$code = sanitize_text_field( wp_unslash( $_POST['code'] ?? '' ) );
