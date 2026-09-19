@@ -7,6 +7,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/** Masque uniquement le rappel de configuration MailChimp non utilisé. */
+function sl_omitland_hide_mailchimp_setup_notice() {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+	?>
+	<script>
+	(function () {
+		function hideMailchimpSetupNotice() {
+			document.querySelectorAll('.notice, .updated, .error').forEach(function (notice) {
+				var text = (notice.textContent || '').toLowerCase();
+				if (text.indexOf('mailchimp for wordpress') !== -1 && (text.indexOf('api key') !== -1 || text.indexOf('clé api') !== -1)) {
+					notice.remove();
+				}
+			});
+		}
+		document.addEventListener('DOMContentLoaded', hideMailchimpSetupNotice);
+	}());
+	</script>
+	<?php
+}
+add_action( 'admin_notices', 'sl_omitland_hide_mailchimp_setup_notice', PHP_INT_MAX );
+
 const SL_OMTLAND_CLAIM_TYPE = 'sl_omtland_claim';
 const SL_OMTLAND_PROMO_CODE = 'OMIT237XVZ';
 const SL_OMTLAND_START_DATE = '2026-09-19';
