@@ -31,6 +31,7 @@
 .sl-omitland-status.status-verified { color:#075e54; background:#dcf8f1; }
 .sl-omitland-status.status-redeemed { color:#135b24; background:#dff4e4; }
 .sl-omitland-status.status-rejected { color:#9f1c1c; background:#fde7e7; }
+.sl-omitland-status.status-blocked { color:#7a2020; background:#f8d8d8; }
 .sl-omitland-status.status-active { color:#135b24; background:#dff4e4; }
 .sl-omitland-status.status-inactive { color:#646970; background:#eef0f3; }
 .sl-omitland-activity { margin-top:24px; padding-top:18px; border-top:1px solid #dcdcde; }
@@ -43,12 +44,21 @@
 .sl-omitland-code-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; max-width:520px; margin-top:22px; }
 .sl-omitland-code-metrics span { display:grid; gap:3px; padding:14px; color:#646970; background:#f6f7f7; border-radius:4px; }
 .sl-omitland-code-metrics b { color:#171c2b; font-size:22px; }
+.sl-omitland-record-actions { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; }
+.sl-omitland-record-actions span { color:#646970; font-size:12px; }
+.sl-omitland-analytics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
+.sl-omitland-analytics > div { display:grid; gap:8px; padding:18px; color:#646970; border:1px solid #dcdcde; border-radius:6px; background:#fff; }
+.sl-omitland-analytics strong { color:#171c2b; font-size:22px; line-height:1.1; }
+.sl-omitland-whatsapp-settings { max-width:920px !important; }
+.sl-omitland-whatsapp-settings .description { display:block; color:#646970; }
 @media (max-width: 900px) {
   .sl-omitland-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .sl-omitland-analytics { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .sl-omitland-dashboard-heading { align-items:flex-start; flex-direction:column; }
 }
 @media (max-width: 600px) {
   .sl-omitland-kpis { grid-template-columns:1fr; }
+  .sl-omitland-analytics { grid-template-columns:1fr; }
   .sl-omitland-dashboard-heading { padding:22px; }
   .sl-omitland-dashboard-heading h1 { font-size:26px; }
   .sl-omitland-detail-table th { width:110px; }
