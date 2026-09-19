@@ -142,9 +142,6 @@ function sl_omitland_referrer_code() {
 
 function sl_omtland_ensure_campaign_page() {
 	$page_id = (int) get_option( 'sl_omtland_campaign_page_id' );
-	if ( $page_id && 'publish' === get_post_status( $page_id ) ) {
-		return;
-	}
 
 	$page = get_page_by_path( 'bonus-omtland-odza', OBJECT, 'page' );
 	if ( ! $page ) {
