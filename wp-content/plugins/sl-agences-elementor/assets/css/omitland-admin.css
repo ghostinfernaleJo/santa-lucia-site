@@ -1,0 +1,42 @@
+.sl-omitland-dashboard { max-width: 1320px; }
+.sl-omitland-dashboard-heading { display:flex; justify-content:space-between; gap:24px; align-items:flex-end; margin:24px 0 28px; padding:28px 32px; color:#fff; background:#171c2b; border-radius:8px; }
+.sl-omitland-dashboard-heading h1 { margin:0; color:#fff; font-size:32px; line-height:1.1; }
+.sl-omitland-dashboard-heading .button { color:#171c2b; background:#fff; border-color:#fff; }
+.sl-omitland-admin-kicker { margin:0 0 8px; color:#f1c84b; font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+.sl-omitland-admin-intro { max-width:640px; margin:10px 0 0; color:#c9cfdd; font-size:14px; }
+.sl-omitland-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; margin:0 0 32px; }
+.sl-omitland-kpi, .sl-omitland-panel, .sl-omitland-dashboard form[method="post"] { box-sizing:border-box; padding:22px; border:1px solid #dcdcde; border-radius:6px; background:#fff; }
+.sl-omitland-kpi { display:grid; gap:8px; border-top:3px solid #e91666; }
+.sl-omitland-kpi span { color:#646970; font-size:13px; }
+.sl-omitland-kpi strong { color:#171c2b; font-size:30px; line-height:1; }
+.sl-omitland-dashboard h2 { margin-top:32px; color:#171c2b; }
+.sl-omitland-dashboard form[method="post"] { max-width:760px !important; }
+.sl-omitland-dashboard form p { display:flex; flex-wrap:wrap; gap:12px 20px; align-items:center; }
+.sl-omitland-dashboard form label { display:inline-flex; flex-wrap:wrap; gap:8px; align-items:center; color:#2c333a; font-weight:600; }
+.sl-omitland-dashboard form input[type="text"], .sl-omitland-dashboard form input[type="date"], .sl-omitland-dashboard form select { min-height:36px; border-color:#b9c0cc; border-radius:4px; }
+.sl-omitland-table-wrap { overflow:auto; border:1px solid #dcdcde; border-radius:6px; background:#fff; }
+.sl-omitland-table-wrap .widefat { border:0; box-shadow:none; }
+.sl-omitland-table-wrap td, .sl-omitland-table-wrap th { vertical-align:middle; }
+.sl-omitland-table-wrap input[readonly] { min-width:320px; }
+.sl-omitland-detail-table { margin:0 0 18px; overflow:hidden; border:1px solid #dcdcde; border-radius:6px; }
+.sl-omitland-detail-table .widefat { border:0; box-shadow:none; }
+.sl-omitland-detail-table th { width:160px; color:#646970; font-weight:600; }
+.sl-omitland-status-field { display:grid; gap:7px; max-width:320px; margin:18px 0; }
+.sl-omitland-status-field select { min-height:38px; }
+.sl-omitland-whatsapp-action { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; }
+.sl-omitland-whatsapp-action span { color:#646970; font-size:12px; }
+.sl-omitland-status { display:inline-flex; padding:4px 8px; border-radius:99px; font-size:12px; font-weight:700; line-height:1.2; }
+.sl-omitland-status.status-pending { color:#7a4b00; background:#fff4d6; }
+.sl-omitland-status.status-verified { color:#075e54; background:#dcf8f1; }
+.sl-omitland-status.status-redeemed { color:#135b24; background:#dff4e4; }
+.sl-omitland-status.status-rejected { color:#9f1c1c; background:#fde7e7; }
+@media (max-width: 900px) {
+  .sl-omitland-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .sl-omitland-dashboard-heading { align-items:flex-start; flex-direction:column; }
+}
+@media (max-width: 600px) {
+  .sl-omitland-kpis { grid-template-columns:1fr; }
+  .sl-omitland-dashboard-heading { padding:22px; }
+  .sl-omitland-dashboard-heading h1 { font-size:26px; }
+  .sl-omitland-detail-table th { width:110px; }
+}

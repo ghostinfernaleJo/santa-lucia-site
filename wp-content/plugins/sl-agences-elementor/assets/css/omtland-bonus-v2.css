@@ -60,6 +60,16 @@
 .sl-omtland-check { display: flex !important; align-items: flex-start; gap: 10px !important; font-weight: 500 !important; line-height: 1.5; }
 .sl-omtland-check input { width: 18px; min-height: 18px; margin-top: 2px; }
 .sl-omtland-form button { width: 100%; font-size: 16px; }
+.sl-omtland-cta,
+.sl-omtland-form button { transition: transform .18s ease, background-color .18s ease, box-shadow .18s ease; }
+.sl-omtland-cta:hover,
+.sl-omtland-form button:hover { background: #c90e56; box-shadow: 0 10px 24px rgba(233, 22, 102, .24); transform: translateY(-1px); }
+.sl-omtland-form input:focus,
+.sl-omtland-form select:focus { border-color: #e91666; outline: 3px solid rgba(233, 22, 102, .16); box-shadow: none; }
+.sl-omtland-hero-inner { position: relative; }
+.sl-omtland-hero-inner::after { position: absolute; right: 0; bottom: 72px; width: 152px; padding: 13px 15px; border: 1px solid rgba(255,255,255,.3); border-radius: 4px; background: rgba(16,20,33,.66); color: #fff; content: '50 unités\A offertes'; white-space: pre; font-size: 15px; font-weight: 800; line-height: 1.35; text-align: center; }
+.sl-omtland-notice { border-radius: 4px; }
+.sl-omtland-claim-copy dl div { align-items: baseline; }
 .sl-omtland-hp { position: absolute; left: -9999px; }
 .sl-omtland-notice { padding: 22px; border-left: 4px solid #177245; background: #eef9f3; }
 .sl-omtland-notice.is-error { border-color: #b42318; background: #fff1f0; }
@@ -86,6 +96,7 @@
 	.sl-omtland-inner,
 	.sl-omtland-hero-inner { width: min(100% - 28px, 1160px); }
 	.sl-omtland-hero h1 { font-size: 42px; }
+	.sl-omtland-hero-inner::after { position: static; display: inline-block; margin-top: 28px; }
 	.sl-omtland-form-wrap { padding: 22px 18px; }
 	.sl-omtland-compare { grid-template-columns: 1fr; }
 	.sl-omtland-compare > div + div { border-top: 1px solid #394052; border-left: 0; }
