@@ -1,0 +1,87 @@
+.sl-omtland-campaign .entry-title { display: none; }
+.sl-omtland-campaign .site-content { padding-top: 0; }
+.sl-omtland-campaign { overflow-x: hidden; }
+.sl-omtland-page { width: 100vw; margin-left: calc(50% - 50vw); color: #171923; font-family: inherit; }
+.sl-omtland-inner { width: min(1160px, calc(100% - 40px)); margin: 0 auto; }
+.sl-omtland-hero { min-height: min(720px, 78vh); display: flex; align-items: center; background-color: #101421; background-position: center; background-size: cover; color: #fff; }
+.sl-omtland-hero-inner { width: min(1160px, calc(100% - 40px)); margin: 0 auto; padding: 72px 0; }
+.sl-omtland-hero-inner > * { max-width: 570px; }
+.sl-omtland-eyebrow,
+.sl-omtland-kicker { margin: 0 0 12px; color: #e91666; font-size: 13px; font-weight: 800; letter-spacing: 0; text-transform: uppercase; }
+.sl-omtland-hero h1 { margin: 0; color: #fff; font-size: clamp(42px, 7vw, 82px); line-height: .98; letter-spacing: 0; }
+.sl-omtland-lead { margin: 24px 0 30px; font-size: clamp(18px, 2vw, 24px); line-height: 1.5; }
+.sl-omtland-cta,
+.sl-omtland-form button { display: inline-flex; align-items: center; justify-content: center; min-height: 50px; border: 0; border-radius: 4px; background: #e91666; color: #fff !important; font-weight: 800; text-decoration: none !important; cursor: pointer; }
+.sl-omtland-cta { padding: 0 24px; }
+.sl-omtland-offer,
+.sl-omtland-claim { padding: 80px 0; background: #fff; }
+.sl-omtland-intro { display: grid; grid-template-columns: .9fr 1.1fr; gap: 64px; align-items: end; }
+.sl-omtland-page h2 { margin: 0; color: #151827; font-size: clamp(30px, 4vw, 48px); line-height: 1.08; letter-spacing: 0; }
+.sl-omtland-intro > p,
+.sl-omtland-value p,
+.sl-omtland-claim-copy > p { margin: 0; color: #596174; font-size: 17px; line-height: 1.75; }
+.sl-omtland-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin-top: 54px; background: #dfe3eb; border: 1px solid #dfe3eb; }
+.sl-omtland-steps > div { min-height: 210px; padding: 28px; background: #fff; }
+.sl-omtland-steps span { color: #e91666; font-size: 13px; font-weight: 800; }
+.sl-omtland-steps h3 { margin: 26px 0 8px; font-size: 20px; }
+.sl-omtland-steps p { margin: 0; color: #667085; line-height: 1.6; }
+.sl-omtland-value { padding: 74px 0; background: #121722; color: #fff; }
+.sl-omtland-value h2 { color: #fff; }
+.sl-omtland-value-grid { display: grid; grid-template-columns: .8fr 1.2fr; gap: 70px; align-items: center; }
+.sl-omtland-value-grid > div:first-child p:last-child { margin-top: 18px; color: #cbd1dd; }
+.sl-omtland-compare { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #394052; }
+.sl-omtland-compare > div { display: grid; gap: 12px; padding: 28px; }
+.sl-omtland-compare > div + div { border-left: 1px solid #394052; }
+.sl-omtland-compare span { color: #aeb6c7; font-size: 13px; font-weight: 700; text-transform: uppercase; }
+.sl-omtland-compare strong { font-size: 28px; }
+.sl-omtland-compare b { color: #cbd1dd; font-size: 16px; }
+.sl-omtland-compare .is-current { background: #e91666; }
+.sl-omtland-compare .is-current span,
+.sl-omtland-compare .is-current b { color: #fff; }
+.sl-omtland-claim { background: #f4f6f9; }
+.sl-omtland-claim-grid { display: grid; grid-template-columns: .8fr 1.2fr; gap: 72px; align-items: start; }
+.sl-omtland-claim-copy > p { margin-top: 20px; }
+.sl-omtland-claim-copy dl { margin: 34px 0 0; border-top: 1px solid #d7dce5; }
+.sl-omtland-claim-copy dl div { display: flex; justify-content: space-between; gap: 20px; padding: 15px 0; border-bottom: 1px solid #d7dce5; }
+.sl-omtland-claim-copy dt { color: #667085; }
+.sl-omtland-claim-copy dd { margin: 0; font-weight: 800; text-align: right; }
+.sl-omtland-form-wrap { padding: 32px; border: 1px solid #d9dde5; border-radius: 6px; background: #fff; }
+.sl-omtland-form { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.sl-omtland-form > label { display: grid; gap: 7px; color: #252a38; font-size: 14px; font-weight: 700; }
+.sl-omtland-form input,
+.sl-omtland-form select { width: 100%; min-height: 46px; box-sizing: border-box; border: 1px solid #cbd0da; border-radius: 4px; padding: 10px 12px; background: #fff; color: #171923; font: inherit; }
+.sl-omtland-check,
+.sl-omtland-form button { grid-column: 1 / -1; }
+.sl-omtland-check { display: flex !important; align-items: flex-start; gap: 10px !important; font-weight: 500 !important; line-height: 1.5; }
+.sl-omtland-check input { width: 18px; min-height: 18px; margin-top: 2px; }
+.sl-omtland-form button { width: 100%; font-size: 16px; }
+.sl-omtland-hp { position: absolute; left: -9999px; }
+.sl-omtland-notice { padding: 22px; border-left: 4px solid #177245; background: #eef9f3; }
+.sl-omtland-notice.is-error { border-color: #b42318; background: #fff1f0; }
+.sl-omtland-notice strong { font-size: 19px; }
+.sl-omtland-notice p { margin: 8px 0 0; line-height: 1.6; }
+
+@media (max-width: 780px) {
+	.sl-omtland-hero { min-height: 620px; background-position: 62% center; }
+	.sl-omtland-hero::before { position: absolute; inset: 0; background: rgba(10, 13, 22, .5); content: ''; }
+	.sl-omtland-hero { position: relative; }
+	.sl-omtland-hero-inner { position: relative; z-index: 1; }
+	.sl-omtland-offer,
+	.sl-omtland-claim { padding: 58px 0; }
+	.sl-omtland-intro,
+	.sl-omtland-value-grid,
+	.sl-omtland-claim-grid { grid-template-columns: 1fr; gap: 34px; }
+	.sl-omtland-steps { grid-template-columns: 1fr; }
+	.sl-omtland-steps > div { min-height: 0; }
+	.sl-omtland-form { grid-template-columns: 1fr; }
+	.sl-omtland-form > * { grid-column: 1; }
+}
+
+@media (max-width: 480px) {
+	.sl-omtland-inner,
+	.sl-omtland-hero-inner { width: min(100% - 28px, 1160px); }
+	.sl-omtland-hero h1 { font-size: 42px; }
+	.sl-omtland-form-wrap { padding: 22px 18px; }
+	.sl-omtland-compare { grid-template-columns: 1fr; }
+	.sl-omtland-compare > div + div { border-top: 1px solid #394052; border-left: 0; }
+}
