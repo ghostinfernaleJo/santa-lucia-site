@@ -39,7 +39,7 @@ function sl_omtland_ensure_campaign_page() {
 		return;
 	}
 
-	$page = get_page_by_path( 'bonus-omtland-odza' );
+	$page = get_page_by_path( 'bonus-omtland-odza', OBJECT, 'page' );
 	if ( ! $page ) {
 		$page_id = wp_insert_post( array(
 			'post_type'    => 'page',
@@ -49,7 +49,12 @@ function sl_omtland_ensure_campaign_page() {
 			'post_content' => '[sl_omtland_bonus]',
 		) );
 	} else {
-		$page_id = $page->ID;
+		$page_id = wp_update_post( array(
+			'ID'           => $page->ID,
+			'post_status'  => 'publish',
+			'post_title'   => '50 unités offertes chez OMTLAND ODZA',
+			'post_content' => '[sl_omtland_bonus]',
+		) );
 	}
 
 	if ( $page_id && ! is_wp_error( $page_id ) ) {
