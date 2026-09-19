@@ -36,6 +36,22 @@ const SL_OMTLAND_START_DATE = '2026-09-19';
 const SL_OMTLAND_END_DATE = '2026-10-30';
 const SL_OMTLAND_CODE_TYPE = 'sl_omitland_code';
 
+/** Autorise l'équipe CRM existante à ouvrir les fiches privées OMITLAND uniquement. */
+function sl_omitland_map_crm_team_capabilities( $caps, $cap, $user_id, $args ) {
+	if ( ! is_admin() || ! in_array( $cap, array( 'read_post', 'edit_post' ), true ) || empty( $args[0] ) ) {
+		return $caps;
+	}
+	$post = get_post( (int) $args[0] );
+	if ( ! $post || ! in_array( $post->post_type, array( SL_OMTLAND_CLAIM_TYPE, SL_OMTLAND_CODE_TYPE ), true ) ) {
+		return $caps;
+	}
+	if ( user_can( $user_id, 'manage_options' ) || user_can( $user_id, 'edit_slg_requests' ) ) {
+		return array( 'exist' );
+	}
+	return $caps;
+}
+add_filter( 'map_meta_cap', 'sl_omitland_map_crm_team_capabilities', 20, 4 );
+
 function sl_omtland_register_claim_type() {
 	register_post_type( SL_OMTLAND_CLAIM_TYPE, array(
 		'labels' => array(
