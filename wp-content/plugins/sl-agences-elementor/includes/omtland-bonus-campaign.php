@@ -75,7 +75,7 @@ function sl_omtland_campaign_assets() {
 	if ( ! is_page( 'bonus-omtland-odza' ) ) {
 		return;
 	}
-	wp_enqueue_style( 'sl-omtland-bonus', SL_AGENCES_URL . 'assets/css/omtland-bonus.css', array(), '1.0.0' );
+	wp_enqueue_style( 'sl-omtland-bonus', SL_AGENCES_URL . 'assets/css/omtland-bonus.css', array(), '1.0.1' );
 }
 add_action( 'wp_enqueue_scripts', 'sl_omtland_campaign_assets', 110 );
 

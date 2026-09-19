@@ -1,5 +1,10 @@
-.sl-omtland-campaign .entry-title { display: none; }
+.sl-omtland-campaign .entry-title,
+.sl-omtland-campaign .klb-page-title { display: none; }
 .sl-omtland-campaign .site-content { padding-top: 0; }
+.sl-omtland-campaign .klb-page { padding: 0 !important; }
+.sl-omtland-campaign .klb-page > .container { max-width: none; padding: 0; }
+.sl-omtland-campaign .klb-page > .container > .row { margin: 0; }
+.sl-omtland-campaign .klb-page > .container > .row > [class*="col-"] { max-width: 100%; flex: 0 0 100%; margin: 0; padding: 0; }
 .sl-omtland-campaign { overflow-x: hidden; }
 .sl-omtland-page { width: 100vw; margin-left: calc(50% - 50vw); color: #171923; font-family: inherit; }
 .sl-omtland-inner { width: min(1160px, calc(100% - 40px)); margin: 0 auto; }
