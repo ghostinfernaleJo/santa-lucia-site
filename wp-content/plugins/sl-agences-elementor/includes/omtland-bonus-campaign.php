@@ -838,7 +838,7 @@ function sl_omitland_render_dashboard() {
 	echo '<p><label>Début <input type="date" name="start_date" value="' . esc_attr( sl_omitland_start_date() ) . '"></label> <label>Fin <input type="date" name="end_date" value="' . esc_attr( sl_omitland_end_date() ) . '"></label></p>';
 	echo '<p><label><input type="checkbox" name="paused" value="1" ' . checked( $paused, true, false ) . '> Mettre la génération automatique en pause</label></p><p><button class="button button-primary">Enregistrer les réglages</button></p></form>';
 	echo '<h2>Statistiques de trafic</h2><div class="sl-omitland-analytics"><div><span>Visites sur 90 jours</span><strong>' . esc_html( number_format_i18n( $analytics['visits'] ) ) . '</strong></div><div><span>Visiteurs uniques</span><strong>' . esc_html( number_format_i18n( $analytics['unique_visitors'] ) ) . '</strong></div><div><span>Conversion</span><strong>' . esc_html( $analytics['visits'] ? number_format_i18n( ( count( $claims ) / $analytics['visits'] ) * 100, 1 ) . ' %' : '—' ) . '</strong></div><div><span>Source principale</span><strong>' . esc_html( $analytics['sources'] ? (string) array_key_first( $analytics['sources'] ) : '—' ) . '</strong></div></div>';
-	echo '<h2>WhatsApp Business</h2><form method="post" action="' . esc_url( $action_url ) . '" class="sl-omitland-panel sl-omitland-whatsapp-settings"><input type="hidden" name="action" value="sl_omitland_save_settings">';
+	echo '<h2>WhatsApp Business</h2><form method="post" action="' . esc_url( $action_url ) . '" class="sl-omitland-panel sl-omitland-whatsapp-settings"><input type="hidden" name="action" value="sl_omitland_save_settings"><input type="hidden" name="settings_section" value="whatsapp">';
 	wp_nonce_field( 'sl_omitland_save_settings', 'sl_omitland_settings_nonce' );
 	echo '<p><label><input type="checkbox" name="whatsapp_enabled" value="1" ' . checked( $whatsapp_enabled, true, false ) . '> Activer les envois automatiques</label></p><p><label>Version API <input type="text" name="whatsapp_api_version" value="' . esc_attr( sl_omitland_get_setting( 'whatsapp_api_version', 'v22.0' ) ) . '" maxlength="16"></label><label>ID du numéro WhatsApp <input type="text" name="whatsapp_phone_number_id" value="' . esc_attr( sl_omitland_get_setting( 'whatsapp_phone_number_id', '' ) ) . '"></label></p><p><label>Jeton d’accès <input type="password" name="whatsapp_access_token" value="" placeholder="Laisser vide pour conserver le jeton"></label></p><p><label>Modèle confirmation <input type="text" name="whatsapp_template_claim" value="' . esc_attr( sl_omitland_get_setting( 'whatsapp_template_claim', '' ) ) . '"></label><label>Modèle doublon <input type="text" name="whatsapp_template_duplicate" value="' . esc_attr( sl_omitland_get_setting( 'whatsapp_template_duplicate', '' ) ) . '"></label><label>Langue <input type="text" name="whatsapp_template_language" value="' . esc_attr( sl_omitland_get_setting( 'whatsapp_template_language', 'fr' ) ) . '" maxlength="16"></label></p><p class="description">Chaque modèle Meta doit accepter trois variables dans le corps : nom, code promotionnel et référence.</p><p><button class="button button-primary">Enregistrer WhatsApp Business</button></p></form>';
 	echo '<h2>Créer un code personnel</h2><form method="post" action="' . esc_url( $action_url ) . '" class="sl-omitland-panel"><input type="hidden" name="action" value="sl_omitland_generate_code">';
@@ -860,22 +860,26 @@ function sl_omitland_save_settings() {
 	if ( ! sl_omitland_can_manage() || ! isset( $_POST['sl_omitland_settings_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['sl_omitland_settings_nonce'] ) ), 'sl_omitland_save_settings' ) ) {
 		wp_die( 'Action non autorisée.' );
 	}
-	$code = strtoupper( preg_replace( '/[^A-Z0-9]/', '', sanitize_text_field( wp_unslash( $_POST['active_code'] ?? '' ) ) ) );
-	if ( ! $code ) $code = sl_omitland_current_code();
-	update_option( 'sl_omitland_active_code', $code );
-	update_option( 'sl_omitland_start_date', preg_match( '/^\d{4}-\d{2}-\d{2}$/', $_POST['start_date'] ?? '' ) ? sanitize_text_field( wp_unslash( $_POST['start_date'] ) ) : SL_OMTLAND_START_DATE );
-	update_option( 'sl_omitland_end_date', preg_match( '/^\d{4}-\d{2}-\d{2}$/', $_POST['end_date'] ?? '' ) ? sanitize_text_field( wp_unslash( $_POST['end_date'] ) ) : SL_OMTLAND_END_DATE );
-	update_option( 'sl_omitland_cadence', '4days' === ( $_POST['cadence'] ?? '' ) ? '4days' : 'weekly' );
-	update_option( 'sl_omitland_auto_enabled', isset( $_POST['auto_enabled'] ) ? '1' : '0' );
-	update_option( 'sl_omitland_paused', isset( $_POST['paused'] ) ? '1' : '0' );
-	update_option( 'sl_omitland_whatsapp_enabled', isset( $_POST['whatsapp_enabled'] ) ? '1' : '0' );
-	foreach ( array( 'whatsapp_api_version', 'whatsapp_phone_number_id', 'whatsapp_template_claim', 'whatsapp_template_duplicate', 'whatsapp_template_language' ) as $setting ) {
-		if ( isset( $_POST[ $setting ] ) ) {
-			update_option( 'sl_omitland_' . $setting, sanitize_text_field( wp_unslash( $_POST[ $setting ] ) ) );
+	$is_whatsapp_section = isset( $_POST['settings_section'] ) && 'whatsapp' === sanitize_key( wp_unslash( $_POST['settings_section'] ) );
+	if ( $is_whatsapp_section ) {
+		update_option( 'sl_omitland_whatsapp_enabled', isset( $_POST['whatsapp_enabled'] ) ? '1' : '0' );
+		foreach ( array( 'whatsapp_api_version', 'whatsapp_phone_number_id', 'whatsapp_template_claim', 'whatsapp_template_duplicate', 'whatsapp_template_language' ) as $setting ) {
+			if ( isset( $_POST[ $setting ] ) ) {
+				update_option( 'sl_omitland_' . $setting, sanitize_text_field( wp_unslash( $_POST[ $setting ] ) ) );
+			}
 		}
-	}
-	if ( ! empty( $_POST['whatsapp_access_token'] ) ) {
-		update_option( 'sl_omitland_whatsapp_access_token', sanitize_text_field( wp_unslash( $_POST['whatsapp_access_token'] ) ), false );
+		if ( ! empty( $_POST['whatsapp_access_token'] ) ) {
+			update_option( 'sl_omitland_whatsapp_access_token', sanitize_text_field( wp_unslash( $_POST['whatsapp_access_token'] ) ), false );
+		}
+	} else {
+		$code = strtoupper( preg_replace( '/[^A-Z0-9]/', '', sanitize_text_field( wp_unslash( $_POST['active_code'] ?? '' ) ) ) );
+		if ( ! $code ) $code = sl_omitland_current_code();
+		update_option( 'sl_omitland_active_code', $code );
+		update_option( 'sl_omitland_start_date', preg_match( '/^\d{4}-\d{2}-\d{2}$/', $_POST['start_date'] ?? '' ) ? sanitize_text_field( wp_unslash( $_POST['start_date'] ) ) : sl_omitland_start_date() );
+		update_option( 'sl_omitland_end_date', preg_match( '/^\d{4}-\d{2}-\d{2}$/', $_POST['end_date'] ?? '' ) ? sanitize_text_field( wp_unslash( $_POST['end_date'] ) ) : sl_omitland_end_date() );
+		update_option( 'sl_omitland_cadence', '4days' === ( $_POST['cadence'] ?? '' ) ? '4days' : 'weekly' );
+		update_option( 'sl_omitland_auto_enabled', isset( $_POST['auto_enabled'] ) ? '1' : '0' );
+		update_option( 'sl_omitland_paused', isset( $_POST['paused'] ) ? '1' : '0' );
 	}
 	sl_omitland_ensure_current_code();
 	sl_omitland_update_schedule();
