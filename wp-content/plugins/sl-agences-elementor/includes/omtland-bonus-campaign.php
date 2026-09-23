@@ -483,22 +483,33 @@ add_action( 'admin_post_nopriv_sl_omtland_claim', 'sl_omtland_handle_claim' );
 add_action( 'admin_post_sl_omtland_claim', 'sl_omtland_handle_claim' );
 
 function sl_omitland_claim_whatsapp_url( $post_id ) {
-	$phone = sl_omtland_normalize_phone( get_post_meta( $post_id, '_sl_omtland_phone', true ) );
+	$contact_phone = get_post_meta( $post_id, '_sl_omtland_phone', true );
+	$phone = sl_omtland_normalize_phone( $contact_phone );
 	if ( ! $phone ) {
 		return '';
 	}
 	$name = get_post_meta( $post_id, '_sl_omtland_name', true );
+	$email = get_post_meta( $post_id, '_sl_omtland_email', true );
 	$code = get_post_meta( $post_id, '_sl_omitland_code', true ) ?: sl_omitland_current_code();
 	$reference = get_post_meta( $post_id, '_sl_omtland_reference', true );
 	$source = get_post_meta( $post_id, '_sl_omtland_source', true );
-	$message = 'Bonjour *' . $name . '*,\n\n' .
-		'Bonne nouvelle : ta demande de *50 unités gratuites* est bien enregistrée chez *OMITLAND ODZA*.\n\n' .
-		'*Code promotionnel :* ' . $code . '\n' .
-		'*Référence :* ' . $reference . '\n' .
-		'*Source :* ' . ( $source ?: 'Non renseignée' ) . '\n\n' .
-		'Pour profiter de ton bonus, présente-toi à *OMITLAND ODZA* avec ce message ouvert dans WhatsApp et montre ton code à notre équipe. Après vérification, ta carte de 50 unités te sera remise.\n\n' .
-		'À quelle date prévois-tu de venir jouer ? Réponds directement à ce message pour nous prévenir.\n\n' .
-		'*OMITLAND ODZA*';
+	$referrer = get_post_meta( $post_id, '_sl_omitland_referrer', true );
+
+	$message = "Bonjour {$name},\n\n";
+	$message .= "*Confirmation de votre bonus OMITLAND*\n\n";
+	$message .= "Client : {$name}\n";
+	$message .= 'Téléphone : ' . ( $contact_phone ?: 'Non renseigné' ) . "\n";
+	$message .= 'E-mail : ' . ( $email ?: 'Non renseigné' ) . "\n";
+	$message .= 'Source : ' . ( $source ?: 'Non renseignée' ) . "\n";
+	$message .= "Code promotionnel : {$code}\n";
+	$message .= "Référence : {$reference}\n";
+	$message .= 'Ambassadeur : ' . ( $referrer ?: 'Aucun' ) . "\n\n";
+	$message .= "*Pour utiliser vos 50 unités gratuites :*\n";
+	$message .= "1. Rendez-vous à OMITLAND ODZA.\n";
+	$message .= "2. Présentez ce message WhatsApp et votre code à notre équipe.\n";
+	$message .= "3. Après vérification, votre carte de 50 unités vous sera remise.\n\n";
+	$message .= "Quand prévoyez-vous de venir jouer ? Répondez directement à ce message.\n\n";
+	$message .= "OMITLAND ODZA";
 	return 'https://wa.me/' . rawurlencode( $phone ) . '?text=' . rawurlencode( $message );
 }
 
