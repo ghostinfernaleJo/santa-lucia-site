@@ -699,6 +699,53 @@ function sl_omitland_filter_claims_by_code( $query ) {
 }
 add_action( 'pre_get_posts', 'sl_omitland_filter_claims_by_code' );
 
+function sl_omitland_extend_admin_search( $search, $query ) {
+	if ( ! is_admin() || ! $query->is_main_query() ) {
+		return $search;
+	}
+
+	$post_type = $query->get( 'post_type' );
+	$term = trim( (string) $query->get( 's' ) );
+	if ( ! $term || ! in_array( $post_type, array( SL_OMTLAND_CLAIM_TYPE, SL_OMTLAND_CODE_TYPE ), true ) ) {
+		return $search;
+	}
+
+	$meta_keys = SL_OMTLAND_CLAIM_TYPE === $post_type
+		? array( '_sl_omtland_name', '_sl_omtland_phone', '_sl_omtland_email', '_sl_omtland_source', '_sl_omitland_code', '_sl_omitland_referrer', '_sl_omtland_reference' )
+		: array( '_sl_omitland_code_label' );
+
+	global $wpdb;
+	$like = '%' . $wpdb->esc_like( $term ) . '%';
+	$key_placeholders = implode( ', ', array_fill( 0, count( $meta_keys ), '%s' ) );
+	$sql = " AND ( {$wpdb->posts}.post_title LIKE %s OR EXISTS ( SELECT 1 FROM {$wpdb->postmeta} AS sl_omitland_search_meta WHERE sl_omitland_search_meta.post_id = {$wpdb->posts}.ID AND sl_omitland_search_meta.meta_key IN ({$key_placeholders}) AND sl_omitland_search_meta.meta_value LIKE %s ) )";
+	$args = array_merge( array( $like ), $meta_keys, array( $like ) );
+
+	return $wpdb->prepare( $sql, $args );
+}
+add_filter( 'posts_search', 'sl_omitland_extend_admin_search', 20, 2 );
+
+function sl_omitland_admin_search_hint() {
+	global $typenow;
+	if ( SL_OMTLAND_CLAIM_TYPE === $typenow ) {
+		$placeholder = 'Nom, téléphone, e-mail, référence ou code';
+	} elseif ( SL_OMTLAND_CODE_TYPE === $typenow ) {
+		$placeholder = 'Code ou nom de l’ambassadeur';
+	} else {
+		return;
+	}
+	?>
+	<script>
+		document.addEventListener('DOMContentLoaded', function () {
+			var search = document.getElementById('post-search-input');
+			if (search) {
+				search.placeholder = <?php echo wp_json_encode( $placeholder ); ?>;
+			}
+		});
+	</script>
+	<?php
+}
+add_action( 'admin_footer-edit.php', 'sl_omitland_admin_search_hint' );
+
 function sl_omitland_register_cron_schedule( $schedules ) {
 	$schedules['sl_omitland_4days'] = array( 'interval' => 4 * DAY_IN_SECONDS, 'display' => 'Tous les 4 jours' );
 	return $schedules;
