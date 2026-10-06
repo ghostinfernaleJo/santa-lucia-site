@@ -51,6 +51,16 @@
 .sl-omitland-analytics strong { color:#171c2b; font-size:22px; line-height:1.1; }
 .sl-omitland-whatsapp-settings { max-width:920px !important; }
 .sl-omitland-whatsapp-settings .description { display:block; color:#646970; }
+.sl-omitland-report-date { margin:-16px 0 26px; color:#646970; font-size:13px; }
+@media print {
+  #wpadminbar, #adminmenumain, #wpfooter, .sl-omitland-dashboard-actions { display:none !important; }
+  #wpcontent, #wpbody, .sl-omitland-dashboard { margin:0 !important; max-width:none !important; }
+  .sl-omitland-dashboard-heading { padding:0 0 16px; color:#171c2b; background:#fff; border-bottom:2px solid #171c2b; border-radius:0; }
+  .sl-omitland-dashboard-heading h1, .sl-omitland-dashboard-heading .sl-omitland-admin-kicker { color:#171c2b; }
+  .sl-omitland-dashboard-heading .sl-omitland-admin-intro { color:#454b54; }
+  .sl-omitland-kpis, .sl-omitland-analytics { gap:8px; }
+  .sl-omitland-kpi, .sl-omitland-analytics > div, .sl-omitland-table-wrap { break-inside:avoid; }
+}
 @media (max-width: 900px) {
   .sl-omitland-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .sl-omitland-analytics { grid-template-columns:repeat(2,minmax(0,1fr)); }

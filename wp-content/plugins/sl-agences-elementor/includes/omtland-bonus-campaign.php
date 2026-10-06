@@ -290,7 +290,8 @@ function sl_omitland_admin_assets() {
 		return;
 	}
 	$is_campaign_screen = in_array( $screen->post_type, array( SL_OMTLAND_CLAIM_TYPE, SL_OMTLAND_CODE_TYPE ), true );
-	$is_dashboard = isset( $_GET['page'] ) && 'sl-omitland-dashboard' === sanitize_key( wp_unslash( $_GET['page'] ) );
+	$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+	$is_dashboard = in_array( $page, array( 'sl-omitland-dashboard', 'sl-omitland-loyalty-report' ), true );
 	if ( ! $is_campaign_screen && ! $is_dashboard ) {
 		return;
 	}
@@ -832,6 +833,7 @@ function sl_omitland_can_manage() {
 
 function sl_omitland_admin_menu() {
 	add_submenu_page( 'edit.php?post_type=' . SL_OMTLAND_CLAIM_TYPE, 'Tableau de bord Omitland', 'Tableau de bord', 'edit_slg_requests', 'sl-omitland-dashboard', 'sl_omitland_render_dashboard' );
+	add_submenu_page( 'edit.php?post_type=' . SL_OMTLAND_CLAIM_TYPE, 'Rapport fidélité Omitland', 'Rapport fidélité', 'edit_slg_requests', 'sl-omitland-loyalty-report', 'sl_omitland_render_loyalty_report' );
 }
 add_action( 'admin_menu', 'sl_omitland_admin_menu', 20 );
 
@@ -867,7 +869,7 @@ function sl_omitland_render_dashboard() {
 	$analytics = sl_omitland_analytics_summary();
 	$notice = isset( $_GET['sl_omitland_notice'] ) ? sanitize_key( wp_unslash( $_GET['sl_omitland_notice'] ) ) : '';
 	$action_url = admin_url( 'admin-post.php' );
-	echo '<div class="wrap sl-omitland-dashboard"><div class="sl-omitland-dashboard-heading"><div><p class="sl-omitland-admin-kicker">Campagne et suivi</p><h1>Tableau de bord OMITLAND</h1><p class="sl-omitland-admin-intro">Pilote les codes promotionnels, les réclamations et les visites depuis un seul espace.</p></div><div class="sl-omitland-dashboard-actions"><a class="button" href="' . esc_url( admin_url( 'admin-post.php?action=sl_omitland_export_claims' ) ) . '">Exporter les réclamations</a><a class="button" href="' . esc_url( admin_url( 'admin-post.php?action=sl_omitland_export_codes' ) ) . '">Exporter les codes</a><a class="button" href="' . esc_url( admin_url( 'admin-post.php?action=sl_omitland_export_analytics' ) ) . '">Exporter les statistiques</a><a class="button" href="' . esc_url( home_url( '/bonus-omtland-odza/' ) ) . '" target="_blank" rel="noopener noreferrer">Voir la page publique</a></div></div>';
+	echo '<div class="wrap sl-omitland-dashboard"><div class="sl-omitland-dashboard-heading"><div><p class="sl-omitland-admin-kicker">Campagne et suivi</p><h1>Tableau de bord OMITLAND</h1><p class="sl-omitland-admin-intro">Pilote les codes promotionnels, les réclamations et les visites depuis un seul espace.</p></div><div class="sl-omitland-dashboard-actions"><a class="button" href="' . esc_url( admin_url( 'edit.php?post_type=' . SL_OMTLAND_CLAIM_TYPE . '&page=sl-omitland-loyalty-report' ) ) . '">Rapport fidélité</a><a class="button" href="' . esc_url( admin_url( 'admin-post.php?action=sl_omitland_export_claims' ) ) . '">Exporter les réclamations</a><a class="button" href="' . esc_url( admin_url( 'admin-post.php?action=sl_omitland_export_codes' ) ) . '">Exporter les codes</a><a class="button" href="' . esc_url( admin_url( 'admin-post.php?action=sl_omitland_export_analytics' ) ) . '">Exporter les statistiques</a><a class="button" href="' . esc_url( home_url( '/bonus-omtland-odza/' ) ) . '" target="_blank" rel="noopener noreferrer">Voir la page publique</a></div></div>';
 	if ( 'saved' === $notice ) echo '<div class="notice notice-success is-dismissible"><p>Les réglages Omitland ont été enregistrés.</p></div>';
 	if ( 'generated' === $notice ) echo '<div class="notice notice-success is-dismissible"><p>Un nouveau code a été généré.</p></div>';
 	echo '<div class="sl-omitland-kpis">';
@@ -895,6 +897,92 @@ function sl_omitland_render_dashboard() {
 		echo '<tr><td><strong>' . esc_html( $code ) . '</strong><br><small>' . esc_html( get_post_meta( $code_post->ID, '_sl_omitland_code_label', true ) ) . '</small><br><span class="sl-omitland-status status-' . esc_attr( sanitize_html_class( $state ) ) . '">' . esc_html( 'active' === $state ? 'Actif' : 'Désactivé' ) . '</span></td><td>' . esc_html( get_post_meta( $code_post->ID, '_sl_omitland_code_start', true ) . ' → ' . get_post_meta( $code_post->ID, '_sl_omitland_code_end', true ) ) . '</td><td>' . esc_html( number_format_i18n( (int) get_post_meta( $code_post->ID, '_sl_omitland_code_clicks', true ) ) ) . '</td><td><a href="' . esc_url( $claim_url ) . '">' . esc_html( number_format_i18n( (int) get_post_meta( $code_post->ID, '_sl_omitland_code_claims', true ) ) ) . '</a></td><td>' . esc_html( number_format_i18n( (int) get_post_meta( $code_post->ID, '_sl_omitland_code_uses', true ) ) ) . '</td><td><input type="text" readonly value="' . esc_attr( $link ) . '" style="width:100%"><a href="' . esc_url( get_edit_post_link( $code_post->ID, '' ) ) . '">Gérer ce code</a></td></tr>';
 	}
 	if ( ! $codes ) echo '<tr><td colspan="6">Aucun code enregistré.</td></tr>';
+	echo '</tbody></table></div></div>';
+}
+
+function sl_omitland_loyalty_report_data() {
+	$claims = get_posts( array( 'post_type' => SL_OMTLAND_CLAIM_TYPE, 'post_status' => 'any', 'numberposts' => -1, 'orderby' => 'date', 'order' => 'DESC' ) );
+	$codes = get_posts( array( 'post_type' => SL_OMTLAND_CODE_TYPE, 'post_status' => 'any', 'numberposts' => 100, 'orderby' => 'date', 'order' => 'DESC' ) );
+	$statuses = array( 'pending' => 0, 'verified' => 0, 'redeemed' => 0, 'rejected' => 0, 'blocked' => 0 );
+	$sources = array();
+
+	foreach ( $claims as $claim ) {
+		$status = get_post_meta( $claim->ID, '_sl_omtland_status', true ) ?: 'pending';
+		if ( isset( $statuses[ $status ] ) ) {
+			$statuses[ $status ]++;
+		}
+		$source = get_post_meta( $claim->ID, '_sl_omtland_source', true ) ?: 'Non renseignée';
+		$sources[ $source ] = (int) ( $sources[ $source ] ?? 0 ) + 1;
+	}
+	arsort( $sources );
+
+	$code_rows = array();
+	foreach ( $codes as $code_post ) {
+		$clicks = (int) get_post_meta( $code_post->ID, '_sl_omitland_code_clicks', true );
+		$claim_count = (int) get_post_meta( $code_post->ID, '_sl_omitland_code_claims', true );
+		$uses = (int) get_post_meta( $code_post->ID, '_sl_omitland_code_uses', true );
+		$code_rows[] = array(
+			'code' => $code_post->post_title,
+			'label' => get_post_meta( $code_post->ID, '_sl_omitland_code_label', true ) ?: 'Campagne générale',
+			'clicks' => $clicks,
+			'claims' => $claim_count,
+			'uses' => $uses,
+			'conversion' => $clicks ? ( $claim_count / $clicks ) * 100 : 0,
+		);
+	}
+	usort( $code_rows, static fn( $left, $right ) => $right['claims'] <=> $left['claims'] );
+
+	return array(
+		'claims' => count( $claims ),
+		'statuses' => $statuses,
+		'sources' => $sources,
+		'codes' => $code_rows,
+		'analytics' => sl_omitland_analytics_summary(),
+	);
+}
+
+function sl_omitland_render_loyalty_report() {
+	if ( ! sl_omitland_can_manage() ) {
+		wp_die( 'Accès non autorisé.' );
+	}
+	$report = sl_omitland_loyalty_report_data();
+	$claims = $report['claims'];
+	$statuses = $report['statuses'];
+	$analytics = $report['analytics'];
+	$eligible = $statuses['verified'] + $statuses['redeemed'];
+	$activation_rate = $claims ? ( $statuses['redeemed'] / $claims ) * 100 : 0;
+	$claim_rate = $analytics['visits'] ? ( $claims / $analytics['visits'] ) * 100 : 0;
+	$labels = array( 'pending' => 'À vérifier', 'verified' => 'Éligibles', 'redeemed' => 'Bonus remis', 'rejected' => 'Refusées', 'blocked' => 'Bloqués' );
+
+	echo '<div class="wrap sl-omitland-dashboard sl-omitland-loyalty-report">';
+	echo '<div class="sl-omitland-dashboard-heading"><div><p class="sl-omitland-admin-kicker">Suivi des membres</p><h1>Rapport fidélité OMITLAND</h1><p class="sl-omitland-admin-intro">Vue consolidée des nouveaux membres, de leurs bonus et de la performance de la campagne.</p></div><div class="sl-omitland-dashboard-actions"><button type="button" class="button" onclick="window.print()">Imprimer le rapport</button><a class="button" href="' . esc_url( admin_url( 'admin-post.php?action=sl_omitland_export_claims' ) ) . '">Exporter les réclamations</a></div></div>';
+	echo '<p class="sl-omitland-report-date">Rapport généré le ' . esc_html( wp_date( 'd/m/Y à H:i' ) ) . '</p>';
+	echo '<div class="sl-omitland-kpis">';
+	foreach ( array( 'Membres inscrits' => $claims, 'Membres éligibles' => $eligible, 'Bonus remis' => $statuses['redeemed'], 'Activation des bonus' => number_format_i18n( $activation_rate, 1 ) . ' %' ) as $label => $value ) {
+		echo '<div class="sl-omitland-kpi"><span>' . esc_html( $label ) . '</span><strong>' . esc_html( $value ) . '</strong></div>';
+	}
+	echo '</div>';
+	echo '<h2>Parcours fidélité</h2><div class="sl-omitland-analytics"><div><span>Visites publiques</span><strong>' . esc_html( number_format_i18n( $analytics['visits'] ) ) . '</strong></div><div><span>Visiteurs uniques</span><strong>' . esc_html( number_format_i18n( $analytics['unique_visitors'] ) ) . '</strong></div><div><span>Réclamations / visites</span><strong>' . esc_html( number_format_i18n( $claim_rate, 1 ) . ' %' ) . '</strong></div><div><span>Bonus remis / inscrits</span><strong>' . esc_html( number_format_i18n( $activation_rate, 1 ) . ' %' ) . '</strong></div></div>';
+	echo '<h2>État des membres</h2><div class="sl-omitland-analytics">';
+	foreach ( $labels as $status => $label ) {
+		echo '<div><span>' . esc_html( $label ) . '</span><strong>' . esc_html( number_format_i18n( $statuses[ $status ] ) ) . '</strong></div>';
+	}
+	echo '</div>';
+	echo '<h2>Performance des codes et ambassadeurs</h2><div class="sl-omitland-table-wrap"><table class="widefat striped"><thead><tr><th>Code</th><th>Ambassadeur</th><th>Clics</th><th>Réclamations</th><th>Bonus remis</th><th>Conversion</th></tr></thead><tbody>';
+	foreach ( $report['codes'] as $row ) {
+		echo '<tr><td><strong>' . esc_html( $row['code'] ) . '</strong></td><td>' . esc_html( $row['label'] ) . '</td><td>' . esc_html( number_format_i18n( $row['clicks'] ) ) . '</td><td>' . esc_html( number_format_i18n( $row['claims'] ) ) . '</td><td>' . esc_html( number_format_i18n( $row['uses'] ) ) . '</td><td>' . esc_html( number_format_i18n( $row['conversion'], 1 ) . ' %' ) . '</td></tr>';
+	}
+	if ( ! $report['codes'] ) {
+		echo '<tr><td colspan="6">Aucun code enregistré.</td></tr>';
+	}
+	echo '</tbody></table></div>';
+	echo '<h2>Origine des réclamations</h2><div class="sl-omitland-table-wrap"><table class="widefat striped"><thead><tr><th>Source</th><th>Réclamations</th></tr></thead><tbody>';
+	foreach ( $report['sources'] as $source => $count ) {
+		echo '<tr><td>' . esc_html( $source ) . '</td><td>' . esc_html( number_format_i18n( $count ) ) . '</td></tr>';
+	}
+	if ( ! $report['sources'] ) {
+		echo '<tr><td colspan="2">Aucune réclamation enregistrée.</td></tr>';
+	}
 	echo '</tbody></table></div></div>';
 }
 
