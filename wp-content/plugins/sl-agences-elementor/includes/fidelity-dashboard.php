@@ -233,6 +233,113 @@ function slfd_woocommerce_login_redirect( $redirect, $user ) {
 }
 add_filter( 'woocommerce_login_redirect', 'slfd_woocommerce_login_redirect', 30, 2 );
 
+/**
+ * Adds a dedicated, permission-aware entry in the WordPress administration.
+ * The loyalty screens remain the protected internal pages, while this menu
+ * gives programme users a clear way to reach the appropriate screen.
+ */
+add_action( 'admin_menu', 'slfd_register_admin_menu', 80 );
+function slfd_register_admin_menu() {
+    if ( ! slfd_can_access() ) {
+        return;
+    }
+
+    add_menu_page(
+        __( 'Fidélité', 'sl-agences' ),
+        __( 'Fidélité', 'sl-agences' ),
+        'read',
+        'slfd-fidelity',
+        'slfd_render_admin_menu_placeholder',
+        'dashicons-awards',
+        58
+    );
+
+    if ( slfd_can_view_dashboard() ) {
+        add_submenu_page(
+            'slfd-fidelity',
+            __( 'Tableau de bord fidélité', 'sl-agences' ),
+            __( 'Tableau de bord', 'sl-agences' ),
+            'read',
+            'slfd-fidelity-dashboard',
+            'slfd_render_admin_menu_placeholder'
+        );
+    }
+
+    add_submenu_page(
+        'slfd-fidelity',
+        __( 'Déclarer un rapport fidélité', 'sl-agences' ),
+        __( 'Déclarer un rapport', 'sl-agences' ),
+        'read',
+        'slfd-fidelity-report',
+        'slfd_render_admin_menu_placeholder'
+    );
+
+    if ( slfd_can_supply() ) {
+        add_submenu_page(
+            'slfd-fidelity',
+            __( 'Approvisionner une agence', 'sl-agences' ),
+            __( 'Approvisionner les cartes', 'sl-agences' ),
+            'read',
+            'slfd-fidelity-supply',
+            'slfd_render_admin_menu_placeholder'
+        );
+    }
+
+    if ( slfd_can_validate() ) {
+        add_submenu_page(
+            'slfd-fidelity',
+            __( 'Historique et exports fidélité', 'sl-agences' ),
+            __( 'Historique et exports', 'sl-agences' ),
+            'read',
+            'slfd-fidelity-history',
+            'slfd_render_admin_menu_placeholder'
+        );
+    }
+}
+
+/** Redirect menu endpoints before WordPress starts rendering the admin page. */
+add_action( 'admin_init', 'slfd_redirect_admin_menu_page' );
+function slfd_redirect_admin_menu_page() {
+    if ( ! is_admin() || empty( $_GET['page'] ) ) {
+        return;
+    }
+
+    $page = sanitize_key( wp_unslash( $_GET['page'] ) );
+    $targets = [
+        'slfd-fidelity-report'    => slfd_report_url(),
+        'slfd-fidelity-supply'    => slfd_supply_url(),
+        'slfd-fidelity-dashboard' => slfd_dashboard_url(),
+        'slfd-fidelity-history'   => slfd_dashboard_url() . '#analyses-historique',
+    ];
+
+    if ( 'slfd-fidelity' === $page ) {
+        $targets[ $page ] = slfd_can_view_dashboard() ? slfd_dashboard_url() : slfd_report_url();
+    }
+
+    if ( ! isset( $targets[ $page ] ) ) {
+        return;
+    }
+
+    if ( ! slfd_can_access() ) {
+        wp_die( esc_html__( 'Accès refusé.', 'sl-agences' ), '', [ 'response' => 403 ] );
+    }
+
+    if ( 'slfd-fidelity-supply' === $page && ! slfd_can_supply() ) {
+        wp_die( esc_html__( 'Accès refusé.', 'sl-agences' ), '', [ 'response' => 403 ] );
+    }
+
+    if ( in_array( $page, [ 'slfd-fidelity-dashboard', 'slfd-fidelity-history' ], true ) && ! slfd_can_view_dashboard() ) {
+        wp_die( esc_html__( 'Accès refusé.', 'sl-agences' ), '', [ 'response' => 403 ] );
+    }
+
+    wp_safe_redirect( $targets[ $page ] );
+    exit;
+}
+
+function slfd_render_admin_menu_placeholder() {
+    // The admin_init redirect above always handles these menu endpoints.
+}
+
 add_action( 'wp_enqueue_scripts', 'slfd_enqueue_assets', 110 );
 function slfd_enqueue_assets() {
     if ( ! slfd_is_internal_page() ) {
@@ -765,7 +872,7 @@ function slfd_render_dashboard() {
                     </section>
                 </aside>
             </div>
-			<?php if ( slfd_can_validate() ) : ?><section class="slfd-pending slfd-history"><div class="slfd-table-head"><h2>Analyses et historique</h2><div class="slfd-heading-actions"><a class="slfd-secondary" href="<?php echo esc_url( slfd_history_export_url( 'slfd_export_reports', $history_filters ) ); ?>"><span class="dashicons dashicons-download"></span>Exporter les rapports</a><a class="slfd-secondary" href="<?php echo esc_url( slfd_history_export_url( 'slfd_export_supplies', $history_filters ) ); ?>"><span class="dashicons dashicons-download"></span>Exporter les approvisionnements</a></div></div><form method="get" class="slfd-history-filters"><label>Du<input type="date" name="history_from" value="<?php echo esc_attr( $history_filters['from'] ); ?>"></label><label>Au<input type="date" name="history_to" value="<?php echo esc_attr( $history_filters['to'] ); ?>"></label><label>Agence<select name="history_agency"><option value="">Toutes</option><?php if ( ! is_wp_error( $agencies ) ) foreach ( $agencies as $agency ) : ?><option value="<?php echo esc_attr( $agency->slug ); ?>" <?php selected( $history_filters['agency'], $agency->slug ); ?>><?php echo esc_html( $agency->name ); ?></option><?php endforeach; ?></select></label><label>Statut<select name="history_status"><option value="">Tous</option><option value="publish" <?php selected( $history_filters['status'], 'publish' ); ?>>Validé</option><option value="pending" <?php selected( $history_filters['status'], 'pending' ); ?>>En attente</option></select></label><label>Recherche<input type="search" name="history_q" value="<?php echo esc_attr( $history_filters['q'] ); ?>" placeholder="Agence ou date"></label><button type="submit">Analyser</button></form><div class="slfd-history-kpis"><div><span>Rapports</span><strong><?php echo (int) $history_summary['reports']; ?></strong></div><div><span>Validés</span><strong><?php echo (int) $history_summary['validated']; ?></strong></div><div><span>Enrôlements</span><strong><?php echo (int) $history_summary['enrollments']; ?></strong></div><div><span>Cartes approvisionnées</span><strong><?php echo (int) $history_summary['supplies']; ?></strong></div></div><div class="slfd-table-scroll"><table><thead><tr><th>Date</th><th>Agence</th><th>Statut</th><th>Enrôlements</th><th>Stock final</th><th>Écart</th><th>Document</th></tr></thead><tbody><?php foreach ( $history_reports as $history_report ) : ?><tr><td><?php echo esc_html( get_post_meta( $history_report->ID, '_slfd_date', true ) ); ?></td><td><?php echo esc_html( slfd_agency_name( get_post_meta( $history_report->ID, '_slfd_agency', true ) ) ); ?></td><td><?php echo 'publish' === $history_report->post_status ? 'Validé' : 'En attente'; ?></td><td><?php echo (int) slfd_meta_int( $history_report->ID, '_slfd_enrollments' ); ?></td><td><?php echo (int) slfd_meta_int( $history_report->ID, '_slfd_closing' ); ?></td><td><?php echo esc_html( (string) get_post_meta( $history_report->ID, '_slfd_stock_delta', true ) ); ?></td><td><a href="<?php echo esc_url( slfd_report_print_url( $history_report->ID ) ); ?>" target="_blank" rel="noopener">Imprimer</a></td></tr><?php endforeach; ?><?php if ( ! $history_reports ) : ?><tr><td colspan="7" class="slfd-empty">Aucun rapport ne correspond aux filtres.</td></tr><?php endif; ?></tbody></table></div><p class="slfd-footnote">Tendance : <?php echo esc_html( $history_summary['by_day'] ? implode( ' · ', array_map( static function ( $day, $count ) { return $day . ' : ' . $count; }, array_keys( $history_summary['by_day'] ), $history_summary['by_day'] ) ) : 'aucune donnée' ); ?></p></section><?php endif; ?>
+			<?php if ( slfd_can_validate() ) : ?><section id="analyses-historique" class="slfd-pending slfd-history"><div class="slfd-table-head"><h2>Analyses et historique</h2><div class="slfd-heading-actions"><a class="slfd-secondary" href="<?php echo esc_url( slfd_history_export_url( 'slfd_export_reports', $history_filters ) ); ?>"><span class="dashicons dashicons-download"></span>Exporter les rapports</a><a class="slfd-secondary" href="<?php echo esc_url( slfd_history_export_url( 'slfd_export_supplies', $history_filters ) ); ?>"><span class="dashicons dashicons-download"></span>Exporter les approvisionnements</a></div></div><form method="get" class="slfd-history-filters"><label>Du<input type="date" name="history_from" value="<?php echo esc_attr( $history_filters['from'] ); ?>"></label><label>Au<input type="date" name="history_to" value="<?php echo esc_attr( $history_filters['to'] ); ?>"></label><label>Agence<select name="history_agency"><option value="">Toutes</option><?php if ( ! is_wp_error( $agencies ) ) foreach ( $agencies as $agency ) : ?><option value="<?php echo esc_attr( $agency->slug ); ?>" <?php selected( $history_filters['agency'], $agency->slug ); ?>><?php echo esc_html( $agency->name ); ?></option><?php endforeach; ?></select></label><label>Statut<select name="history_status"><option value="">Tous</option><option value="publish" <?php selected( $history_filters['status'], 'publish' ); ?>>Validé</option><option value="pending" <?php selected( $history_filters['status'], 'pending' ); ?>>En attente</option></select></label><label>Recherche<input type="search" name="history_q" value="<?php echo esc_attr( $history_filters['q'] ); ?>" placeholder="Agence ou date"></label><button type="submit">Analyser</button></form><div class="slfd-history-kpis"><div><span>Rapports</span><strong><?php echo (int) $history_summary['reports']; ?></strong></div><div><span>Validés</span><strong><?php echo (int) $history_summary['validated']; ?></strong></div><div><span>Enrôlements</span><strong><?php echo (int) $history_summary['enrollments']; ?></strong></div><div><span>Cartes approvisionnées</span><strong><?php echo (int) $history_summary['supplies']; ?></strong></div></div><div class="slfd-table-scroll"><table><thead><tr><th>Date</th><th>Agence</th><th>Statut</th><th>Enrôlements</th><th>Stock final</th><th>Écart</th><th>Document</th></tr></thead><tbody><?php foreach ( $history_reports as $history_report ) : ?><tr><td><?php echo esc_html( get_post_meta( $history_report->ID, '_slfd_date', true ) ); ?></td><td><?php echo esc_html( slfd_agency_name( get_post_meta( $history_report->ID, '_slfd_agency', true ) ) ); ?></td><td><?php echo 'publish' === $history_report->post_status ? 'Validé' : 'En attente'; ?></td><td><?php echo (int) slfd_meta_int( $history_report->ID, '_slfd_enrollments' ); ?></td><td><?php echo (int) slfd_meta_int( $history_report->ID, '_slfd_closing' ); ?></td><td><?php echo esc_html( (string) get_post_meta( $history_report->ID, '_slfd_stock_delta', true ) ); ?></td><td><a href="<?php echo esc_url( slfd_report_print_url( $history_report->ID ) ); ?>" target="_blank" rel="noopener">Imprimer</a></td></tr><?php endforeach; ?><?php if ( ! $history_reports ) : ?><tr><td colspan="7" class="slfd-empty">Aucun rapport ne correspond aux filtres.</td></tr><?php endif; ?></tbody></table></div><p class="slfd-footnote">Tendance : <?php echo esc_html( $history_summary['by_day'] ? implode( ' · ', array_map( static function ( $day, $count ) { return $day . ' : ' . $count; }, array_keys( $history_summary['by_day'] ), $history_summary['by_day'] ) ) : 'aucune donnée' ); ?></p></section><?php endif; ?>
             <?php if ( slfd_can_validate() ) : ?><section class="slfd-pending slfd-reports-list"><h2>Rapports reçus pour cette journée</h2><?php if ( $reports ) : foreach ( $reports as $report ) : $is_validated = 'publish' === $report->post_status; ?><article><div><strong><?php echo esc_html( slfd_agency_name( get_post_meta( $report->ID, '_slfd_agency', true ) ) ); ?></strong><span><?php echo (int) slfd_meta_int( $report->ID, '_slfd_enrollments' ); ?> enrôlements · stock final <?php echo (int) slfd_meta_int( $report->ID, '_slfd_closing' ); ?> · <?php echo $is_validated ? 'Validé' : 'En attente'; ?></span></div><a class="slfd-secondary" target="_blank" rel="noopener" href="<?php echo esc_url( slfd_report_print_url( $report->ID ) ); ?>"><span class="dashicons dashicons-printer"></span>Voir / imprimer</a></article><?php endforeach; else : ?><p class="slfd-muted">Aucun rapport n’a été reçu pour cette date.</p><?php endif; ?></section><?php endif; ?>
             <?php if ( slfd_can_validate() && $pending ) : ?><section class="slfd-pending"><h2>Rapports à valider</h2><?php foreach ( $pending as $report ) : $delta = (int) get_post_meta( $report->ID, '_slfd_stock_delta', true ); ?><article><div><strong><?php echo esc_html( slfd_agency_name( get_post_meta( $report->ID, '_slfd_agency', true ) ) ); ?></strong><span><?php echo esc_html( get_post_meta( $report->ID, '_slfd_date', true ) ); ?> · <?php echo (int) slfd_meta_int( $report->ID, '_slfd_enrollments' ); ?> enrôlements</span><?php if ( $delta ) : ?><em>Écart de stock : <?php echo esc_html( $delta > 0 ? '+' . $delta : (string) $delta ); ?></em><?php endif; ?></div><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_validate_report"><input type="hidden" name="report_id" value="<?php echo (int) $report->ID; ?>"><?php wp_nonce_field( 'slfd_validate_' . $report->ID ); ?><button type="submit">Valider</button></form></article><?php endforeach; ?></section><?php endif; ?>
         </section>
