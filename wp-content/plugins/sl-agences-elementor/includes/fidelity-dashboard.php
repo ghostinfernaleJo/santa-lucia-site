@@ -11,8 +11,6 @@ defined( 'ABSPATH' ) || exit;
 
 const SLFD_POST_TYPE = 'sl_fidelity_report';
 const SLFD_SUPPLY_POST_TYPE = 'sl_fidelity_supply';
-const SLFD_MEMBER_POST_TYPE = 'sl_fidelity_member';
-const SLFD_TRANSACTION_POST_TYPE = 'sl_fidelity_transaction';
 
 /**
  * Roles dedicated to the loyalty programme. They are deliberately independent
@@ -75,20 +73,6 @@ function slfd_register_report_type() {
         'map_meta_cap'       => true,
         'capability_type'    => 'post',
     ] );
-	register_post_type( SLFD_MEMBER_POST_TYPE, [
-		'labels' => [ 'name' => 'Membres fidélité', 'singular_name' => 'Membre fidélité' ],
-		'public' => false, 'publicly_queryable' => false, 'show_ui' => false, 'show_in_menu' => false,
-		'supports' => [ 'title' ], 'map_meta_cap' => true, 'capability_type' => 'post',
-	] );
-	register_post_type( SLFD_TRANSACTION_POST_TYPE, [
-		'labels' => [ 'name' => 'Opérations fidélité', 'singular_name' => 'Opération fidélité' ],
-		'public' => false, 'publicly_queryable' => false, 'show_ui' => false, 'show_in_menu' => false,
-		'supports' => [ 'title', 'author' ], 'map_meta_cap' => true, 'capability_type' => 'post',
-	] );
-	register_post_status( 'slfd_returned', [
-		'label' => 'À corriger', 'public' => false, 'internal' => false, 'exclude_from_search' => true,
-		'show_in_admin_all_list' => false, 'show_in_admin_status_list' => false,
-	] );
 }
 
 /** Cree les pages internes une seule fois, sans les ajouter a la navigation. */
@@ -110,11 +94,6 @@ function slfd_ensure_internal_pages() {
             'title'   => 'Approvisionner une agence',
             'screen'  => 'supply',
         ],
-		'members' => [
-			'slug' => 'gestion-fidelite',
-			'title' => 'Gestion fidélité',
-			'screen' => 'members',
-		],
     ];
 
     foreach ( $pages as $key => $page ) {
@@ -151,7 +130,7 @@ function slfd_page_id( $screen ) {
 
 function slfd_is_internal_page() {
     $id = get_queried_object_id();
-	return $id && in_array( get_post_meta( $id, '_slfd_internal_page', true ), [ 'dashboard', 'report', 'supply', 'members' ], true );
+    return $id && in_array( get_post_meta( $id, '_slfd_internal_page', true ), [ 'dashboard', 'report', 'supply' ], true );
 }
 
 /** Page exclue de la recherche et des sitemaps : le lien ne devient pas public. */
@@ -170,7 +149,7 @@ function slfd_exclude_from_sitemap( $args, $post_type ) {
     if ( 'page' !== $post_type ) {
         return $args;
     }
-	$ids = array_filter( [ slfd_page_id( 'dashboard' ), slfd_page_id( 'report' ), slfd_page_id( 'supply' ), slfd_page_id( 'members' ) ] );
+    $ids = array_filter( [ slfd_page_id( 'dashboard' ), slfd_page_id( 'report' ), slfd_page_id( 'supply' ) ] );
     if ( $ids ) {
         $args['post__not_in'] = array_unique( array_merge( (array) ( $args['post__not_in'] ?? [] ), $ids ) );
     }
@@ -184,15 +163,15 @@ function slfd_user_has_role( $roles ) {
 }
 
 function slfd_can_access() {
-    return is_user_logged_in() && ( current_user_can( 'manage_options' ) || current_user_can( 'slfd_supervise_fidelity' ) || slfd_user_has_role( [ 'sl_agent_fidelite', 'sl_responsable_fidelite', 'sl_superviseur_fidelite', 'sl_responsable_agence', 'sl_gestionnaire_bons_plans' ] ) );
+    return is_user_logged_in() && ( current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' ) || current_user_can( 'slfd_supervise_fidelity' ) || slfd_user_has_role( [ 'sl_agent_fidelite', 'sl_responsable_fidelite', 'sl_superviseur_fidelite', 'sl_responsable_agence', 'sl_gestionnaire_bons_plans' ] ) );
 }
 
 function slfd_can_view_dashboard() {
-    return current_user_can( 'manage_options' ) || current_user_can( 'slfd_supervise_fidelity' ) || slfd_user_has_role( [ 'sl_responsable_fidelite', 'sl_superviseur_fidelite', 'sl_responsable_agence', 'sl_gestionnaire_bons_plans' ] );
+    return current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' ) || current_user_can( 'slfd_supervise_fidelity' ) || slfd_user_has_role( [ 'sl_responsable_fidelite', 'sl_superviseur_fidelite', 'sl_responsable_agence', 'sl_gestionnaire_bons_plans' ] );
 }
 
 function slfd_can_validate() {
-    return current_user_can( 'manage_options' ) || current_user_can( 'slfd_supervise_fidelity' ) || slfd_user_has_role( [ 'sl_responsable_fidelite', 'sl_superviseur_fidelite', 'sl_gestionnaire_bons_plans' ] );
+    return current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' ) || current_user_can( 'slfd_supervise_fidelity' ) || slfd_user_has_role( [ 'sl_responsable_fidelite', 'sl_superviseur_fidelite', 'sl_gestionnaire_bons_plans' ] );
 }
 
 /** Seuls les responsables du programme fidelite peuvent enregistrer une dotation. */
@@ -230,11 +209,6 @@ function slfd_report_url() {
 function slfd_supply_url() {
     $id = slfd_page_id( 'supply' );
     return $id ? get_permalink( $id ) : home_url( '/approvisionner-cartes-fidelite/' );
-}
-
-function slfd_members_url() {
-	$id = slfd_page_id( 'members' );
-	return $id ? get_permalink( $id ) : home_url( '/gestion-fidelite/' );
 }
 
 function slfd_login_redirect( $redirect_to, $requested_redirect_to, $user ) {
@@ -318,7 +292,7 @@ function slfd_internal_template( $template ) {
 function slfd_report_for_agency_date( $agency, $date ) {
     $q = new WP_Query( [
         'post_type'      => SLFD_POST_TYPE,
-        'post_status'    => [ 'pending', 'publish', 'slfd_returned' ],
+        'post_status'    => [ 'pending', 'publish' ],
         'posts_per_page' => 1,
         'meta_query'     => [
             'relation' => 'AND',
@@ -369,40 +343,6 @@ function slfd_meta_int( $post_id, $key ) {
     return max( 0, (int) get_post_meta( $post_id, $key, true ) );
 }
 
-function slfd_log_activity( $post_id, $action, $note = '' ) {
-	$history = get_post_meta( $post_id, '_slfd_history', true );
-	$history = is_array( $history ) ? $history : [];
-	$user = wp_get_current_user();
-	array_unshift( $history, [
-		'time' => current_time( 'timestamp' ),
-		'user' => $user && $user->exists() ? $user->display_name : 'Système',
-		'action' => sanitize_text_field( $action ),
-		'note' => sanitize_textarea_field( $note ),
-	] );
-	update_post_meta( $post_id, '_slfd_history', array_slice( $history, 0, 50 ) );
-}
-
-function slfd_previous_closing_stock( $agency, $date ) {
-	$reports = get_posts( [
-		'post_type' => SLFD_POST_TYPE, 'post_status' => 'publish', 'posts_per_page' => 1,
-		'meta_query' => [
-			'relation' => 'AND',
-			[ 'key' => '_slfd_agency', 'value' => $agency ],
-			[ 'key' => '_slfd_date', 'value' => $date, 'compare' => '<', 'type' => 'DATE' ],
-		],
-		'orderby' => 'meta_value', 'meta_key' => '_slfd_date', 'order' => 'DESC',
-	] );
-	return $reports ? slfd_meta_int( $reports[0]->ID, '_slfd_closing' ) : null;
-}
-
-function slfd_supply_reference_exists( $agency, $reference ) {
-	if ( '' === $reference ) return false;
-	return (bool) get_posts( [
-		'post_type' => SLFD_SUPPLY_POST_TYPE, 'post_status' => 'publish', 'posts_per_page' => 1,
-		'meta_query' => [ 'relation' => 'AND', [ 'key' => '_slfd_agency', 'value' => $agency ], [ 'key' => '_slfd_reference', 'value' => $reference ] ],
-	] );
-}
-
 function slfd_stock_state( $stock ) {
     if ( $stock <= 20 ) return [ 'Critique', 'critical' ];
     if ( $stock <= 50 ) return [ 'Faible', 'low' ];
@@ -449,7 +389,6 @@ function slfd_submit_report() {
     }
 
     $opening     = absint( $_POST['slfd_opening'] ?? 0 );
-	$opening_note = sanitize_textarea_field( wp_unslash( $_POST['slfd_opening_note'] ?? '' ) );
     // Les cartes recues ne sont jamais saisies par l'agence : elles viennent
     // exclusivement des approvisionnements enregistres par le programme fidelite.
     $received    = slfd_supplies_total( $agency->slug, $date );
@@ -462,12 +401,6 @@ function slfd_submit_report() {
     $issues      = array_values( array_intersect( $issues, $allowed ) );
     $notes       = sanitize_textarea_field( wp_unslash( $_POST['slfd_notes'] ?? '' ) );
     $request     = sanitize_textarea_field( wp_unslash( $_POST['slfd_request'] ?? '' ) );
-	$previous_closing = slfd_previous_closing_stock( $agency->slug, $date );
-	if ( null !== $previous_closing && $opening !== $previous_closing && '' === $opening_note ) {
-		slfd_flash( 'error', 'Le stock de début ne correspond pas au dernier stock validé. Ajoutez une justification de l’écart.' );
-		wp_safe_redirect( slfd_report_url() );
-		exit;
-	}
 
     if ( $enrollments > $opening + $received ) {
         slfd_flash( 'error', 'Les enrôlements ne peuvent pas dépasser les cartes disponibles pour cette journée.' );
@@ -495,7 +428,7 @@ function slfd_submit_report() {
         exit;
     }
     if ( $existing ) {
-        wp_update_post( [ 'ID' => $post_id, 'post_title' => $title, 'post_status' => 'pending' ] );
+        wp_update_post( [ 'ID' => $post_id, 'post_title' => $title ] );
     }
 
     update_post_meta( $post_id, '_slfd_agency', $agency->slug );
@@ -510,10 +443,7 @@ function slfd_submit_report() {
     update_post_meta( $post_id, '_slfd_issues', $issues );
     update_post_meta( $post_id, '_slfd_notes', $notes );
     update_post_meta( $post_id, '_slfd_request', $request );
-	update_post_meta( $post_id, '_slfd_opening_note', $opening_note );
     update_post_meta( $post_id, '_slfd_updated_at', current_time( 'timestamp' ) );
-	delete_post_meta( $post_id, '_slfd_review_note' );
-	slfd_log_activity( $post_id, $existing ? 'Rapport corrigé et retransmis.' : 'Rapport déclaré.', $opening_note );
 
     slfd_flash( 'success', 0 === ( $closing - $expected )
         ? 'Rapport enregistré et transmis pour validation.'
@@ -538,7 +468,7 @@ function slfd_create_supply() {
     $reference = sanitize_text_field( wp_unslash( $_POST['slfd_reference'] ?? '' ) );
     $notes = sanitize_textarea_field( wp_unslash( $_POST['slfd_notes'] ?? '' ) );
 
-    if ( ! $date_object || $date_object->format( 'Y-m-d' ) !== $date || $date > current_time( 'Y-m-d' ) || ! $agency || is_wp_error( $agency ) || ! $quantity || '' === $reference ) {
+    if ( ! $date_object || $date_object->format( 'Y-m-d' ) !== $date || $date > current_time( 'Y-m-d' ) || ! $agency || is_wp_error( $agency ) || ! $quantity ) {
         slfd_flash( 'error', 'Indiquez une agence, une quantité supérieure à zéro et une date valide.' );
         wp_safe_redirect( slfd_supply_url() );
         exit;
@@ -549,11 +479,6 @@ function slfd_create_supply() {
         wp_safe_redirect( slfd_supply_url() );
         exit;
     }
-	if ( slfd_supply_reference_exists( $agency->slug, $reference ) ) {
-		slfd_flash( 'error', 'Cette référence de lot a déjà été utilisée pour cette agence.' );
-		wp_safe_redirect( slfd_supply_url() );
-		exit;
-	}
 
     $supply_id = wp_insert_post( [
         'post_type'   => SLFD_SUPPLY_POST_TYPE,
@@ -572,7 +497,6 @@ function slfd_create_supply() {
     update_post_meta( $supply_id, '_slfd_reference', $reference );
     update_post_meta( $supply_id, '_slfd_notes', $notes );
     update_post_meta( $supply_id, '_slfd_created_at', current_time( 'timestamp' ) );
-	slfd_log_activity( $supply_id, 'Approvisionnement enregistré.', $reference );
     slfd_flash( 'success', sprintf( '%d cartes ont été ajoutées à l’approvisionnement de %s.', $quantity, $agency->name ) );
     wp_safe_redirect( slfd_dashboard_url() );
     exit;
@@ -592,107 +516,10 @@ function slfd_validate_report() {
         wp_update_post( [ 'ID' => $report_id, 'post_status' => 'publish' ] );
         update_post_meta( $report_id, '_slfd_validated_by', get_current_user_id() );
         update_post_meta( $report_id, '_slfd_validated_at', current_time( 'timestamp' ) );
-		slfd_log_activity( $report_id, 'Rapport validé.' );
-		slfd_notify_agency( get_post_meta( $report_id, '_slfd_agency', true ), 'Rapport fidélité validé', 'Votre rapport fidélité a été validé.' );
-		if ( slfd_meta_int( $report_id, '_slfd_closing' ) <= 50 || 0 !== (int) get_post_meta( $report_id, '_slfd_stock_delta', true ) ) {
-			$subject = 'Alerte fidélité : stock ou écart à contrôler';
-			$message = 'Le rapport de ' . slfd_agency_name( get_post_meta( $report_id, '_slfd_agency', true ) ) . ' nécessite un contrôle.';
-			foreach ( get_users( [ 'role__in' => [ 'sl_responsable_fidelite', 'sl_superviseur_fidelite' ], 'fields' => [ 'user_email' ] ] ) as $supervisor ) if ( ! empty( $supervisor->user_email ) ) wp_mail( $supervisor->user_email, $subject, $message );
-		}
         slfd_flash( 'success', 'Le rapport est validé et apparaît maintenant dans le classement.' );
     }
     wp_safe_redirect( slfd_dashboard_url() );
     exit;
-}
-
-function slfd_notify_agency( $agency, $subject, $message ) {
-	$users = get_users( [ 'meta_key' => 'sl_agence_assignee', 'meta_value' => slfd_agency_name( $agency ), 'fields' => [ 'user_email' ] ] );
-	foreach ( $users as $user ) {
-		if ( ! empty( $user->user_email ) ) wp_mail( $user->user_email, $subject, $message );
-	}
-}
-
-add_action( 'admin_post_slfd_return_report', 'slfd_return_report' );
-function slfd_return_report() {
-	if ( ! slfd_can_validate() ) wp_die( 'Accès refusé.', 403 );
-	$report_id = absint( $_POST['report_id'] ?? 0 );
-	check_admin_referer( 'slfd_return_' . $report_id );
-	$reason = sanitize_textarea_field( wp_unslash( $_POST['reason'] ?? '' ) );
-	$report = get_post( $report_id );
-	if ( ! $report || SLFD_POST_TYPE !== $report->post_type || 'pending' !== $report->post_status || '' === $reason ) {
-		slfd_flash( 'error', 'Indiquez un motif pour retourner ce rapport.' );
-		wp_safe_redirect( slfd_dashboard_url() );
-		exit;
-	}
-	wp_update_post( [ 'ID' => $report_id, 'post_status' => 'slfd_returned' ] );
-	update_post_meta( $report_id, '_slfd_review_note', $reason );
-	update_post_meta( $report_id, '_slfd_returned_at', current_time( 'timestamp' ) );
-	slfd_log_activity( $report_id, 'Rapport retourné pour correction.', $reason );
-	slfd_notify_agency( get_post_meta( $report_id, '_slfd_agency', true ), 'Rapport fidélité à corriger', "Votre rapport a été retourné pour correction. Motif : {$reason}" );
-	slfd_flash( 'success', 'Le rapport a été retourné à l’agence pour correction.' );
-	wp_safe_redirect( slfd_dashboard_url() );
-	exit;
-}
-
-function slfd_member_by_card( $card_number ) {
-	$members = get_posts( [ 'post_type' => SLFD_MEMBER_POST_TYPE, 'post_status' => 'publish', 'posts_per_page' => 1, 'meta_key' => '_slfd_card_number', 'meta_value' => $card_number ] );
-	return $members ? $members[0] : null;
-}
-
-function slfd_record_points_transaction( $member_id, $type, $points, $reason ) {
-	$points = absint( $points );
-	if ( ! $member_id || ! $points || ! in_array( $type, [ 'credit', 'debit' ], true ) ) return false;
-	$balance = (int) get_post_meta( $member_id, '_slfd_points_balance', true );
-	if ( 'debit' === $type && $points > $balance ) return false;
-	$new_balance = 'credit' === $type ? $balance + $points : $balance - $points;
-	$transaction_id = wp_insert_post( [ 'post_type' => SLFD_TRANSACTION_POST_TYPE, 'post_status' => 'publish', 'post_title' => sprintf( '%s de %d points', 'credit' === $type ? 'Crédit' : 'Débit', $points ), 'post_author' => get_current_user_id() ], true );
-	if ( is_wp_error( $transaction_id ) || ! $transaction_id ) return false;
-	update_post_meta( $transaction_id, '_slfd_member_id', $member_id );
-	update_post_meta( $transaction_id, '_slfd_transaction_type', $type );
-	update_post_meta( $transaction_id, '_slfd_transaction_points', $points );
-	update_post_meta( $transaction_id, '_slfd_transaction_reason', sanitize_textarea_field( $reason ) );
-	update_post_meta( $transaction_id, '_slfd_balance_after', $new_balance );
-	update_post_meta( $member_id, '_slfd_points_balance', $new_balance );
-	slfd_log_activity( $member_id, 'credit' === $type ? 'Points crédités.' : 'Points débités.', $reason );
-	return $transaction_id;
-}
-
-add_action( 'admin_post_slfd_create_member', 'slfd_create_member' );
-function slfd_create_member() {
-	if ( ! slfd_can_validate() ) wp_die( 'Accès refusé.', 403 );
-	check_admin_referer( 'slfd_create_member' );
-	$name = sanitize_text_field( wp_unslash( $_POST['member_name'] ?? '' ) );
-	$card = strtoupper( preg_replace( '/[^A-Z0-9-]/', '', sanitize_text_field( wp_unslash( $_POST['card_number'] ?? '' ) ) ) );
-	$phone = sanitize_text_field( wp_unslash( $_POST['member_phone'] ?? '' ) );
-	$email = sanitize_email( wp_unslash( $_POST['member_email'] ?? '' ) );
-	if ( '' === $name || '' === $card || slfd_member_by_card( $card ) ) {
-		slfd_flash( 'error', 'Saisissez un nom et un numéro de carte unique.' ); wp_safe_redirect( slfd_members_url() ); exit;
-	}
-	$member_id = wp_insert_post( [ 'post_type' => SLFD_MEMBER_POST_TYPE, 'post_status' => 'publish', 'post_title' => $name . ' — ' . $card ] );
-	if ( is_wp_error( $member_id ) || ! $member_id ) { slfd_flash( 'error', 'Le membre n’a pas pu être créé.' ); wp_safe_redirect( slfd_members_url() ); exit; }
-	update_post_meta( $member_id, '_slfd_member_name', $name );
-	update_post_meta( $member_id, '_slfd_card_number', $card );
-	update_post_meta( $member_id, '_slfd_member_phone', $phone );
-	update_post_meta( $member_id, '_slfd_member_email', $email );
-	update_post_meta( $member_id, '_slfd_points_balance', 0 );
-	slfd_log_activity( $member_id, 'Membre créé.' );
-	slfd_flash( 'success', 'Le membre fidélité a été enregistré.' ); wp_safe_redirect( slfd_members_url() ); exit;
-}
-
-add_action( 'admin_post_slfd_points_transaction', 'slfd_points_transaction' );
-function slfd_points_transaction() {
-	if ( ! slfd_can_validate() ) wp_die( 'Accès refusé.', 403 );
-	check_admin_referer( 'slfd_points_transaction' );
-	$member_id = absint( $_POST['member_id'] ?? 0 );
-	$type = sanitize_key( $_POST['transaction_type'] ?? '' );
-	$points = absint( $_POST['points'] ?? 0 );
-	$reason = sanitize_textarea_field( wp_unslash( $_POST['reason'] ?? '' ) );
-	if ( ! get_post( $member_id ) || ! $reason || ! slfd_record_points_transaction( $member_id, $type, $points, $reason ) ) {
-		slfd_flash( 'error', 'L’opération n’a pas pu être enregistrée. Vérifiez le solde, les points et le motif.' );
-	} else {
-		slfd_flash( 'success', 'L’opération de points est enregistrée.' );
-	}
-	wp_safe_redirect( slfd_members_url() ); exit;
 }
 
 function slfd_dashboard_rows( $date ) {
@@ -747,38 +574,6 @@ function slfd_pending_reports() {
     ] );
 }
 
-add_action( 'admin_post_slfd_export_reports', 'slfd_export_reports' );
-function slfd_export_reports() {
-	if ( ! slfd_can_validate() ) wp_die( 'Accès refusé.', 403 );
-	$reports = get_posts( [ 'post_type' => SLFD_POST_TYPE, 'post_status' => [ 'pending', 'publish', 'slfd_returned' ], 'posts_per_page' => -1, 'orderby' => 'date', 'order' => 'DESC' ] );
-	nocache_headers();
-	header( 'Content-Type: text/csv; charset=utf-8' );
-	header( 'Content-Disposition: attachment; filename=rapports-fidelite-' . gmdate( 'Y-m-d' ) . '.csv' );
-	$output = fopen( 'php://output', 'w' ); fwrite( $output, "\xEF\xBB\xBF" );
-	fputcsv( $output, [ 'Date', 'Agence', 'Statut', 'Début', 'Approvisionnées', 'Enrôlements', 'Endommagées', 'Fin', 'Écart', 'Motif retour' ], ';' );
-	foreach ( $reports as $report ) fputcsv( $output, [ get_post_meta( $report->ID, '_slfd_date', true ), slfd_agency_name( get_post_meta( $report->ID, '_slfd_agency', true ) ), $report->post_status, slfd_meta_int( $report->ID, '_slfd_opening' ), slfd_meta_int( $report->ID, '_slfd_received' ), slfd_meta_int( $report->ID, '_slfd_enrollments' ), slfd_meta_int( $report->ID, '_slfd_damaged' ), slfd_meta_int( $report->ID, '_slfd_closing' ), get_post_meta( $report->ID, '_slfd_stock_delta', true ), get_post_meta( $report->ID, '_slfd_review_note', true ) ], ';' );
-	fclose( $output ); exit;
-}
-
-add_action( 'init', 'slfd_schedule_daily_reminders' );
-function slfd_schedule_daily_reminders() {
-	if ( ! wp_next_scheduled( 'slfd_daily_reminders' ) ) wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'slfd_daily_reminders' );
-}
-
-add_action( 'slfd_daily_reminders', 'slfd_send_daily_reminders' );
-function slfd_send_daily_reminders() {
-	$date = current_time( 'Y-m-d' );
-	$terms = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false ] );
-	if ( is_wp_error( $terms ) ) return;
-	foreach ( $terms as $term ) {
-		if ( ! slfd_report_for_agency_date( $term->slug, $date ) ) {
-			slfd_notify_agency( $term->slug, 'Rappel : rapport fidélité du jour', 'Votre rapport fidélité du jour n’a pas encore été transmis. Merci de le déclarer avant la clôture.' );
-		}
-	}
-	$supervisors = get_users( [ 'role__in' => [ 'sl_responsable_fidelite', 'sl_superviseur_fidelite' ], 'fields' => [ 'user_email' ] ] );
-	foreach ( $supervisors as $supervisor ) if ( ! empty( $supervisor->user_email ) ) wp_mail( $supervisor->user_email, 'Rappel validation fidélité', 'Des rapports fidélité peuvent nécessiter votre contrôle et leur validation.' );
-}
-
 /** Tous les rapports d'une journee, y compris ceux qui attendent validation. */
 function slfd_reports_for_date( $date ) {
     return get_posts( [
@@ -827,7 +622,6 @@ function slfd_render_report_print( $report_id ) {
         <section class="slfd-print-status"><strong>Statut : <?php echo esc_html( $status ); ?></strong><?php if ( $author ) : ?><span>Déclaré par <?php echo esc_html( $author->display_name ); ?></span><?php endif; ?><?php if ( $validator && $validated_at ) : ?><span>Validé par <?php echo esc_html( $validator->display_name ); ?> le <?php echo esc_html( date_i18n( 'd/m/Y H:i', $validated_at ) ); ?></span><?php endif; ?></section>
         <section class="slfd-print-card"><h2>Mouvement des cartes</h2><div class="slfd-print-grid"><div><span>Stock au début</span><strong><?php echo (int) slfd_meta_int( $report->ID, '_slfd_opening' ); ?></strong></div><div><span>Approvisionnées</span><strong>+<?php echo (int) slfd_meta_int( $report->ID, '_slfd_received' ); ?></strong></div><div><span>Enrôlements</span><strong><?php echo (int) slfd_meta_int( $report->ID, '_slfd_enrollments' ); ?></strong></div><div><span>Endommagées</span><strong><?php echo (int) slfd_meta_int( $report->ID, '_slfd_damaged' ); ?></strong></div><div><span>Stock théorique</span><strong><?php echo (int) slfd_meta_int( $report->ID, '_slfd_expected_closing' ); ?></strong></div><div><span>Stock réel final</span><strong><?php echo (int) slfd_meta_int( $report->ID, '_slfd_closing' ); ?></strong></div></div><?php if ( $delta ) : ?><p class="slfd-print-delta">Écart de stock constaté : <strong><?php echo esc_html( $delta > 0 ? '+' . $delta : (string) $delta ); ?> carte(s)</strong></p><?php endif; ?></section>
         <section class="slfd-print-card"><h2>Difficultés signalées</h2><p><?php echo $issues ? esc_html( implode( ' · ', $issues ) ) : 'Aucune difficulté signalée.'; ?></p><?php if ( get_post_meta( $report->ID, '_slfd_notes', true ) ) : ?><h3>Détails</h3><p><?php echo nl2br( esc_html( get_post_meta( $report->ID, '_slfd_notes', true ) ) ); ?></p><?php endif; ?><?php if ( get_post_meta( $report->ID, '_slfd_request', true ) ) : ?><h3>Demande / recommandation</h3><p><?php echo nl2br( esc_html( get_post_meta( $report->ID, '_slfd_request', true ) ) ); ?></p><?php endif; ?></section>
-		<?php $history = get_post_meta( $report->ID, '_slfd_history', true ); if ( is_array( $history ) ) : ?><section class="slfd-print-card"><h2>Historique des actions</h2><ul><?php foreach ( $history as $entry ) : ?><li><strong><?php echo esc_html( date_i18n( 'd/m/Y H:i', (int) $entry['time'] ) ); ?></strong> — <?php echo esc_html( $entry['user'] . ' : ' . $entry['action'] ); ?><?php if ( ! empty( $entry['note'] ) ) : ?> — <?php echo esc_html( $entry['note'] ); ?><?php endif; ?></li><?php endforeach; ?></ul></section><?php endif; ?>
         <footer class="slfd-print-footer"><span>Document interne · Complexe Santa Lucia</span><span>Imprimé le <?php echo esc_html( date_i18n( 'd/m/Y à H:i' ) ); ?></span></footer>
     </main>
     <?php return ob_get_clean();
@@ -849,19 +643,6 @@ function slfd_render_login() {
 
 function slfd_render_access_denied() {
     return '<main class="slfd-login-wrap"><section class="slfd-login-card"><span class="dashicons dashicons-shield"></span><p class="slfd-eyebrow">Accès protégé</p><h1>Accès non autorisé</h1><p>Ce tableau de bord est réservé aux responsables et gestionnaires des agences Santa Lucia.</p></section></main>';
-}
-
-function slfd_render_members_crm() {
-	$members = get_posts( [ 'post_type' => SLFD_MEMBER_POST_TYPE, 'post_status' => 'publish', 'posts_per_page' => 100, 'orderby' => 'date', 'order' => 'DESC' ] );
-	$flash = slfd_flash( 'read' );
-	ob_start(); ?>
-	<main class="slfd-shell"><header class="slfd-topbar"><a class="slfd-brand" href="<?php echo esc_url( slfd_dashboard_url() ); ?>"><span class="dashicons dashicons-cart"></span><span><small>Complexe</small>Santa Lucia</span></a><span class="slfd-internal"><span class="dashicons dashicons-groups"></span> CRM fidélité</span><a class="slfd-top-link" href="<?php echo esc_url( slfd_dashboard_url() ); ?>">Tableau de bord</a></header>
-	<section class="slfd-content slfd-report-page"><?php if ( $flash ) : ?><div class="slfd-flash slfd-flash--<?php echo esc_attr( $flash[0] ); ?>"><?php echo esc_html( $flash[1] ); ?></div><?php endif; ?>
-	<div class="slfd-heading"><div><p class="slfd-eyebrow">Programme cartes de fidélité</p><h1>Membres et points</h1><p>Enregistrez les cartes, consultez les soldes et tracez chaque opération.</p></div></div>
-	<div class="slfd-layout"><section class="slfd-table-card"><h2>Nouveau membre</h2><form class="slfd-report-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_create_member"><?php wp_nonce_field( 'slfd_create_member' ); ?><div class="slfd-form-grid"><p><label>Nom complet<input name="member_name" required></label></p><p><label>Numéro de carte<input name="card_number" required placeholder="SL-000001"></label></p><p><label>Téléphone<input name="member_phone"></label></p><p><label>E-mail<input type="email" name="member_email"></label></p></div><div class="slfd-form-actions"><button type="submit">Créer le membre</button></div></form></section>
-	<section class="slfd-table-card"><h2>Opération de points</h2><form class="slfd-report-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_points_transaction"><?php wp_nonce_field( 'slfd_points_transaction' ); ?><div class="slfd-form-grid"><p><label>Membre<select name="member_id" required><option value="">Choisir…</option><?php foreach ( $members as $member ) : ?><option value="<?php echo (int) $member->ID; ?>"><?php echo esc_html( get_post_meta( $member->ID, '_slfd_member_name', true ) . ' — ' . get_post_meta( $member->ID, '_slfd_card_number', true ) ); ?></option><?php endforeach; ?></select></label></p><p><label>Type<select name="transaction_type"><option value="credit">Créditer</option><option value="debit">Débiter / récompense</option></select></label></p><p><label>Points<input type="number" name="points" min="1" required></label></p><p><label>Motif<textarea name="reason" rows="2" required></textarea></label></p></div><div class="slfd-form-actions"><button type="submit">Enregistrer l’opération</button></div></form></section></div>
-	<section class="slfd-table-card"><div class="slfd-table-head"><h2>Membres enregistrés</h2><span><?php echo esc_html( number_format_i18n( count( $members ) ) ); ?> membre(s)</span></div><div class="slfd-table-scroll"><table><thead><tr><th>Membre</th><th>Carte</th><th>Téléphone</th><th>Solde</th></tr></thead><tbody><?php foreach ( $members as $member ) : ?><tr><td><strong><?php echo esc_html( get_post_meta( $member->ID, '_slfd_member_name', true ) ); ?></strong><br><small><?php echo esc_html( get_post_meta( $member->ID, '_slfd_member_email', true ) ); ?></small></td><td><?php echo esc_html( get_post_meta( $member->ID, '_slfd_card_number', true ) ); ?></td><td><?php echo esc_html( get_post_meta( $member->ID, '_slfd_member_phone', true ) ); ?></td><td><strong><?php echo esc_html( number_format_i18n( (int) get_post_meta( $member->ID, '_slfd_points_balance', true ) ) ); ?></strong> points</td></tr><?php endforeach; ?><?php if ( ! $members ) : ?><tr><td colspan="4" class="slfd-empty">Aucun membre enregistré.</td></tr><?php endif; ?></tbody></table></div></section></section></main>
-	<?php return ob_get_clean();
 }
 
 function slfd_render_dashboard() {
@@ -889,7 +670,7 @@ function slfd_render_dashboard() {
             <?php if ( $flash ) : ?><div class="slfd-flash slfd-flash--<?php echo esc_attr( $flash[0] ); ?>"><?php echo esc_html( $flash[1] ); ?></div><?php endif; ?>
             <div class="slfd-heading">
                 <div><p class="slfd-eyebrow">Programme cartes de fidélité</p><h1>Tableau de bord Fidélité</h1><p>Suivi quotidien des enrôlements et du stock de cartes par agence.</p></div>
-                <div class="slfd-heading-actions"><?php if ( slfd_can_supply() ) : ?><a class="slfd-secondary" href="<?php echo esc_url( slfd_supply_url() ); ?>"><span class="dashicons dashicons-plus-alt"></span>Approvisionner une agence</a><a class="slfd-secondary" href="<?php echo esc_url( slfd_members_url() ); ?>"><span class="dashicons dashicons-groups"></span>Membres et points</a><a class="slfd-secondary" href="<?php echo esc_url( admin_url( 'admin-post.php?action=slfd_export_reports' ) ); ?>"><span class="dashicons dashicons-download"></span>Exporter</a><?php endif; ?><a class="slfd-primary" href="<?php echo esc_url( slfd_report_url() ); ?>"><span class="dashicons dashicons-edit-page"></span>Saisir le rapport du jour</a></div>
+                <div class="slfd-heading-actions"><?php if ( slfd_can_supply() ) : ?><a class="slfd-secondary" href="<?php echo esc_url( slfd_supply_url() ); ?>"><span class="dashicons dashicons-plus-alt"></span>Approvisionner une agence</a><?php endif; ?><a class="slfd-primary" href="<?php echo esc_url( slfd_report_url() ); ?>"><span class="dashicons dashicons-edit-page"></span>Saisir le rapport du jour</a></div>
             </div>
             <div class="slfd-layout">
                 <section class="slfd-table-card" aria-labelledby="slfd-ranking-title">
@@ -919,7 +700,7 @@ function slfd_render_dashboard() {
                 </aside>
             </div>
             <?php if ( slfd_can_validate() ) : ?><section class="slfd-pending slfd-reports-list"><h2>Rapports reçus pour cette journée</h2><?php if ( $reports ) : foreach ( $reports as $report ) : $is_validated = 'publish' === $report->post_status; ?><article><div><strong><?php echo esc_html( slfd_agency_name( get_post_meta( $report->ID, '_slfd_agency', true ) ) ); ?></strong><span><?php echo (int) slfd_meta_int( $report->ID, '_slfd_enrollments' ); ?> enrôlements · stock final <?php echo (int) slfd_meta_int( $report->ID, '_slfd_closing' ); ?> · <?php echo $is_validated ? 'Validé' : 'En attente'; ?></span></div><a class="slfd-secondary" target="_blank" rel="noopener" href="<?php echo esc_url( slfd_report_print_url( $report->ID ) ); ?>"><span class="dashicons dashicons-printer"></span>Voir / imprimer</a></article><?php endforeach; else : ?><p class="slfd-muted">Aucun rapport n’a été reçu pour cette date.</p><?php endif; ?></section><?php endif; ?>
-            <?php if ( slfd_can_validate() && $pending ) : ?><section class="slfd-pending"><h2>Rapports à valider</h2><?php foreach ( $pending as $report ) : $delta = (int) get_post_meta( $report->ID, '_slfd_stock_delta', true ); ?><article><div><strong><?php echo esc_html( slfd_agency_name( get_post_meta( $report->ID, '_slfd_agency', true ) ) ); ?></strong><span><?php echo esc_html( get_post_meta( $report->ID, '_slfd_date', true ) ); ?> · <?php echo (int) slfd_meta_int( $report->ID, '_slfd_enrollments' ); ?> enrôlements</span><?php if ( $delta ) : ?><em>Écart de stock : <?php echo esc_html( $delta > 0 ? '+' . $delta : (string) $delta ); ?></em><?php endif; ?></div><div class="slfd-review-actions"><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_validate_report"><input type="hidden" name="report_id" value="<?php echo (int) $report->ID; ?>"><?php wp_nonce_field( 'slfd_validate_' . $report->ID ); ?><button type="submit">Valider</button></form><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_return_report"><input type="hidden" name="report_id" value="<?php echo (int) $report->ID; ?>"><?php wp_nonce_field( 'slfd_return_' . $report->ID ); ?><label class="screen-reader-text" for="slfd-return-<?php echo (int) $report->ID; ?>">Motif du retour</label><input id="slfd-return-<?php echo (int) $report->ID; ?>" name="reason" required placeholder="Motif de correction"><button type="submit" class="slfd-return-button">Retourner</button></form></div></article><?php endforeach; ?></section><?php endif; ?>
+            <?php if ( slfd_can_validate() && $pending ) : ?><section class="slfd-pending"><h2>Rapports à valider</h2><?php foreach ( $pending as $report ) : $delta = (int) get_post_meta( $report->ID, '_slfd_stock_delta', true ); ?><article><div><strong><?php echo esc_html( slfd_agency_name( get_post_meta( $report->ID, '_slfd_agency', true ) ) ); ?></strong><span><?php echo esc_html( get_post_meta( $report->ID, '_slfd_date', true ) ); ?> · <?php echo (int) slfd_meta_int( $report->ID, '_slfd_enrollments' ); ?> enrôlements</span><?php if ( $delta ) : ?><em>Écart de stock : <?php echo esc_html( $delta > 0 ? '+' . $delta : (string) $delta ); ?></em><?php endif; ?></div><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_validate_report"><input type="hidden" name="report_id" value="<?php echo (int) $report->ID; ?>"><?php wp_nonce_field( 'slfd_validate_' . $report->ID ); ?><button type="submit">Valider</button></form></article><?php endforeach; ?></section><?php endif; ?>
         </section>
     </main>
     <?php return ob_get_clean();
@@ -932,9 +713,6 @@ function slfd_render_report_form() {
     $today_supply       = $agency ? slfd_supplies_total( $agency->slug, current_time( 'Y-m-d' ) ) : 0;
     $can_view_dashboard = slfd_can_view_dashboard();
     $back_url           = $can_view_dashboard ? slfd_dashboard_url() : slfd_report_url();
-	$current_report = $agency ? slfd_report_for_agency_date( $agency->slug, current_time( 'Y-m-d' ) ) : null;
-	$report_value = static function ( $key, $default = '' ) use ( $current_report ) { return $current_report ? get_post_meta( $current_report->ID, $key, true ) : $default; };
-	$opening_default = null !== ( $agency ? slfd_previous_closing_stock( $agency->slug, current_time( 'Y-m-d' ) ) : null ) ? slfd_previous_closing_stock( $agency->slug, current_time( 'Y-m-d' ) ) : 0;
     ob_start(); ?>
     <main class="slfd-shell">
         <header class="slfd-topbar slfd-report-topbar">
@@ -945,7 +723,6 @@ function slfd_render_report_form() {
         <section class="slfd-content slfd-report-page">
             <?php if ( $flash ) : ?><div class="slfd-flash slfd-flash--<?php echo esc_attr( $flash[0] ); ?>"><?php echo esc_html( $flash[1] ); ?></div><?php endif; ?>
             <div class="slfd-heading slfd-report-heading"><div><p class="slfd-eyebrow">Programme cartes de fidélité</p><h1>Déclarer le rapport du jour</h1><p>Le classement est actualisé uniquement après validation par un Responsable fidélité.</p></div></div>
-			<?php if ( $current_report && 'slfd_returned' === $current_report->post_status ) : ?><div class="slfd-notice"><strong>Rapport retourné pour correction.</strong><br><?php echo nl2br( esc_html( get_post_meta( $current_report->ID, '_slfd_review_note', true ) ) ); ?></div><?php endif; ?>
             <?php if ( ! $agency && ! slfd_can_validate() ) : ?>
                 <div class="slfd-notice">Votre compte n’est rattaché à aucune agence. Demandez à un administrateur de compléter votre profil.</div>
             <?php else : ?>
@@ -968,16 +745,15 @@ function slfd_render_report_form() {
                                 <h2 id="slfd-section-cards">Mouvement des cartes</h2>
                                 <p class="slfd-form-help">Saisissez uniquement les mouvements de cette journée. Ne comptez pas les cartes déjà attribuées aux clients.</p>
                                 <div class="slfd-stock-equation">
-                                    <p><label for="slfd_opening">Cartes disponibles au début</label><input id="slfd_opening" type="number" inputmode="numeric" name="slfd_opening" min="0" value="<?php echo esc_attr( $report_value( '_slfd_opening', $opening_default ) ); ?>" required></p>
+                                    <p><label for="slfd_opening">Cartes disponibles au début</label><input id="slfd_opening" type="number" inputmode="numeric" name="slfd_opening" min="0" value="0" required></p>
                                     <span class="slfd-equation-sign" aria-hidden="true">+</span>
                                     <p class="slfd-auto-field"><label for="slfd_received">Cartes approvisionnées</label><output id="slfd_received" data-value="<?php echo (int) $today_supply; ?>">+<?php echo (int) $today_supply; ?> carte(s)</output><small>Enregistrées par le Responsable fidélité.</small></p>
                                     <span class="slfd-equation-sign" aria-hidden="true">−</span>
-                                    <p><label for="slfd_enrollments">Enrôlements validés</label><input id="slfd_enrollments" type="number" inputmode="numeric" name="slfd_enrollments" min="0" value="<?php echo esc_attr( $report_value( '_slfd_enrollments', 0 ) ); ?>" required></p>
+                                    <p><label for="slfd_enrollments">Enrôlements validés</label><input id="slfd_enrollments" type="number" inputmode="numeric" name="slfd_enrollments" min="0" value="0" required></p>
                                     <span class="slfd-equation-sign" aria-hidden="true">−</span>
-                                    <p><label for="slfd_damaged">Cartes endommagées</label><input id="slfd_damaged" type="number" inputmode="numeric" name="slfd_damaged" min="0" value="<?php echo esc_attr( $report_value( '_slfd_damaged', 0 ) ); ?>" required></p>
+                                    <p><label for="slfd_damaged">Cartes endommagées</label><input id="slfd_damaged" type="number" inputmode="numeric" name="slfd_damaged" min="0" value="0" required></p>
                                 </div>
-                                <p class="slfd-closing-field"><label for="slfd_closing">Cartes disponibles à la fin de la journée</label><input id="slfd_closing" type="number" inputmode="numeric" name="slfd_closing" min="0" value="<?php echo esc_attr( $report_value( '_slfd_closing', 0 ) ); ?>" required><small>Comptage physique réel effectué en fin de journée.</small></p>
-							<p><label for="slfd_opening_note">Justification d’un écart de stock initial</label><textarea id="slfd_opening_note" name="slfd_opening_note" rows="2" placeholder="Obligatoire uniquement si le stock de début diffère du dernier stock validé."><?php echo esc_textarea( $report_value( '_slfd_opening_note' ) ); ?></textarea></p>
+                                <p class="slfd-closing-field"><label for="slfd_closing">Cartes disponibles à la fin de la journée</label><input id="slfd_closing" type="number" inputmode="numeric" name="slfd_closing" min="0" value="0" required><small>Comptage physique réel effectué en fin de journée.</small></p>
                                 <p class="slfd-equation-help"><span class="dashicons dashicons-info-outline"></span> Calcul automatique : début + approvisionnements − enrôlements − cartes endommagées.</p>
                             </section>
                             <section aria-labelledby="slfd-section-issues">
