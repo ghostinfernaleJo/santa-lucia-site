@@ -15,6 +15,10 @@ if ( ! is_user_logged_in() ) {
     echo slfd_render_supply_form(); // phpcs:ignore WordPress.Security.EscapeOutput
 } elseif ( 'supply' === $screen ) {
     echo slfd_render_access_denied(); // phpcs:ignore WordPress.Security.EscapeOutput
+} elseif ( 'members' === $screen && slfd_can_validate() ) {
+    echo slfd_render_members_crm(); // phpcs:ignore WordPress.Security.EscapeOutput
+} elseif ( 'members' === $screen ) {
+    echo slfd_render_access_denied(); // phpcs:ignore WordPress.Security.EscapeOutput
 } elseif ( 'dashboard' === $screen && ! slfd_can_view_dashboard() ) {
     echo slfd_render_access_denied(); // phpcs:ignore WordPress.Security.EscapeOutput
 } elseif ( 'dashboard' === $screen && isset( $_GET['rapport'] ) && slfd_can_validate() ) {
