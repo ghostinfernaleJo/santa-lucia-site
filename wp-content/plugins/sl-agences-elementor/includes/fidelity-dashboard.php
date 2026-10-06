@@ -28,6 +28,10 @@ function slfd_register_roles() {
             'label' => 'Responsable fidélité',
             'caps'  => [ 'read' => true ],
         ],
+		'sl_superviseur_fidelite' => [
+			'label' => 'Superviseur fidélité',
+			'caps'  => [ 'read' => true, 'slfd_supervise_fidelity' => true ],
+		],
     ];
 
     foreach ( $roles as $slug => $role ) {
@@ -159,15 +163,15 @@ function slfd_user_has_role( $roles ) {
 }
 
 function slfd_can_access() {
-    return is_user_logged_in() && ( current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' ) || slfd_user_has_role( [ 'sl_agent_fidelite', 'sl_responsable_fidelite', 'sl_responsable_agence', 'sl_gestionnaire_bons_plans' ] ) );
+    return is_user_logged_in() && ( current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' ) || current_user_can( 'slfd_supervise_fidelity' ) || slfd_user_has_role( [ 'sl_agent_fidelite', 'sl_responsable_fidelite', 'sl_superviseur_fidelite', 'sl_responsable_agence', 'sl_gestionnaire_bons_plans' ] ) );
 }
 
 function slfd_can_view_dashboard() {
-    return current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' ) || slfd_user_has_role( [ 'sl_responsable_fidelite', 'sl_responsable_agence', 'sl_gestionnaire_bons_plans' ] );
+    return current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' ) || current_user_can( 'slfd_supervise_fidelity' ) || slfd_user_has_role( [ 'sl_responsable_fidelite', 'sl_superviseur_fidelite', 'sl_responsable_agence', 'sl_gestionnaire_bons_plans' ] );
 }
 
 function slfd_can_validate() {
-    return current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' ) || slfd_user_has_role( [ 'sl_responsable_fidelite', 'sl_gestionnaire_bons_plans' ] );
+    return current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' ) || current_user_can( 'slfd_supervise_fidelity' ) || slfd_user_has_role( [ 'sl_responsable_fidelite', 'sl_superviseur_fidelite', 'sl_gestionnaire_bons_plans' ] );
 }
 
 /** Seuls les responsables du programme fidelite peuvent enregistrer une dotation. */
@@ -216,7 +220,7 @@ function slfd_login_redirect( $redirect_to, $requested_redirect_to, $user ) {
         return slfd_report_url();
     }
 
-    if ( in_array( 'sl_responsable_fidelite', (array) $user->roles, true ) ) {
+    if ( array_intersect( [ 'sl_responsable_fidelite', 'sl_superviseur_fidelite' ], (array) $user->roles ) ) {
         return slfd_dashboard_url();
     }
 
