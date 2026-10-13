@@ -120,6 +120,11 @@
     line-height: 1.55;
 }
 
+.slfd-pill--good {
+    background: #e9f8ef;
+    color: var(--slfd-good);
+}
+
 @media (max-width: 760px) {
     .slfd-page {
         overflow-x: hidden;

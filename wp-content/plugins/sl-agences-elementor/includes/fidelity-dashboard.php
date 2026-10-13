@@ -84,6 +84,11 @@ function slfd_ensure_internal_pages() {
             'title'   => 'Connexion Fidélité',
             'screen'  => 'login',
         ],
+        'agents' => [
+            'slug'    => 'gerer-agents-fidelite',
+            'title'   => 'Gérer les agents Fidélité',
+            'screen'  => 'agents',
+        ],
         'dashboard' => [
             'slug'    => 'espace-fidelite-interne',
             'title'   => 'Tableau de bord Fidélité',
@@ -135,7 +140,7 @@ function slfd_page_id( $screen ) {
 
 function slfd_is_internal_page() {
     $id = get_queried_object_id();
-    return $id && in_array( get_post_meta( $id, '_slfd_internal_page', true ), [ 'login', 'dashboard', 'report', 'supply' ], true );
+    return $id && in_array( get_post_meta( $id, '_slfd_internal_page', true ), [ 'login', 'agents', 'dashboard', 'report', 'supply' ], true );
 }
 
 /** Page exclue de la recherche et des sitemaps : le lien ne devient pas public. */
@@ -154,7 +159,7 @@ function slfd_exclude_from_sitemap( $args, $post_type ) {
     if ( 'page' !== $post_type ) {
         return $args;
     }
-    $ids = array_filter( [ slfd_page_id( 'login' ), slfd_page_id( 'dashboard' ), slfd_page_id( 'report' ), slfd_page_id( 'supply' ) ] );
+    $ids = array_filter( [ slfd_page_id( 'login' ), slfd_page_id( 'agents' ), slfd_page_id( 'dashboard' ), slfd_page_id( 'report' ), slfd_page_id( 'supply' ) ] );
     if ( $ids ) {
         $args['post__not_in'] = array_unique( array_merge( (array) ( $args['post__not_in'] ?? [] ), $ids ) );
     }
@@ -177,6 +182,11 @@ function slfd_can_view_dashboard() {
 
 function slfd_can_validate() {
     return current_user_can( 'manage_options' ) || current_user_can( 'edit_others_posts' ) || current_user_can( 'slfd_supervise_fidelity' ) || slfd_user_has_role( [ 'sl_responsable_fidelite', 'sl_superviseur_fidelite', 'sl_gestionnaire_bons_plans' ] );
+}
+
+/** Only the fidelity coordinator can provision new agent accounts. */
+function slfd_can_manage_agents() {
+    return current_user_can( 'manage_options' ) || current_user_can( 'slfd_supervise_fidelity' ) || slfd_user_has_role( [ 'sl_superviseur_fidelite' ] );
 }
 
 /** Seuls les responsables du programme fidelite peuvent enregistrer une dotation. */
@@ -209,6 +219,11 @@ function slfd_dashboard_url() {
 function slfd_login_url() {
     $id = slfd_page_id( 'login' );
     return $id ? get_permalink( $id ) : home_url( '/connexion-fidelite/' );
+}
+
+function slfd_agents_url() {
+    $id = slfd_page_id( 'agents' );
+    return $id ? get_permalink( $id ) : home_url( '/gerer-agents-fidelite/' );
 }
 
 function slfd_report_url() {
@@ -340,6 +355,17 @@ function slfd_register_admin_menu() {
             'slfd_render_admin_menu_placeholder'
         );
     }
+
+    if ( slfd_can_manage_agents() ) {
+        add_submenu_page(
+            'slfd-fidelity',
+            __( 'Gérer les agents Fidélité', 'sl-agences' ),
+            __( 'Gérer les agents', 'sl-agences' ),
+            'read',
+            'slfd-fidelity-agents',
+            'slfd_render_admin_menu_placeholder'
+        );
+    }
 }
 
 /** Redirect menu endpoints before WordPress starts rendering the admin page. */
@@ -355,6 +381,7 @@ function slfd_redirect_admin_menu_page() {
         'slfd-fidelity-supply'    => slfd_supply_url(),
         'slfd-fidelity-dashboard' => slfd_dashboard_url(),
         'slfd-fidelity-history'   => slfd_dashboard_url() . '#analyses-historique',
+        'slfd-fidelity-agents'    => slfd_agents_url(),
     ];
 
     if ( 'slfd-fidelity' === $page ) {
@@ -374,6 +401,10 @@ function slfd_redirect_admin_menu_page() {
     }
 
     if ( in_array( $page, [ 'slfd-fidelity-dashboard', 'slfd-fidelity-history' ], true ) && ! slfd_can_view_dashboard() ) {
+        wp_die( esc_html__( 'Accès refusé.', 'sl-agences' ), '', [ 'response' => 403 ] );
+    }
+
+    if ( 'slfd-fidelity-agents' === $page && ! slfd_can_manage_agents() ) {
         wp_die( esc_html__( 'Accès refusé.', 'sl-agences' ), '', [ 'response' => 403 ] );
     }
 
@@ -516,6 +547,49 @@ function slfd_flash( $key, $message = null ) {
     $flash = get_transient( 'slfd_flash_' . get_current_user_id() );
     delete_transient( 'slfd_flash_' . get_current_user_id() );
     return $flash;
+}
+
+add_action( 'admin_post_slfd_create_agent', 'slfd_create_agent' );
+function slfd_create_agent() {
+    if ( ! slfd_can_manage_agents() ) {
+        wp_die( 'Accès refusé.', 403 );
+    }
+    check_admin_referer( 'slfd_create_agent' );
+
+    $login      = sanitize_user( wp_unslash( $_POST['slfd_agent_login'] ?? '' ), true );
+    $first_name = sanitize_text_field( wp_unslash( $_POST['slfd_agent_first_name'] ?? '' ) );
+    $email      = sanitize_email( wp_unslash( $_POST['slfd_agent_email'] ?? '' ) );
+    $password   = (string) ( $_POST['slfd_agent_password'] ?? '' );
+    $agency     = sanitize_title( wp_unslash( $_POST['slfd_agent_agency'] ?? '' ) );
+    $term       = $agency ? get_term_by( 'slug', $agency, 'sl_agence_promo' ) : null;
+
+    if ( '' === $login || ! validate_username( $login ) || username_exists( $login ) ) {
+        slfd_flash( 'error', 'Choisissez un identifiant disponible et valide.' );
+    } elseif ( ! is_email( $email ) || email_exists( $email ) ) {
+        slfd_flash( 'error', 'Indiquez une adresse e-mail valide qui n’est pas déjà utilisée.' );
+    } elseif ( strlen( $password ) < 8 ) {
+        slfd_flash( 'error', 'Le mot de passe doit contenir au moins 8 caractères.' );
+    } elseif ( ! $term || is_wp_error( $term ) ) {
+        slfd_flash( 'error', 'Sélectionnez une agence valide pour cet agent.' );
+    } else {
+        // The role is deliberately fixed: this screen can never create an administrator.
+        $user_id = wp_insert_user( [
+            'user_login' => $login,
+            'user_email' => $email,
+            'user_pass'  => $password,
+            'first_name' => $first_name,
+            'role'       => 'sl_agent_fidelite',
+        ] );
+        if ( is_wp_error( $user_id ) ) {
+            slfd_flash( 'error', $user_id->get_error_message() );
+        } else {
+            update_user_meta( $user_id, 'sl_agence_assignee', $term->name );
+            slfd_flash( 'success', sprintf( 'Le compte agent %s a été créé et rattaché à %s.', $login, $term->name ) );
+        }
+    }
+
+    wp_safe_redirect( slfd_agents_url() );
+    exit;
 }
 
 /** Le rapport peut etre corrige par son auteur tant qu'il n'est pas valide. */
@@ -934,6 +1008,30 @@ function slfd_render_access_denied() {
     return '<main class="slfd-login-wrap"><section class="slfd-login-card"><span class="dashicons dashicons-shield"></span><p class="slfd-eyebrow">Accès protégé</p><h1>Accès non autorisé</h1><p>Ce tableau de bord est réservé aux responsables et gestionnaires des agences Santa Lucia.</p></section></main>';
 }
 
+function slfd_render_agent_management() {
+    if ( ! slfd_can_manage_agents() ) {
+        return slfd_render_access_denied();
+    }
+    $flash    = slfd_flash( 'read' );
+    $agencies = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] );
+    $agents   = get_users( [ 'role' => 'sl_agent_fidelite', 'orderby' => 'display_name', 'order' => 'ASC' ] );
+    ob_start(); ?>
+    <main class="slfd-shell">
+        <header class="slfd-topbar"><a class="slfd-brand" href="<?php echo esc_url( slfd_dashboard_url() ); ?>"><span class="dashicons dashicons-cart"></span><span><small>Complexe</small>Santa Lucia</span></a><span class="slfd-internal"><span class="dashicons dashicons-shield"></span> Coordination Fidélité</span><a class="slfd-top-link" href="<?php echo esc_url( slfd_dashboard_url() ); ?>">Retour au tableau de bord</a></header>
+        <section class="slfd-content slfd-report-page">
+            <?php if ( $flash ) : ?><div class="slfd-flash slfd-flash--<?php echo esc_attr( $flash[0] ); ?>"><?php echo esc_html( $flash[1] ); ?></div><?php endif; ?>
+            <div class="slfd-heading"><div><p class="slfd-eyebrow">Coordination</p><h1>Gérer les agents Fidélité</h1><p>Créez un accès pour une agence. Les comptes créés ici reçoivent uniquement le rôle Agent fidélité.</p></div></div>
+            <form class="slfd-report-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                <input type="hidden" name="action" value="slfd_create_agent"><?php wp_nonce_field( 'slfd_create_agent' ); ?>
+                <section><h2>Nouvel agent</h2><div class="slfd-form-grid"><p><label for="slfd_agent_first_name">Nom complet</label><input id="slfd_agent_first_name" name="slfd_agent_first_name" autocomplete="name" required></p><p><label for="slfd_agent_login">Identifiant de connexion</label><input id="slfd_agent_login" name="slfd_agent_login" autocomplete="username" required></p><p><label for="slfd_agent_email">E-mail professionnel</label><input id="slfd_agent_email" type="email" name="slfd_agent_email" autocomplete="email" required></p><p><label for="slfd_agent_password">Mot de passe initial</label><input id="slfd_agent_password" type="password" name="slfd_agent_password" autocomplete="new-password" minlength="8" required></p><p><label for="slfd_agent_agency">Agence rattachée</label><select id="slfd_agent_agency" name="slfd_agent_agency" required><option value="">Choisissez une agence...</option><?php if ( ! is_wp_error( $agencies ) ) foreach ( $agencies as $agency ) : ?><option value="<?php echo esc_attr( $agency->slug ); ?>"><?php echo esc_html( $agency->name ); ?></option><?php endforeach; ?></select></p><p><label>Rôle attribué</label><input value="Agent fidélité" readonly></p></div></section>
+                <div class="slfd-form-actions"><a href="<?php echo esc_url( slfd_dashboard_url() ); ?>">Annuler</a><button type="submit">Créer l’agent</button></div>
+            </form>
+            <section class="slfd-pending slfd-agents-list"><h2>Agents enregistrés</h2><?php if ( $agents ) : foreach ( $agents as $agent ) : $agency = (string) get_user_meta( $agent->ID, 'sl_agence_assignee', true ); ?><article><div><strong><?php echo esc_html( $agent->display_name ?: $agent->user_login ); ?></strong><span><?php echo esc_html( $agency ?: 'Agence non attribuée' ); ?> · <?php echo esc_html( $agent->user_email ); ?></span></div><span class="slfd-pill slfd-pill--good">Agent fidélité</span></article><?php endforeach; else : ?><p class="slfd-muted">Aucun agent n’est encore enregistré.</p><?php endif; ?></section>
+        </section>
+    </main>
+    <?php return ob_get_clean();
+}
+
 function slfd_render_dashboard() {
     $date = current_time( 'Y-m-d' );
     if ( ! empty( $_GET['date'] ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['date'] ) ) {
@@ -968,7 +1066,7 @@ function slfd_render_dashboard() {
             <?php if ( $flash ) : ?><div class="slfd-flash slfd-flash--<?php echo esc_attr( $flash[0] ); ?>"><?php echo esc_html( $flash[1] ); ?></div><?php endif; ?>
             <div class="slfd-heading">
                 <div><p class="slfd-eyebrow">Programme cartes de fidélité</p><h1>Tableau de bord Fidélité</h1><p>Suivi quotidien des enrôlements et du stock de cartes par agence.</p></div>
-                <div class="slfd-heading-actions"><?php if ( slfd_can_supply() ) : ?><a class="slfd-secondary" href="<?php echo esc_url( slfd_supply_url() ); ?>"><span class="dashicons dashicons-plus-alt"></span>Approvisionner une agence</a><?php endif; ?><a class="slfd-primary" href="<?php echo esc_url( slfd_report_url() ); ?>"><span class="dashicons dashicons-edit-page"></span>Saisir le rapport du jour</a></div>
+                <div class="slfd-heading-actions"><?php if ( slfd_can_manage_agents() ) : ?><a class="slfd-secondary" href="<?php echo esc_url( slfd_agents_url() ); ?>"><span class="dashicons dashicons-admin-users"></span>Gérer les agents</a><?php endif; ?><?php if ( slfd_can_supply() ) : ?><a class="slfd-secondary" href="<?php echo esc_url( slfd_supply_url() ); ?>"><span class="dashicons dashicons-plus-alt"></span>Approvisionner une agence</a><?php endif; ?><a class="slfd-primary" href="<?php echo esc_url( slfd_report_url() ); ?>"><span class="dashicons dashicons-edit-page"></span>Saisir le rapport du jour</a></div>
             </div>
             <div class="slfd-layout">
                 <section class="slfd-table-card" aria-labelledby="slfd-ranking-title">
