@@ -1,0 +1,299 @@
+/* Responsive finishing layer for the internal loyalty workspace. */
+.slfd-history-filters {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(120px, 1fr)) auto;
+    gap: 12px;
+    align-items: end;
+    padding: 0 24px 22px;
+}
+
+.slfd-history-filters label {
+    display: grid;
+    gap: 6px;
+    color: var(--slfd-muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.slfd-history-filters input,
+.slfd-history-filters select,
+.slfd-history-filters button,
+.slfd-pending input[type="url"] {
+    min-height: 44px;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--slfd-ink);
+    font: inherit;
+}
+
+.slfd-history-filters input,
+.slfd-history-filters select,
+.slfd-pending input[type="url"] {
+    width: 100%;
+    padding: 0 11px;
+}
+
+.slfd-history-filters button {
+    padding: 0 16px;
+    border-color: var(--slfd-navy);
+    background: var(--slfd-navy);
+    color: #fff;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.slfd-history-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    padding: 0 24px 22px;
+}
+
+.slfd-history-kpis > div {
+    min-height: 102px;
+    padding: 16px;
+    border: 1px solid var(--slfd-line);
+    border-radius: 8px;
+    background: #f8fafb;
+}
+
+.slfd-history-kpis span,
+.slfd-history-kpis strong {
+    display: block;
+}
+
+.slfd-history-kpis span {
+    color: var(--slfd-muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.slfd-history-kpis strong {
+    margin-top: 7px;
+    color: var(--slfd-pink-dark);
+    font-size: 27px;
+    line-height: 1;
+}
+
+.slfd-history .slfd-table-scroll {
+    margin: 0 -23px;
+    border-top: 1px solid var(--slfd-line);
+    border-bottom: 1px solid var(--slfd-line);
+}
+
+.slfd-history table {
+    width: 100%;
+    min-width: 720px;
+    border-collapse: collapse;
+}
+
+.slfd-history th,
+.slfd-history td {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--slfd-line);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.slfd-history th {
+    color: #475467;
+    background: #f8fafb;
+    font-size: 12px;
+}
+
+.slfd-history tr:last-child td {
+    border-bottom: 0;
+}
+
+.slfd-history td a {
+    color: var(--slfd-pink-dark);
+    font-weight: 800;
+}
+
+.slfd-history .slfd-footnote {
+    margin: 0 -23px -23px;
+    padding: 15px 23px;
+}
+
+.slfd-pending > p {
+    line-height: 1.55;
+}
+
+@media (max-width: 760px) {
+    .slfd-page {
+        overflow-x: hidden;
+    }
+
+    .slfd-topbar {
+        min-height: 0;
+        padding: 14px 18px 16px;
+        gap: 12px;
+    }
+
+    .slfd-brand {
+        font-size: 20px;
+    }
+
+    .slfd-brand .dashicons {
+        width: 34px;
+        height: 34px;
+        font-size: 34px;
+    }
+
+    .slfd-internal,
+    .slfd-report-module {
+        display: none;
+    }
+
+    .slfd-topbar time,
+    .slfd-top-link {
+        width: 100%;
+        margin-left: 0;
+        font-size: 13px;
+    }
+
+    .slfd-content,
+    .slfd-report-page {
+        width: calc(100% - 28px);
+        padding: 28px 0 42px;
+    }
+
+    .slfd-heading {
+        gap: 18px;
+        margin-bottom: 22px;
+    }
+
+    .slfd-heading h1,
+    .slfd-report-heading h1,
+    .slfd-login-card h1 {
+        font-size: 31px;
+        letter-spacing: 0;
+    }
+
+    .slfd-heading > div > p:last-child {
+        font-size: 15px;
+    }
+
+    .slfd-heading-actions,
+    .slfd-heading-actions .slfd-primary,
+    .slfd-heading-actions .slfd-secondary {
+        width: 100%;
+    }
+
+    .slfd-primary,
+    .slfd-secondary {
+        min-height: 48px;
+        justify-content: center;
+        border-radius: 8px;
+    }
+
+    .slfd-table-card,
+    .slfd-alert-card,
+    .slfd-pending,
+    .slfd-report-form,
+    .slfd-login-card {
+        border-radius: 8px;
+    }
+
+    .slfd-table-head {
+        padding: 18px;
+    }
+
+    .slfd-table-head form {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        width: 100%;
+    }
+
+    .slfd-table-head form label {
+        display: grid;
+        gap: 6px;
+    }
+
+    .slfd-table-head form input,
+    .slfd-table-head form button {
+        min-height: 44px;
+    }
+
+    .slfd-alert-card,
+    .slfd-pending {
+        padding: 18px;
+    }
+
+    .slfd-alert-row {
+        gap: 10px;
+        padding: 13px 0;
+    }
+
+    .slfd-history-filters {
+        grid-template-columns: 1fr 1fr;
+        padding: 0 18px 18px;
+    }
+
+    .slfd-history-filters label:nth-of-type(3),
+    .slfd-history-filters label:nth-of-type(4),
+    .slfd-history-filters label:nth-of-type(5),
+    .slfd-history-filters button {
+        grid-column: 1 / -1;
+    }
+
+    .slfd-history-kpis {
+        grid-template-columns: 1fr 1fr;
+        padding: 0 18px 18px;
+    }
+
+    .slfd-history-kpis > div {
+        min-height: 92px;
+        padding: 14px;
+    }
+
+    .slfd-history-kpis strong {
+        font-size: 24px;
+    }
+
+    .slfd-history .slfd-table-scroll {
+        margin: 0 -18px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .slfd-history .slfd-footnote {
+        margin: 0 -18px -18px;
+        padding: 14px 18px;
+    }
+
+    .slfd-pending input[type="url"] {
+        margin: 3px 0 12px;
+    }
+
+    .slfd-login-wrap {
+        min-height: 100svh;
+        padding: 16px;
+    }
+
+    .slfd-login-card {
+        padding: 28px 22px;
+    }
+
+    .slfd-login-card .button,
+    .slfd-report-form--v2 input,
+    .slfd-report-form--v2 select,
+    .slfd-report-form--v2 textarea {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 390px) {
+    .slfd-history-filters,
+    .slfd-history-kpis {
+        grid-template-columns: 1fr;
+    }
+
+    .slfd-history-filters label,
+    .slfd-history-filters label:nth-of-type(3),
+    .slfd-history-filters label:nth-of-type(4),
+    .slfd-history-filters label:nth-of-type(5),
+    .slfd-history-filters button {
+        grid-column: auto;
+    }
+}

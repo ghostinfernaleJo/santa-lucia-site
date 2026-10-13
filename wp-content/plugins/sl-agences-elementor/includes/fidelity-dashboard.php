@@ -419,6 +419,13 @@ function slfd_enqueue_assets() {
         [ 'sl-fidelity-dashboard', 'sl-fidelity-supply' ],
         file_exists( $report_v2_file ) ? (string) filemtime( $report_v2_file ) : SL_AGENCES_VERSION
     );
+    $mobile_file = SL_AGENCES_PATH . 'assets/css/fidelity-mobile.css';
+    wp_enqueue_style(
+        'sl-fidelity-mobile',
+        SL_AGENCES_URL . 'assets/css/fidelity-mobile.css',
+        [ 'sl-fidelity-dashboard', 'sl-fidelity-supply', 'sl-fidelity-report-v2' ],
+        file_exists( $mobile_file ) ? (string) filemtime( $mobile_file ) : SL_AGENCES_VERSION
+    );
     $report_js_file = SL_AGENCES_PATH . 'assets/js/fidelity-report.js';
     wp_enqueue_script(
         'sl-fidelity-report',
