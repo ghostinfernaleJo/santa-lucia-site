@@ -584,7 +584,43 @@ function slfd_create_agent() {
             slfd_flash( 'error', $user_id->get_error_message() );
         } else {
             update_user_meta( $user_id, 'sl_agence_assignee', $term->name );
+            update_user_meta( $user_id, '_slfd_created_by', get_current_user_id() );
             slfd_flash( 'success', sprintf( 'Le compte agent %s a été créé et rattaché à %s.', $login, $term->name ) );
+        }
+    }
+
+    wp_safe_redirect( slfd_agents_url() );
+    exit;
+}
+
+add_action( 'admin_post_slfd_delete_agent', 'slfd_delete_agent' );
+function slfd_delete_agent() {
+    if ( ! slfd_can_manage_agents() ) {
+        wp_die( 'Accès refusé.', 403 );
+    }
+
+    $agent_id = absint( $_POST['agent_id'] ?? 0 );
+    check_admin_referer( 'slfd_delete_agent_' . $agent_id );
+    $agent = get_userdata( $agent_id );
+    $is_created_by_current_user = (int) get_user_meta( $agent_id, '_slfd_created_by', true ) === get_current_user_id();
+    $has_reports = (bool) get_posts( [
+        'post_type'      => SLFD_POST_TYPE,
+        'post_status'    => [ 'pending', 'publish' ],
+        'author'         => $agent_id,
+        'posts_per_page' => 1,
+        'fields'         => 'ids',
+    ] );
+
+    if ( ! $agent || ! in_array( 'sl_agent_fidelite', (array) $agent->roles, true ) || ! $is_created_by_current_user ) {
+        slfd_flash( 'error', 'Vous pouvez supprimer uniquement les comptes agents que vous avez créés.' );
+    } elseif ( $has_reports ) {
+        slfd_flash( 'error', 'Ce compte possède déjà des rapports. Il ne peut pas être supprimé afin de préserver l’historique.' );
+    } else {
+        require_once ABSPATH . 'wp-admin/includes/user.php';
+        if ( wp_delete_user( $agent_id ) ) {
+            slfd_flash( 'success', sprintf( 'Le compte agent %s a été supprimé.', $agent->user_login ) );
+        } else {
+            slfd_flash( 'error', 'La suppression du compte a échoué. Réessayez.' );
         }
     }
 
@@ -1026,7 +1062,17 @@ function slfd_render_agent_management() {
                 <section><h2>Nouvel agent</h2><div class="slfd-form-grid"><p><label for="slfd_agent_first_name">Nom complet</label><input id="slfd_agent_first_name" name="slfd_agent_first_name" autocomplete="name" required></p><p><label for="slfd_agent_login">Identifiant de connexion</label><input id="slfd_agent_login" name="slfd_agent_login" autocomplete="username" required></p><p><label for="slfd_agent_email">E-mail professionnel</label><input id="slfd_agent_email" type="email" name="slfd_agent_email" autocomplete="email" required></p><p><label for="slfd_agent_password">Mot de passe initial</label><input id="slfd_agent_password" type="password" name="slfd_agent_password" autocomplete="new-password" minlength="8" required></p><p><label for="slfd_agent_agency">Agence rattachée</label><select id="slfd_agent_agency" name="slfd_agent_agency" required><option value="">Choisissez une agence...</option><?php if ( ! is_wp_error( $agencies ) ) foreach ( $agencies as $agency ) : ?><option value="<?php echo esc_attr( $agency->slug ); ?>"><?php echo esc_html( $agency->name ); ?></option><?php endforeach; ?></select></p><p><label>Rôle attribué</label><input value="Agent fidélité" readonly></p></div></section>
                 <div class="slfd-form-actions"><a href="<?php echo esc_url( slfd_dashboard_url() ); ?>">Annuler</a><button type="submit">Créer l’agent</button></div>
             </form>
-            <section class="slfd-pending slfd-agents-list"><h2>Agents enregistrés</h2><?php if ( $agents ) : foreach ( $agents as $agent ) : $agency = (string) get_user_meta( $agent->ID, 'sl_agence_assignee', true ); ?><article><div><strong><?php echo esc_html( $agent->display_name ?: $agent->user_login ); ?></strong><span><?php echo esc_html( $agency ?: 'Agence non attribuée' ); ?> · <?php echo esc_html( $agent->user_email ); ?></span></div><span class="slfd-pill slfd-pill--good">Agent fidélité</span></article><?php endforeach; else : ?><p class="slfd-muted">Aucun agent n’est encore enregistré.</p><?php endif; ?></section>
+            <section class="slfd-pending slfd-agents-list"><h2>Agents enregistrés</h2><?php if ( $agents ) : foreach ( $agents as $agent ) :
+                $agency = (string) get_user_meta( $agent->ID, 'sl_agence_assignee', true );
+                $created_by_current_user = (int) get_user_meta( $agent->ID, '_slfd_created_by', true ) === get_current_user_id();
+                $has_reports = (bool) get_posts( [
+                    'post_type'      => SLFD_POST_TYPE,
+                    'post_status'    => [ 'pending', 'publish' ],
+                    'author'         => $agent->ID,
+                    'posts_per_page' => 1,
+                    'fields'         => 'ids',
+                ] );
+            ?><article><div><strong><?php echo esc_html( $agent->display_name ?: $agent->user_login ); ?></strong><span><?php echo esc_html( $agency ?: 'Agence non attribuée' ); ?> · <?php echo esc_html( $agent->user_email ); ?></span><?php if ( $created_by_current_user && $has_reports ) : ?><em>Historique de rapports conservé</em><?php endif; ?></div><div class="slfd-agent-actions"><span class="slfd-pill slfd-pill--good">Agent fidélité</span><?php if ( $created_by_current_user && ! $has_reports ) : ?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return window.confirm('Supprimer définitivement ce compte agent ?');"><input type="hidden" name="action" value="slfd_delete_agent"><input type="hidden" name="agent_id" value="<?php echo esc_attr( $agent->ID ); ?>"><?php wp_nonce_field( 'slfd_delete_agent_' . $agent->ID ); ?><button class="slfd-delete-agent" type="submit" title="Supprimer ce compte" aria-label="Supprimer le compte de <?php echo esc_attr( $agent->display_name ?: $agent->user_login ); ?>"><span class="dashicons dashicons-trash"></span></button></form><?php endif; ?></div></article><?php endforeach; else : ?><p class="slfd-muted">Aucun agent n’est encore enregistré.</p><?php endif; ?></section>
         </section>
     </main>
     <?php return ob_get_clean();

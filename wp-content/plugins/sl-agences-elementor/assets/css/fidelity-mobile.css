@@ -287,7 +287,6 @@
         font-size: 16px;
     }
 }
-
 @media (max-width: 390px) {
     .slfd-history-filters,
     .slfd-history-kpis {
@@ -300,5 +299,47 @@
     .slfd-history-filters label:nth-of-type(5),
     .slfd-history-filters button {
         grid-column: auto;
+    }
+}
+/* Agent accounts */
+.slfd-agent-actions {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+}
+
+.slfd-agent-actions form { margin: 0; }
+
+.slfd-agents-list article em {
+    color: #6b7280;
+    display: block;
+    font-size: 12px;
+    font-style: normal;
+    margin-top: 4px;
+}
+
+.slfd-delete-agent {
+    align-items: center;
+    background: #fff !important;
+    border: 1px solid #f3c8c5 !important;
+    border-radius: 8px !important;
+    color: #b42318 !important;
+    display: flex;
+    height: 38px;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 !important;
+    width: 38px;
+}
+
+.slfd-delete-agent:hover,
+.slfd-delete-agent:focus { background: #fff1f0 !important; }
+
+@media (max-width: 760px) {
+    .slfd-agents-list article { align-items: flex-start; }
+
+    .slfd-agent-actions {
+        justify-content: space-between;
+        width: 100%;
     }
 }
