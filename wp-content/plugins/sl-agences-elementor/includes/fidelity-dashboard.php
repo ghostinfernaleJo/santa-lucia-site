@@ -756,6 +756,74 @@ function slfd_export_supplies() {
 	fclose( $output ); exit;
 }
 
+/** A supervisor can create a short-lived public performance summary to share manually. */
+function slfd_share_token() {
+	return isset( $_GET['slfd_share'] ) ? preg_replace( '/[^A-Za-z0-9]/', '', (string) wp_unslash( $_GET['slfd_share'] ) ) : '';
+}
+
+function slfd_share_url( $token ) {
+	return add_query_arg( 'slfd_share', rawurlencode( $token ), home_url( '/' ) );
+}
+
+function slfd_share_message( $filters, $summary, $url ) {
+	$agency = $filters['agency'] ? slfd_agency_name( $filters['agency'] ) : 'toutes les agences';
+	return sprintf(
+		"Bonjour,\n\nVoici la synthèse Fidélité de %s, du %s au %s :\n- %d rapport(s) validé(s)\n- %d enrôlement(s)\n- %d carte(s) approvisionnée(s)\n\nConsulter le rapport : %s\n\nComplexe Santa Lucia",
+		$agency,
+		date_i18n( 'd/m/Y', strtotime( $filters['from'] ) ),
+		date_i18n( 'd/m/Y', strtotime( $filters['to'] ) ),
+		(int) $summary['validated'],
+		(int) $summary['enrollments'],
+		(int) $summary['supplies'],
+		$url
+	);
+}
+
+add_action( 'admin_post_slfd_create_share_link', 'slfd_create_share_link' );
+function slfd_create_share_link() {
+	if ( ! slfd_can_validate() ) {
+		wp_die( 'Accès refusé.', 403 );
+	}
+	check_admin_referer( 'slfd_create_share_link' );
+
+	$filters = slfd_history_filters();
+	// A shareable performance report intentionally excludes unvalidated figures.
+	$filters['status'] = 'publish';
+	$filters['q']      = '';
+	$token = wp_generate_password( 32, false, false );
+	set_transient( 'slfd_share_' . $token, [
+		'filters'    => $filters,
+		'created_by' => get_current_user_id(),
+		'created_at' => current_time( 'timestamp' ),
+	], 7 * DAY_IN_SECONDS );
+
+	wp_safe_redirect( add_query_arg( array_merge( $filters, [ 'share' => $token ] ), slfd_dashboard_url() ) . '#analyses-historique' );
+	exit;
+}
+
+/** Render the public, token-protected performance summary without customer data. */
+add_action( 'template_redirect', 'slfd_render_shared_performance', 1 );
+function slfd_render_shared_performance() {
+	$token = slfd_share_token();
+	if ( ! $token ) {
+		return;
+	}
+	$share = get_transient( 'slfd_share_' . $token );
+	if ( ! is_array( $share ) || empty( $share['filters'] ) ) {
+		status_header( 404 );
+		wp_die( 'Ce lien de partage est invalide ou a expiré.', 'Rapport indisponible', [ 'response' => 404 ] );
+	}
+
+	$filters = $share['filters'];
+	$reports = slfd_history_reports( $filters );
+	$summary = slfd_history_summary( $reports );
+	$agency  = $filters['agency'] ? slfd_agency_name( $filters['agency'] ) : 'Toutes les agences';
+	nocache_headers();
+	?><!doctype html>
+	<html <?php language_attributes(); ?>><head><meta charset="<?php bloginfo( 'charset' ); ?>"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Performance Fidélité - Complexe Santa Lucia</title><style>body{margin:0;background:#f5f7f8;color:#18232a;font:16px/1.5 Arial,sans-serif}.slfd-share{max-width:900px;margin:48px auto;padding:0 20px}.slfd-share header{border-bottom:3px solid #d71920;padding-bottom:20px}.slfd-share h1{margin:0;font-size:30px}.slfd-share .eyebrow{color:#9b1218;font-weight:700;text-transform:uppercase;font-size:12px;letter-spacing:0}.slfd-share .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0}.slfd-share .card,.slfd-share table{background:#fff;border:1px solid #dbe2e6;border-radius:6px}.slfd-share .card{padding:18px}.slfd-share .card span{display:block;color:#5d6870;font-size:13px}.slfd-share .card strong{font-size:28px}.slfd-share table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden}.slfd-share th,.slfd-share td{padding:12px;border-bottom:1px solid #edf0f2;text-align:left}.slfd-share th{background:#f1f4f5}.slfd-share footer{color:#5d6870;font-size:13px;margin-top:22px}@media(max-width:620px){.slfd-share{margin:24px auto}.slfd-share .cards{grid-template-columns:1fr}.slfd-share th:nth-child(3),.slfd-share td:nth-child(3){display:none}}</style></head><body><main class="slfd-share"><header><p class="eyebrow">Complexe Santa Lucia · Programme Fidélité</p><h1>Rapport de performance</h1><p><?php echo esc_html( $agency ); ?> · du <?php echo esc_html( date_i18n( 'd/m/Y', strtotime( $filters['from'] ) ) ); ?> au <?php echo esc_html( date_i18n( 'd/m/Y', strtotime( $filters['to'] ) ) ); ?></p></header><section class="cards"><div class="card"><span>Rapports validés</span><strong><?php echo (int) $summary['validated']; ?></strong></div><div class="card"><span>Enrôlements</span><strong><?php echo (int) $summary['enrollments']; ?></strong></div><div class="card"><span>Cartes approvisionnées</span><strong><?php echo (int) $summary['supplies']; ?></strong></div></section><table><thead><tr><th>Date</th><th>Agence</th><th>Enrôlements</th><th>Stock final</th></tr></thead><tbody><?php foreach ( $reports as $report ) : ?><tr><td><?php echo esc_html( get_post_meta( $report->ID, '_slfd_date', true ) ); ?></td><td><?php echo esc_html( slfd_agency_name( get_post_meta( $report->ID, '_slfd_agency', true ) ) ); ?></td><td><?php echo (int) slfd_meta_int( $report->ID, '_slfd_enrollments' ); ?></td><td><?php echo (int) slfd_meta_int( $report->ID, '_slfd_closing' ); ?></td></tr><?php endforeach; ?><?php if ( ! $reports ) : ?><tr><td colspan="4">Aucun rapport validé sur cette période.</td></tr><?php endif; ?></tbody></table><footer>Lien de partage temporaire · Complexe Santa Lucia</footer></main></body></html><?php
+	exit;
+}
+
 function slfd_report_print_url( $report_id ) {
     return add_query_arg( 'rapport', absint( $report_id ), slfd_dashboard_url() );
 }
@@ -832,6 +900,11 @@ function slfd_render_dashboard() {
 	$history_reports = slfd_can_validate() ? slfd_history_reports( $history_filters ) : [];
 	$history_summary = slfd_history_summary( $history_reports );
 	$agencies = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] );
+	$share_token = isset( $_GET['share'] ) ? preg_replace( '/[^A-Za-z0-9]/', '', (string) wp_unslash( $_GET['share'] ) ) : '';
+	$share_data  = $share_token ? get_transient( 'slfd_share_' . $share_token ) : false;
+	$share_url   = $share_data && (int) $share_data['created_by'] === get_current_user_id() ? slfd_share_url( $share_token ) : '';
+	$share_message = $share_url ? slfd_share_message( $history_filters, $history_summary, $share_url ) : '';
+	$create_share_url = wp_nonce_url( add_query_arg( array_merge( [ 'action' => 'slfd_create_share_link' ], $history_filters ), admin_url( 'admin-post.php' ) ), 'slfd_create_share_link' );
     ob_start(); ?>
     <main class="slfd-shell">
         <header class="slfd-topbar">
@@ -872,6 +945,7 @@ function slfd_render_dashboard() {
                     </section>
                 </aside>
             </div>
+			<?php if ( slfd_can_validate() ) : ?><section class="slfd-pending"><div class="slfd-table-head"><h2>Partager les performances</h2><?php if ( ! $share_url ) : ?><a class="slfd-secondary" href="<?php echo esc_url( $create_share_url ); ?>"><span class="dashicons dashicons-share"></span>Préparer un lien de partage</a><?php endif; ?></div><?php if ( $share_url ) : ?><p>Ce lien présente uniquement les résultats validés de la période sélectionnée. Il expirera automatiquement dans 7 jours.</p><p><input type="url" value="<?php echo esc_attr( $share_url ); ?>" readonly onclick="this.select()" style="width:min(100%,620px)"> <a class="slfd-secondary" target="_blank" rel="noopener" href="https://wa.me/?text=<?php echo rawurlencode( $share_message ); ?>"><span class="dashicons dashicons-whatsapp"></span>Partager sur WhatsApp</a></p><?php else : ?><p class="slfd-muted">Sélectionnez la période et l’agence dans l’historique, puis créez un lien à transmettre manuellement.</p><?php endif; ?></section><?php endif; ?>
 			<?php if ( slfd_can_validate() ) : ?><section id="analyses-historique" class="slfd-pending slfd-history"><div class="slfd-table-head"><h2>Analyses et historique</h2><div class="slfd-heading-actions"><a class="slfd-secondary" href="<?php echo esc_url( slfd_history_export_url( 'slfd_export_reports', $history_filters ) ); ?>"><span class="dashicons dashicons-download"></span>Exporter les rapports</a><a class="slfd-secondary" href="<?php echo esc_url( slfd_history_export_url( 'slfd_export_supplies', $history_filters ) ); ?>"><span class="dashicons dashicons-download"></span>Exporter les approvisionnements</a></div></div><form method="get" class="slfd-history-filters"><label>Du<input type="date" name="history_from" value="<?php echo esc_attr( $history_filters['from'] ); ?>"></label><label>Au<input type="date" name="history_to" value="<?php echo esc_attr( $history_filters['to'] ); ?>"></label><label>Agence<select name="history_agency"><option value="">Toutes</option><?php if ( ! is_wp_error( $agencies ) ) foreach ( $agencies as $agency ) : ?><option value="<?php echo esc_attr( $agency->slug ); ?>" <?php selected( $history_filters['agency'], $agency->slug ); ?>><?php echo esc_html( $agency->name ); ?></option><?php endforeach; ?></select></label><label>Statut<select name="history_status"><option value="">Tous</option><option value="publish" <?php selected( $history_filters['status'], 'publish' ); ?>>Validé</option><option value="pending" <?php selected( $history_filters['status'], 'pending' ); ?>>En attente</option></select></label><label>Recherche<input type="search" name="history_q" value="<?php echo esc_attr( $history_filters['q'] ); ?>" placeholder="Agence ou date"></label><button type="submit">Analyser</button></form><div class="slfd-history-kpis"><div><span>Rapports</span><strong><?php echo (int) $history_summary['reports']; ?></strong></div><div><span>Validés</span><strong><?php echo (int) $history_summary['validated']; ?></strong></div><div><span>Enrôlements</span><strong><?php echo (int) $history_summary['enrollments']; ?></strong></div><div><span>Cartes approvisionnées</span><strong><?php echo (int) $history_summary['supplies']; ?></strong></div></div><div class="slfd-table-scroll"><table><thead><tr><th>Date</th><th>Agence</th><th>Statut</th><th>Enrôlements</th><th>Stock final</th><th>Écart</th><th>Document</th></tr></thead><tbody><?php foreach ( $history_reports as $history_report ) : ?><tr><td><?php echo esc_html( get_post_meta( $history_report->ID, '_slfd_date', true ) ); ?></td><td><?php echo esc_html( slfd_agency_name( get_post_meta( $history_report->ID, '_slfd_agency', true ) ) ); ?></td><td><?php echo 'publish' === $history_report->post_status ? 'Validé' : 'En attente'; ?></td><td><?php echo (int) slfd_meta_int( $history_report->ID, '_slfd_enrollments' ); ?></td><td><?php echo (int) slfd_meta_int( $history_report->ID, '_slfd_closing' ); ?></td><td><?php echo esc_html( (string) get_post_meta( $history_report->ID, '_slfd_stock_delta', true ) ); ?></td><td><a href="<?php echo esc_url( slfd_report_print_url( $history_report->ID ) ); ?>" target="_blank" rel="noopener">Imprimer</a></td></tr><?php endforeach; ?><?php if ( ! $history_reports ) : ?><tr><td colspan="7" class="slfd-empty">Aucun rapport ne correspond aux filtres.</td></tr><?php endif; ?></tbody></table></div><p class="slfd-footnote">Tendance : <?php echo esc_html( $history_summary['by_day'] ? implode( ' · ', array_map( static function ( $day, $count ) { return $day . ' : ' . $count; }, array_keys( $history_summary['by_day'] ), $history_summary['by_day'] ) ) : 'aucune donnée' ); ?></p></section><?php endif; ?>
             <?php if ( slfd_can_validate() ) : ?><section class="slfd-pending slfd-reports-list"><h2>Rapports reçus pour cette journée</h2><?php if ( $reports ) : foreach ( $reports as $report ) : $is_validated = 'publish' === $report->post_status; ?><article><div><strong><?php echo esc_html( slfd_agency_name( get_post_meta( $report->ID, '_slfd_agency', true ) ) ); ?></strong><span><?php echo (int) slfd_meta_int( $report->ID, '_slfd_enrollments' ); ?> enrôlements · stock final <?php echo (int) slfd_meta_int( $report->ID, '_slfd_closing' ); ?> · <?php echo $is_validated ? 'Validé' : 'En attente'; ?></span></div><a class="slfd-secondary" target="_blank" rel="noopener" href="<?php echo esc_url( slfd_report_print_url( $report->ID ) ); ?>"><span class="dashicons dashicons-printer"></span>Voir / imprimer</a></article><?php endforeach; else : ?><p class="slfd-muted">Aucun rapport n’a été reçu pour cette date.</p><?php endif; ?></section><?php endif; ?>
             <?php if ( slfd_can_validate() && $pending ) : ?><section class="slfd-pending"><h2>Rapports à valider</h2><?php foreach ( $pending as $report ) : $delta = (int) get_post_meta( $report->ID, '_slfd_stock_delta', true ); ?><article><div><strong><?php echo esc_html( slfd_agency_name( get_post_meta( $report->ID, '_slfd_agency', true ) ) ); ?></strong><span><?php echo esc_html( get_post_meta( $report->ID, '_slfd_date', true ) ); ?> · <?php echo (int) slfd_meta_int( $report->ID, '_slfd_enrollments' ); ?> enrôlements</span><?php if ( $delta ) : ?><em>Écart de stock : <?php echo esc_html( $delta > 0 ? '+' . $delta : (string) $delta ); ?></em><?php endif; ?></div><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_validate_report"><input type="hidden" name="report_id" value="<?php echo (int) $report->ID; ?>"><?php wp_nonce_field( 'slfd_validate_' . $report->ID ); ?><button type="submit">Valider</button></form></article><?php endforeach; ?></section><?php endif; ?>
