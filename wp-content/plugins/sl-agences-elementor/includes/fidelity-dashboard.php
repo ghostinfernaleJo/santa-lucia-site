@@ -79,6 +79,11 @@ function slfd_register_report_type() {
 add_action( 'init', 'slfd_ensure_internal_pages', 30 );
 function slfd_ensure_internal_pages() {
     $pages = [
+        'login' => [
+            'slug'    => 'connexion-fidelite',
+            'title'   => 'Connexion Fidélité',
+            'screen'  => 'login',
+        ],
         'dashboard' => [
             'slug'    => 'espace-fidelite-interne',
             'title'   => 'Tableau de bord Fidélité',
@@ -130,7 +135,7 @@ function slfd_page_id( $screen ) {
 
 function slfd_is_internal_page() {
     $id = get_queried_object_id();
-    return $id && in_array( get_post_meta( $id, '_slfd_internal_page', true ), [ 'dashboard', 'report', 'supply' ], true );
+    return $id && in_array( get_post_meta( $id, '_slfd_internal_page', true ), [ 'login', 'dashboard', 'report', 'supply' ], true );
 }
 
 /** Page exclue de la recherche et des sitemaps : le lien ne devient pas public. */
@@ -149,7 +154,7 @@ function slfd_exclude_from_sitemap( $args, $post_type ) {
     if ( 'page' !== $post_type ) {
         return $args;
     }
-    $ids = array_filter( [ slfd_page_id( 'dashboard' ), slfd_page_id( 'report' ), slfd_page_id( 'supply' ) ] );
+    $ids = array_filter( [ slfd_page_id( 'login' ), slfd_page_id( 'dashboard' ), slfd_page_id( 'report' ), slfd_page_id( 'supply' ) ] );
     if ( $ids ) {
         $args['post__not_in'] = array_unique( array_merge( (array) ( $args['post__not_in'] ?? [] ), $ids ) );
     }
@@ -201,6 +206,11 @@ function slfd_dashboard_url() {
     return $id ? get_permalink( $id ) : home_url( '/espace-fidelite-interne/' );
 }
 
+function slfd_login_url() {
+    $id = slfd_page_id( 'login' );
+    return $id ? get_permalink( $id ) : home_url( '/connexion-fidelite/' );
+}
+
 function slfd_report_url() {
     $id = slfd_page_id( 'report' );
     return $id ? get_permalink( $id ) : home_url( '/declarer-rapport-fidelite/' );
@@ -232,6 +242,41 @@ function slfd_woocommerce_login_redirect( $redirect, $user ) {
     return slfd_login_redirect( $redirect, '', $user );
 }
 add_filter( 'woocommerce_login_redirect', 'slfd_woocommerce_login_redirect', 30, 2 );
+
+/** Agents use only the dedicated front-office, never the WordPress back-office. */
+function slfd_is_frontend_agent( $user = null ) {
+    $user = $user instanceof WP_User ? $user : wp_get_current_user();
+    if ( ! $user || ! $user->exists() || ! in_array( 'sl_agent_fidelite', (array) $user->roles, true ) ) {
+        return false;
+    }
+    return ! current_user_can( 'edit_posts' ) && ! current_user_can( 'manage_options' );
+}
+
+add_action( 'admin_init', 'slfd_redirect_agent_from_admin', 1 );
+function slfd_redirect_agent_from_admin() {
+    if ( ! slfd_is_frontend_agent() || wp_doing_ajax() || ( defined( 'DOING_CRON' ) && DOING_CRON ) ) {
+        return;
+    }
+    if ( 'admin-post.php' === basename( $_SERVER['PHP_SELF'] ?? '' ) ) {
+        return;
+    }
+    wp_safe_redirect( slfd_report_url() );
+    exit;
+}
+
+add_filter( 'show_admin_bar', 'slfd_hide_admin_bar_for_agents' );
+function slfd_hide_admin_bar_for_agents( $show ) {
+    return slfd_is_frontend_agent() ? false : $show;
+}
+
+add_action( 'template_redirect', 'slfd_redirect_authenticated_login_page', 2 );
+function slfd_redirect_authenticated_login_page() {
+    if ( ! slfd_is_internal_page() || 'login' !== get_post_meta( get_queried_object_id(), '_slfd_internal_page', true ) || ! is_user_logged_in() ) {
+        return;
+    }
+    wp_safe_redirect( slfd_can_view_dashboard() ? slfd_dashboard_url() : slfd_report_url() );
+    exit;
+}
 
 /**
  * Adds a dedicated, permission-aware entry in the WordPress administration.
