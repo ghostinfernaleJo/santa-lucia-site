@@ -1126,6 +1126,18 @@ function slfd_render_agent_management() {
     $agencies = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] );
     $agents   = get_users( [ 'role' => 'sl_agent_fidelite', 'orderby' => 'display_name', 'order' => 'ASC' ] );
     ob_start(); ?>
+    <style id="slfd-agent-management-layout">
+        .slfd-agents-list .slfd-agent-card { display:grid !important; grid-template-columns:minmax(0,1fr) auto; gap:14px; }
+        .slfd-agents-list .slfd-agent-password { grid-column:1 / -1; width:100%; border-top:1px solid #e5e7eb; padding-top:14px; }
+        .slfd-agents-list .slfd-agent-password summary { align-items:center; color:#172033; cursor:pointer; display:inline-flex; font-size:13px; font-weight:800; gap:7px; list-style:none; }
+        .slfd-agents-list .slfd-agent-password summary::-webkit-details-marker, .slfd-agents-list .slfd-agent-password summary::marker { display:none; }
+        .slfd-agents-list .slfd-agent-password summary .dashicons { color:var(--slfd-pink); }
+        .slfd-agents-list .slfd-agent-password form { align-items:end; display:grid; gap:12px; grid-template-columns:repeat(2,minmax(0,1fr)) auto; margin-top:14px; }
+        .slfd-agents-list .slfd-agent-password label { color:#344054; display:grid; font-size:12px; font-weight:700; gap:6px; }
+        .slfd-agents-list .slfd-agent-password input { border:1px solid #d0d5dd; border-radius:8px; min-height:42px; padding:9px 10px; }
+        .slfd-agents-list .slfd-agent-password button { background:#112442 !important; min-height:42px; white-space:nowrap; }
+        @media (max-width:760px) { .slfd-agents-list .slfd-agent-card, .slfd-agents-list .slfd-agent-password form { grid-template-columns:1fr; } .slfd-agents-list .slfd-agent-actions { width:100%; } }
+    </style>
     <main class="slfd-shell">
         <header class="slfd-topbar"><a class="slfd-brand" href="<?php echo esc_url( slfd_dashboard_url() ); ?>"><span class="dashicons dashicons-cart"></span><span><small>Complexe</small>Santa Lucia</span></a><span class="slfd-internal"><span class="dashicons dashicons-shield"></span> Coordination Fidélité</span><a class="slfd-top-link" href="<?php echo esc_url( slfd_dashboard_url() ); ?>">Retour au tableau de bord</a></header>
         <section class="slfd-content slfd-report-page">
