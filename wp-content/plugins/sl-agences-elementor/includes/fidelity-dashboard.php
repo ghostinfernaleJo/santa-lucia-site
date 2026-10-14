@@ -636,7 +636,6 @@ function slfd_delete_agent() {
     $agent_id = absint( $_POST['agent_id'] ?? 0 );
     check_admin_referer( 'slfd_delete_agent_' . $agent_id );
     $agent = get_userdata( $agent_id );
-    $is_created_by_current_user = (int) get_user_meta( $agent_id, '_slfd_created_by', true ) === get_current_user_id();
     $has_reports = (bool) get_posts( [
         'post_type'      => SLFD_POST_TYPE,
         'post_status'    => [ 'pending', 'publish' ],
@@ -645,8 +644,8 @@ function slfd_delete_agent() {
         'fields'         => 'ids',
     ] );
 
-    if ( ! $agent || ! in_array( 'sl_agent_fidelite', (array) $agent->roles, true ) || ! $is_created_by_current_user ) {
-        slfd_flash( 'error', 'Vous pouvez supprimer uniquement les comptes agents que vous avez créés.' );
+    if ( ! $agent || ! in_array( 'sl_agent_fidelite', (array) $agent->roles, true ) ) {
+        slfd_flash( 'error', 'Ce compte agent est introuvable.' );
     } elseif ( $has_reports ) {
         slfd_flash( 'error', 'Ce compte possède déjà des rapports. Il ne peut pas être supprimé afin de préserver l’historique.' );
     } else {
@@ -673,10 +672,9 @@ function slfd_reset_agent_password() {
     $agent = get_userdata( $agent_id );
     $password = (string) ( $_POST['slfd_agent_new_password'] ?? '' );
     $confirmation = (string) ( $_POST['slfd_agent_new_password_confirmation'] ?? '' );
-    $is_created_by_current_user = (int) get_user_meta( $agent_id, '_slfd_created_by', true ) === get_current_user_id();
 
-    if ( ! $agent || ! in_array( 'sl_agent_fidelite', (array) $agent->roles, true ) || ! $is_created_by_current_user ) {
-        slfd_flash( 'error', 'Vous pouvez modifier uniquement les comptes agents que vous avez créés.' );
+    if ( ! $agent || ! in_array( 'sl_agent_fidelite', (array) $agent->roles, true ) ) {
+        slfd_flash( 'error', 'Ce compte agent est introuvable.' );
     } elseif ( strlen( $password ) < 8 ) {
         slfd_flash( 'error', 'Le nouveau mot de passe doit comporter au moins 8 caractères.' );
     } elseif ( ! hash_equals( $password, $confirmation ) ) {
@@ -1140,7 +1138,6 @@ function slfd_render_agent_management() {
             </form>
             <section class="slfd-pending slfd-agents-list"><h2>Agents enregistrés</h2><?php if ( $agents ) : foreach ( $agents as $agent ) :
                 $agency = (string) get_user_meta( $agent->ID, 'sl_agence_assignee', true );
-                $created_by_current_user = (int) get_user_meta( $agent->ID, '_slfd_created_by', true ) === get_current_user_id();
                 $has_reports = (bool) get_posts( [
                     'post_type'      => SLFD_POST_TYPE,
                     'post_status'    => [ 'pending', 'publish' ],
@@ -1148,7 +1145,7 @@ function slfd_render_agent_management() {
                     'posts_per_page' => 1,
                     'fields'         => 'ids',
                 ] );
-            ?><article class="slfd-agent-card"><div><strong><?php echo esc_html( $agent->display_name ?: $agent->user_login ); ?></strong><span><?php echo esc_html( $agency ?: 'Agence non attribuée' ); ?> · <?php echo esc_html( $agent->user_email ); ?></span><?php if ( $created_by_current_user && $has_reports ) : ?><em>Historique de rapports conservé</em><?php endif; ?></div><div class="slfd-agent-actions"><span class="slfd-pill slfd-pill--good">Agent fidélité</span><?php if ( $created_by_current_user && ! $has_reports ) : ?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return window.confirm('Supprimer définitivement ce compte agent ?');"><input type="hidden" name="action" value="slfd_delete_agent"><input type="hidden" name="agent_id" value="<?php echo esc_attr( $agent->ID ); ?>"><?php wp_nonce_field( 'slfd_delete_agent_' . $agent->ID ); ?><button class="slfd-delete-agent" type="submit" title="Supprimer ce compte" aria-label="Supprimer le compte de <?php echo esc_attr( $agent->display_name ?: $agent->user_login ); ?>"><span class="dashicons dashicons-trash"></span></button></form><?php endif; ?></div><?php if ( $created_by_current_user ) : ?><details class="slfd-agent-password"><summary><span class="dashicons dashicons-admin-network"></span>Changer le mot de passe</summary><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_reset_agent_password"><input type="hidden" name="agent_id" value="<?php echo esc_attr( $agent->ID ); ?>"><?php wp_nonce_field( 'slfd_reset_agent_password_' . $agent->ID ); ?><label>Nouveau mot de passe<input type="password" name="slfd_agent_new_password" autocomplete="new-password" minlength="8" required></label><label>Confirmer le mot de passe<input type="password" name="slfd_agent_new_password_confirmation" autocomplete="new-password" minlength="8" required></label><button type="submit">Mettre à jour</button></form></details><?php endif; ?></article><?php endforeach; else : ?><p class="slfd-muted">Aucun agent n’est encore enregistré.</p><?php endif; ?></section>
+            ?><article class="slfd-agent-card"><div><strong><?php echo esc_html( $agent->display_name ?: $agent->user_login ); ?></strong><span><?php echo esc_html( $agency ?: 'Agence non attribuée' ); ?> · <?php echo esc_html( $agent->user_email ); ?></span><?php if ( $has_reports ) : ?><em>Historique de rapports conservé</em><?php endif; ?></div><div class="slfd-agent-actions"><span class="slfd-pill slfd-pill--good">Agent fidélité</span><?php if ( ! $has_reports ) : ?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return window.confirm('Supprimer définitivement ce compte agent ?');"><input type="hidden" name="action" value="slfd_delete_agent"><input type="hidden" name="agent_id" value="<?php echo esc_attr( $agent->ID ); ?>"><?php wp_nonce_field( 'slfd_delete_agent_' . $agent->ID ); ?><button class="slfd-delete-agent" type="submit" title="Supprimer ce compte" aria-label="Supprimer le compte de <?php echo esc_attr( $agent->display_name ?: $agent->user_login ); ?>"><span class="dashicons dashicons-trash"></span></button></form><?php endif; ?></div><details class="slfd-agent-password"><summary><span class="dashicons dashicons-admin-network"></span>Changer le mot de passe</summary><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_reset_agent_password"><input type="hidden" name="agent_id" value="<?php echo esc_attr( $agent->ID ); ?>"><?php wp_nonce_field( 'slfd_reset_agent_password_' . $agent->ID ); ?><label>Nouveau mot de passe<input type="password" name="slfd_agent_new_password" autocomplete="new-password" minlength="8" required></label><label>Confirmer le mot de passe<input type="password" name="slfd_agent_new_password_confirmation" autocomplete="new-password" minlength="8" required></label><button type="submit">Mettre à jour</button></form></details></article><?php endforeach; else : ?><p class="slfd-muted">Aucun agent n’est encore enregistré.</p><?php endif; ?></section>
         </section>
     </main>
     <?php return ob_get_clean();
