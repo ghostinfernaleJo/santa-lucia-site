@@ -42,6 +42,7 @@ require_once SL_AGENCES_PATH . 'includes/search-unified.php';
 require_once SL_AGENCES_PATH . 'includes/supervision-agences.php';
 require_once SL_AGENCES_PATH . 'includes/rapport-performance-pdf.php';
 require_once SL_AGENCES_PATH . 'includes/fidelity-dashboard.php';
+require_once SL_AGENCES_PATH . 'includes/fidelity-campaigns.php';
 require_once SL_AGENCES_PATH . 'includes/class-commande-patisserie-widget.php';
 require_once SL_AGENCES_PATH . 'includes/omtland-bonus-campaign.php';
 

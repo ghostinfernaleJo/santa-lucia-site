@@ -89,6 +89,16 @@ function slfd_ensure_internal_pages() {
             'title'   => 'Gérer les agents Fidélité',
             'screen'  => 'agents',
         ],
+        'campaigns' => [
+            'slug'    => 'campagnes-fidelite',
+            'title'   => 'Campagnes Fidélité',
+            'screen'  => 'campaigns',
+        ],
+        'campaign_public' => [
+            'slug'    => 'suivi-campagne-fidelite',
+            'title'   => 'Suivi campagne Fidélité',
+            'screen'  => 'campaign_public',
+        ],
         'dashboard' => [
             'slug'    => 'espace-fidelite-interne',
             'title'   => 'Tableau de bord Fidélité',
@@ -140,7 +150,7 @@ function slfd_page_id( $screen ) {
 
 function slfd_is_internal_page() {
     $id = get_queried_object_id();
-    return $id && in_array( get_post_meta( $id, '_slfd_internal_page', true ), [ 'login', 'agents', 'dashboard', 'report', 'supply' ], true );
+    return $id && in_array( get_post_meta( $id, '_slfd_internal_page', true ), [ 'login', 'agents', 'campaigns', 'dashboard', 'report', 'supply' ], true );
 }
 
 /** Page exclue de la recherche et des sitemaps : le lien ne devient pas public. */
@@ -159,7 +169,7 @@ function slfd_exclude_from_sitemap( $args, $post_type ) {
     if ( 'page' !== $post_type ) {
         return $args;
     }
-    $ids = array_filter( [ slfd_page_id( 'login' ), slfd_page_id( 'agents' ), slfd_page_id( 'dashboard' ), slfd_page_id( 'report' ), slfd_page_id( 'supply' ) ] );
+    $ids = array_filter( [ slfd_page_id( 'login' ), slfd_page_id( 'agents' ), slfd_page_id( 'campaigns' ), slfd_page_id( 'dashboard' ), slfd_page_id( 'report' ), slfd_page_id( 'supply' ), slfd_page_id( 'campaign_public' ) ] );
     if ( $ids ) {
         $args['post__not_in'] = array_unique( array_merge( (array) ( $args['post__not_in'] ?? [] ), $ids ) );
     }
@@ -359,6 +369,14 @@ function slfd_register_admin_menu() {
     if ( slfd_can_manage_agents() ) {
         add_submenu_page(
             'slfd-fidelity',
+            __( 'Campagnes Fidélité', 'sl-agences' ),
+            __( 'Campagnes', 'sl-agences' ),
+            'read',
+            'slfd-fidelity-campaigns',
+            'slfd_render_admin_menu_placeholder'
+        );
+        add_submenu_page(
+            'slfd-fidelity',
             __( 'Gérer les agents Fidélité', 'sl-agences' ),
             __( 'Gérer les agents', 'sl-agences' ),
             'read',
@@ -382,6 +400,7 @@ function slfd_redirect_admin_menu_page() {
         'slfd-fidelity-dashboard' => slfd_dashboard_url(),
         'slfd-fidelity-history'   => slfd_dashboard_url() . '#analyses-historique',
         'slfd-fidelity-agents'    => slfd_agents_url(),
+        'slfd-fidelity-campaigns' => slfd_campaigns_url(),
     ];
 
     if ( 'slfd-fidelity' === $page ) {
@@ -408,6 +427,10 @@ function slfd_redirect_admin_menu_page() {
         wp_die( esc_html__( 'Accès refusé.', 'sl-agences' ), '', [ 'response' => 403 ] );
     }
 
+    if ( 'slfd-fidelity-campaigns' === $page && ! slfd_can_manage_agents() ) {
+        wp_die( esc_html__( 'Accès refusé.', 'sl-agences' ), '', [ 'response' => 403 ] );
+    }
+
     wp_safe_redirect( $targets[ $page ] );
     exit;
 }
@@ -418,7 +441,7 @@ function slfd_render_admin_menu_placeholder() {
 
 add_action( 'wp_enqueue_scripts', 'slfd_enqueue_assets', 110 );
 function slfd_enqueue_assets() {
-    if ( ! slfd_is_internal_page() ) {
+    if ( ! slfd_is_internal_page() && ! slfd_is_campaign_public_page() ) {
         return;
     }
     $file = SL_AGENCES_PATH . 'assets/css/fidelity-dashboard.css';
@@ -456,6 +479,13 @@ function slfd_enqueue_assets() {
         SL_AGENCES_URL . 'assets/css/fidelity-mobile.css',
         [ 'sl-fidelity-dashboard', 'sl-fidelity-supply', 'sl-fidelity-report-v2' ],
         file_exists( $mobile_file ) ? (string) filemtime( $mobile_file ) : SL_AGENCES_VERSION
+    );
+    $campaign_file = SL_AGENCES_PATH . 'assets/css/fidelity-campaign.css';
+    wp_enqueue_style(
+        'sl-fidelity-campaign',
+        SL_AGENCES_URL . 'assets/css/fidelity-campaign.css',
+        [ 'sl-fidelity-dashboard', 'sl-fidelity-mobile' ],
+        file_exists( $campaign_file ) ? (string) filemtime( $campaign_file ) : SL_AGENCES_VERSION
     );
     $report_js_file = SL_AGENCES_PATH . 'assets/js/fidelity-report.js';
     wp_enqueue_script(
@@ -662,6 +692,7 @@ function slfd_submit_report() {
     // exclusivement des approvisionnements enregistres par le programme fidelite.
     $received    = slfd_supplies_total( $agency->slug, $date );
     $enrollments = absint( $_POST['slfd_enrollments'] ?? 0 );
+    $playstore   = absint( $_POST['slfd_playstore'] ?? 0 );
     $damaged     = absint( $_POST['slfd_damaged'] ?? 0 );
     $closing     = absint( $_POST['slfd_closing'] ?? 0 );
     $expected    = max( 0, $opening + $received - $enrollments - $damaged );
@@ -705,6 +736,7 @@ function slfd_submit_report() {
     update_post_meta( $post_id, '_slfd_opening', $opening );
     update_post_meta( $post_id, '_slfd_received', $received );
     update_post_meta( $post_id, '_slfd_enrollments', $enrollments );
+    update_post_meta( $post_id, '_slfd_playstore', $playstore );
     update_post_meta( $post_id, '_slfd_damaged', $damaged );
     update_post_meta( $post_id, '_slfd_closing', $closing );
     update_post_meta( $post_id, '_slfd_expected_closing', $expected );
@@ -1101,6 +1133,8 @@ function slfd_render_dashboard() {
 	$share_url   = $share_data && (int) $share_data['created_by'] === get_current_user_id() ? slfd_share_url( $share_token ) : '';
 	$share_message = $share_url ? slfd_share_message( $history_filters, $history_summary, $share_url ) : '';
 	$create_share_url = wp_nonce_url( add_query_arg( array_merge( [ 'action' => 'slfd_create_share_link' ], $history_filters ), admin_url( 'admin-post.php' ) ), 'slfd_create_share_link' );
+    $campaign = slfd_campaign_data();
+    $campaign_stats = slfd_campaign_stats( $campaign );
     ob_start(); ?>
     <main class="slfd-shell">
         <header class="slfd-topbar">
@@ -1112,8 +1146,9 @@ function slfd_render_dashboard() {
             <?php if ( $flash ) : ?><div class="slfd-flash slfd-flash--<?php echo esc_attr( $flash[0] ); ?>"><?php echo esc_html( $flash[1] ); ?></div><?php endif; ?>
             <div class="slfd-heading">
                 <div><p class="slfd-eyebrow">Programme cartes de fidélité</p><h1>Tableau de bord Fidélité</h1><p>Suivi quotidien des enrôlements et du stock de cartes par agence.</p></div>
-                <div class="slfd-heading-actions"><?php if ( slfd_can_manage_agents() ) : ?><a class="slfd-secondary" href="<?php echo esc_url( slfd_agents_url() ); ?>"><span class="dashicons dashicons-admin-users"></span>Gérer les agents</a><?php endif; ?><?php if ( slfd_can_supply() ) : ?><a class="slfd-secondary" href="<?php echo esc_url( slfd_supply_url() ); ?>"><span class="dashicons dashicons-plus-alt"></span>Approvisionner une agence</a><?php endif; ?><a class="slfd-primary" href="<?php echo esc_url( slfd_report_url() ); ?>"><span class="dashicons dashicons-edit-page"></span>Saisir le rapport du jour</a></div>
+                <div class="slfd-heading-actions"><?php if ( slfd_can_manage_agents() ) : ?><a class="slfd-secondary" href="<?php echo esc_url( slfd_campaigns_url() ); ?>"><span class="dashicons dashicons-chart-bar"></span>Gérer la campagne</a><a class="slfd-secondary" href="<?php echo esc_url( slfd_agents_url() ); ?>"><span class="dashicons dashicons-admin-users"></span>Gérer les agents</a><?php endif; ?><?php if ( slfd_can_supply() ) : ?><a class="slfd-secondary" href="<?php echo esc_url( slfd_supply_url() ); ?>"><span class="dashicons dashicons-plus-alt"></span>Approvisionner une agence</a><?php endif; ?><a class="slfd-primary" href="<?php echo esc_url( slfd_report_url() ); ?>"><span class="dashicons dashicons-edit-page"></span>Saisir le rapport du jour</a></div>
             </div>
+            <?php if ( $campaign_stats ) : ?><?php echo slfd_render_campaign_overview( $campaign_stats ); // phpcs:ignore WordPress.Security.EscapeOutput ?><?php elseif ( slfd_can_manage_agents() ) : ?><section class="slfd-notice">Aucune campagne n’est encore définie. <a href="<?php echo esc_url( slfd_campaigns_url() ); ?>">Configurez la campagne en cours</a> pour suivre les objectifs et les progrès.</section><?php endif; ?>
             <div class="slfd-layout">
                 <section class="slfd-table-card" aria-labelledby="slfd-ranking-title">
                     <div class="slfd-table-head"><h2 id="slfd-ranking-title">Classement du jour</h2><form method="get"><label for="slfd-date">Date</label><input id="slfd-date" type="date" name="date" value="<?php echo esc_attr( $date ); ?>"><button type="submit">Afficher</button></form></div>
@@ -1157,6 +1192,8 @@ function slfd_render_report_form() {
     $today_supply       = $agency ? slfd_supplies_total( $agency->slug, current_time( 'Y-m-d' ) ) : 0;
     $can_view_dashboard = slfd_can_view_dashboard();
     $back_url           = $can_view_dashboard ? slfd_dashboard_url() : slfd_report_url();
+    $campaign_stats     = slfd_campaign_stats();
+    $agent_campaign_row = $campaign_stats ? slfd_campaign_agent_row( $campaign_stats, get_current_user_id() ) : null;
     ob_start(); ?>
     <main class="slfd-shell">
         <header class="slfd-topbar slfd-report-topbar">
@@ -1167,6 +1204,7 @@ function slfd_render_report_form() {
         <section class="slfd-content slfd-report-page">
             <?php if ( $flash ) : ?><div class="slfd-flash slfd-flash--<?php echo esc_attr( $flash[0] ); ?>"><?php echo esc_html( $flash[1] ); ?></div><?php endif; ?>
             <div class="slfd-heading slfd-report-heading"><div><p class="slfd-eyebrow">Programme cartes de fidélité</p><h1>Déclarer le rapport du jour</h1><p>Le classement est actualisé uniquement après validation par un Responsable fidélité.</p></div></div>
+            <?php if ( $agent_campaign_row && ! $can_view_dashboard ) : $personal = $agent_campaign_row['clients']; ?><section class="slfd-agent-goal <?php echo $personal['gap'] < 0 ? 'is-late' : ''; ?>"><span class="dashicons <?php echo $personal['gap'] < 0 ? 'dashicons-warning' : 'dashicons-awards'; ?>"></span><div><strong><?php echo $personal['gap'] < 0 ? 'Votre objectif nécessite un effort supplémentaire' : 'Vous êtes dans le rythme de la campagne'; ?></strong><p><?php echo number_format_i18n( $personal['actual'] ); ?> / <?php echo number_format_i18n( $personal['target'] ); ?> clients enregistrés. <?php echo $personal['gap'] < 0 ? 'Pour revenir au rythme, visez ' . number_format_i18n( $personal['daily'] ) . ' enregistrements par jour.' : 'Continuez ainsi pour atteindre votre objectif.'; ?></p></div><?php echo slfd_campaign_trend_markup( $agent_campaign_row['trend'] ); // phpcs:ignore WordPress.Security.EscapeOutput ?></section><?php endif; ?>
             <?php if ( ! $agency && ! slfd_can_validate() ) : ?>
                 <div class="slfd-notice">Votre compte n’est rattaché à aucune agence. Demandez à un administrateur de compléter votre profil.</div>
             <?php else : ?>
@@ -1199,6 +1237,11 @@ function slfd_render_report_form() {
                                 </div>
                                 <p class="slfd-closing-field"><label for="slfd_closing">Cartes disponibles à la fin de la journée</label><input id="slfd_closing" type="number" inputmode="numeric" name="slfd_closing" min="0" value="0" required><small>Comptage physique réel effectué en fin de journée.</small></p>
                                 <p class="slfd-equation-help"><span class="dashicons dashicons-info-outline"></span> Calcul automatique : début + approvisionnements − enrôlements − cartes endommagées.</p>
+                            </section>
+                            <section aria-labelledby="slfd-section-digital">
+                                <h2 id="slfd-section-digital">Inscriptions Play Store</h2>
+                                <p class="slfd-form-help">Indiquez le nombre de personnes inscrites sur le Play Store grâce à l’activité de l’agence aujourd’hui.</p>
+                                <p><label for="slfd_playstore">Inscriptions Play Store du jour</label><input id="slfd_playstore" type="number" inputmode="numeric" name="slfd_playstore" min="0" value="0"></p>
                             </section>
                             <section aria-labelledby="slfd-section-issues">
                                 <h2 id="slfd-section-issues">Difficultés et besoins</h2>
