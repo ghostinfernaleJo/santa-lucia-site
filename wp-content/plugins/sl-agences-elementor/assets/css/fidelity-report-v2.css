@@ -563,3 +563,68 @@
         min-width: 0;
     }
 }
+
+/* Agent account controls on the Fidelity supervision screen. */
+.slfd-agents-list .slfd-agent-card {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+}
+
+.slfd-agents-list .slfd-agent-password {
+    grid-column: 1 / -1;
+    width: 100%;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 14px;
+}
+
+.slfd-agents-list .slfd-agent-password summary {
+    align-items: center;
+    color: #172033;
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 13px;
+    font-weight: 800;
+    gap: 7px;
+    list-style: none;
+}
+
+.slfd-agents-list .slfd-agent-password summary::-webkit-details-marker,
+.slfd-agents-list .slfd-agent-password summary::marker { display: none; }
+
+.slfd-agents-list .slfd-agent-password summary .dashicons { color: var(--slfd-pink); }
+
+.slfd-agents-list .slfd-agent-password form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    gap: 12px;
+    align-items: end;
+    margin-top: 14px;
+}
+
+.slfd-agents-list .slfd-agent-password label {
+    color: #344054;
+    display: grid;
+    font-size: 12px;
+    font-weight: 700;
+    gap: 6px;
+}
+
+.slfd-agents-list .slfd-agent-password input {
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    min-height: 42px;
+    padding: 9px 10px;
+}
+
+.slfd-agents-list .slfd-agent-password button {
+    background: #112442 !important;
+    min-height: 42px;
+    white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+    .slfd-agents-list .slfd-agent-card { grid-template-columns: 1fr; }
+    .slfd-agents-list .slfd-agent-actions { width: 100%; }
+    .slfd-agents-list .slfd-agent-password form { grid-template-columns: 1fr; }
+}
