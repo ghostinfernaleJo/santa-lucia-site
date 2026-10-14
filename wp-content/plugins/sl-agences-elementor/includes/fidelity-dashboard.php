@@ -1145,6 +1145,7 @@ function slfd_render_dashboard() {
 	$create_share_url = wp_nonce_url( add_query_arg( array_merge( [ 'action' => 'slfd_create_share_link' ], $history_filters ), admin_url( 'admin-post.php' ) ), 'slfd_create_share_link' );
     $campaign = slfd_campaign_data();
     $campaign_stats = slfd_campaign_stats( $campaign );
+    $campaign_alerts = slfd_campaign_alerts( $campaign_stats );
     ob_start(); ?>
     <main class="slfd-shell">
         <header class="slfd-topbar">
@@ -1184,6 +1185,10 @@ function slfd_render_dashboard() {
                     <section class="slfd-alert-card"><h2><span class="dashicons dashicons-archive"></span>Approvisionnements</h2>
                         <?php if ( $supplies ) : ?><p><strong><?php echo (int) array_sum( array_map( function ( $supply ) { return slfd_meta_int( $supply->ID, '_slfd_quantity' ); }, $supplies ) ); ?> cartes</strong> approvisionnées aujourd’hui.</p><?php foreach ( array_slice( $supplies, 0, 4 ) as $supply ) : ?><div class="slfd-alert-row"><strong><?php echo esc_html( slfd_agency_name( get_post_meta( $supply->ID, '_slfd_agency', true ) ) ); ?></strong><b>+<?php echo (int) slfd_meta_int( $supply->ID, '_slfd_quantity' ); ?> cartes</b></div><?php endforeach; else : ?><p class="slfd-muted">Aucun approvisionnement enregistré pour cette date.</p><?php endif; ?>
                     </section>
+                    <?php if ( $campaign_stats ) : ?><section class="slfd-alert-card slfd-campaign-alert-card"><h2><span class="dashicons dashicons-chart-line"></span>Rythme de campagne</h2>
+                        <?php if ( $campaign_alerts['agencies'] ) : ?><p><strong><?php echo (int) count( $campaign_alerts['agencies'] ); ?> agence(s)</strong> sont sous le rythme attendu.</p><?php foreach ( array_slice( $campaign_alerts['agencies'], 0, 4 ) as $campaign_agency ) : ?><div class="slfd-alert-row"><strong><?php echo esc_html( $campaign_agency['term']->name ); ?></strong><span class="slfd-pill slfd-pill--critical">À accompagner</span><b><?php echo (int) $campaign_agency['clients']['daily']; ?> / jour requis</b></div><?php endforeach; else : ?><p class="slfd-muted">Toutes les agences sont dans le rythme prévu.</p><?php endif; ?>
+                        <?php if ( slfd_can_manage_agents() && $campaign_alerts['agents'] ) : ?><p class="slfd-campaign-alert-note"><strong><?php echo (int) count( $campaign_alerts['agents'] ); ?> agent(s)</strong> ont besoin d’un rappel. Les e-mails sont envoyés chaque jour lorsque cette option est activée dans la campagne.</p><?php endif; ?>
+                    </section><?php endif; ?>
                 </aside>
             </div>
 			<?php if ( slfd_can_validate() ) : ?><section class="slfd-pending"><div class="slfd-table-head"><h2>Partager les performances</h2><?php if ( ! $share_url ) : ?><a class="slfd-secondary" href="<?php echo esc_url( $create_share_url ); ?>"><span class="dashicons dashicons-share"></span>Préparer un lien de partage</a><?php endif; ?></div><?php if ( $share_url ) : ?><p>Ce lien présente uniquement les résultats validés de la période sélectionnée. Il expirera automatiquement dans 7 jours.</p><p><input type="url" value="<?php echo esc_attr( $share_url ); ?>" readonly onclick="this.select()" style="width:min(100%,620px)"> <a class="slfd-secondary" target="_blank" rel="noopener" href="https://wa.me/?text=<?php echo rawurlencode( $share_message ); ?>"><span class="dashicons dashicons-whatsapp"></span>Partager sur WhatsApp</a></p><?php else : ?><p class="slfd-muted">Sélectionnez la période et l’agence dans l’historique, puis créez un lien à transmettre manuellement.</p><?php endif; ?></section><?php endif; ?>
