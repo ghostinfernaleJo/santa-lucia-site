@@ -231,6 +231,10 @@ function slfd_login_url() {
     return $id ? get_permalink( $id ) : home_url( '/connexion-fidelite/' );
 }
 
+function slfd_logout_url() {
+    return wp_logout_url( slfd_login_url() );
+}
+
 function slfd_agents_url() {
     $id = slfd_page_id( 'agents' );
     return $id ? get_permalink( $id ) : home_url( '/gerer-agents-fidelite/' );
@@ -1241,6 +1245,7 @@ function slfd_render_report_form() {
             <a class="slfd-brand" href="<?php echo esc_url( $back_url ); ?>"><span class="dashicons dashicons-cart"></span><span><small>Complexe</small>Santa Lucia</span></a>
             <span class="slfd-report-module"><span class="dashicons dashicons-clipboard"></span> Rapport quotidien</span>
             <?php if ( $can_view_dashboard ) : ?><a class="slfd-top-link" href="<?php echo esc_url( slfd_dashboard_url() ); ?>">Voir le classement</a><?php endif; ?>
+            <a class="slfd-top-link slfd-logout-link" href="<?php echo esc_url( slfd_logout_url() ); ?>"><span class="dashicons dashicons-exit"></span>Déconnexion</a>
         </header>
         <section class="slfd-content slfd-report-page">
             <?php if ( $flash ) : ?><div class="slfd-flash slfd-flash--<?php echo esc_attr( $flash[0] ); ?>"><?php echo esc_html( $flash[1] ); ?></div><?php endif; ?>
