@@ -745,6 +745,12 @@ function slfd_submit_report() {
     update_post_meta( $post_id, '_slfd_notes', $notes );
     update_post_meta( $post_id, '_slfd_request', $request );
     update_post_meta( $post_id, '_slfd_updated_at', current_time( 'timestamp' ) );
+    $campaign = slfd_campaign_for_date( $date );
+    if ( $campaign ) {
+        update_post_meta( $post_id, '_slfd_campaign_id', $campaign['id'] );
+    } else {
+        delete_post_meta( $post_id, '_slfd_campaign_id' );
+    }
 
     slfd_flash( 'success', 0 === ( $closing - $expected )
         ? 'Rapport enregistré et transmis pour validation.'
@@ -798,6 +804,10 @@ function slfd_create_supply() {
     update_post_meta( $supply_id, '_slfd_reference', $reference );
     update_post_meta( $supply_id, '_slfd_notes', $notes );
     update_post_meta( $supply_id, '_slfd_created_at', current_time( 'timestamp' ) );
+    $campaign = slfd_campaign_for_date( $date );
+    if ( $campaign ) {
+        update_post_meta( $supply_id, '_slfd_campaign_id', $campaign['id'] );
+    }
     slfd_flash( 'success', sprintf( '%d cartes ont été ajoutées à l’approvisionnement de %s.', $quantity, $agency->name ) );
     wp_safe_redirect( slfd_dashboard_url() );
     exit;

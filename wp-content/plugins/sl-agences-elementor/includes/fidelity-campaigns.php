@@ -19,9 +19,13 @@ function slfd_register_campaign_type() {
     ] );
 }
 
-function slfd_campaigns_url() {
+function slfd_campaigns_url( $campaign_id = 0, $new = false ) {
     $id = slfd_page_id( 'campaigns' );
-    return $id ? get_permalink( $id ) : home_url( '/campagnes-fidelite/' );
+    $url = $id ? get_permalink( $id ) : home_url( '/campagnes-fidelite/' );
+    if ( $campaign_id ) {
+        $url = add_query_arg( 'campaign', absint( $campaign_id ), $url );
+    }
+    return $new ? add_query_arg( 'new', '1', $url ) : $url;
 }
 
 function slfd_campaign_public_url() {
@@ -78,6 +82,9 @@ function slfd_campaign_data( $campaign_id = 0 ) {
         'agency_targets'  => (array) get_post_meta( $campaign_id, '_slfd_agency_targets', true ),
         'is_public'       => '1' === get_post_meta( $campaign_id, '_slfd_is_public', true ),
         'show_agents'     => '1' === get_post_meta( $campaign_id, '_slfd_show_agents', true ),
+        'email_alerts'    => '1' === get_post_meta( $campaign_id, '_slfd_email_alerts', true ),
+        'agent_targets'   => (array) get_post_meta( $campaign_id, '_slfd_agent_targets', true ),
+        'state'           => (string) get_post_meta( $campaign_id, '_slfd_campaign_state', true ) ?: 'active',
     ];
 }
 
@@ -109,7 +116,23 @@ function slfd_campaign_reports( $campaign, $author = 0 ) {
     if ( $author ) {
         $query['author'] = $author;
     }
-    return get_posts( $query );
+    return array_values( array_filter( get_posts( $query ), static function ( $report ) use ( $campaign ) {
+        $linked_campaign = (int) get_post_meta( $report->ID, '_slfd_campaign_id', true );
+        return ! $linked_campaign || $linked_campaign === (int) $campaign['id'];
+    } ) );
+}
+
+function slfd_campaign_for_date( $date ) {
+    $campaigns = get_posts( [ 'post_type' => SLFD_CAMPAIGN_POST_TYPE, 'post_status' => 'publish', 'posts_per_page' => -1, 'orderby' => 'ID', 'order' => 'DESC' ] );
+    $active_id = slfd_active_campaign_id();
+    usort( $campaigns, static function ( $a, $b ) use ( $active_id ) { return (int) ( $b->ID === $active_id ) <=> (int) ( $a->ID === $active_id ); } );
+    foreach ( $campaigns as $campaign_post ) {
+        $campaign = slfd_campaign_data( $campaign_post->ID );
+        if ( $campaign && 'archived' !== $campaign['state'] && $date >= $campaign['start'] && $date <= $campaign['end'] ) {
+            return $campaign;
+        }
+    }
+    return null;
 }
 
 function slfd_campaign_metric( $actual, $target, $days ) {
@@ -137,6 +160,7 @@ function slfd_campaign_stats( $campaign = null ) {
     $totals = [ 'clients' => 0, 'playstore' => 0, 'cards' => 0 ];
     $by_agency = [];
     $by_agent = [];
+    $daily = [];
     foreach ( $reports as $report ) {
         $agency = (string) get_post_meta( $report->ID, '_slfd_agency', true );
         $clients = slfd_meta_int( $report->ID, '_slfd_enrollments' );
@@ -145,6 +169,8 @@ function slfd_campaign_stats( $campaign = null ) {
         $totals['clients'] += $clients;
         $totals['playstore'] += $playstore;
         $totals['cards'] += $cards;
+        $report_date = (string) get_post_meta( $report->ID, '_slfd_date', true );
+        $daily[ $report_date ] = (int) ( $daily[ $report_date ] ?? 0 ) + $clients;
         if ( ! isset( $by_agency[ $agency ] ) ) {
             $by_agency[ $agency ] = [ 'clients' => 0, 'playstore' => 0, 'cards' => 0 ];
         }
@@ -156,7 +182,6 @@ function slfd_campaign_stats( $campaign = null ) {
             $by_agent[ $author_id ] = [ 'clients' => 0, 'agency' => $agency, 'daily' => [] ];
         }
         $by_agent[ $author_id ]['clients'] += $clients;
-        $report_date = (string) get_post_meta( $report->ID, '_slfd_date', true );
         $by_agent[ $author_id ]['daily'][ $report_date ] = (int) ( $by_agent[ $author_id ]['daily'][ $report_date ] ?? 0 ) + $clients;
     }
 
@@ -185,7 +210,7 @@ function slfd_campaign_stats( $campaign = null ) {
             if ( $row['term']->slug === $agency_slug ) { $agency_row = $row; break; }
         }
         $agency_target = $agency_row ? $agency_row['clients']['target'] : 0;
-        $agent_target = $agency_row && $agency_row['agents'] ? (int) ceil( $agency_target / $agency_row['agents'] ) : 0;
+        $agent_target = max( 0, (int) ( $campaign['agent_targets'][ $agent->ID ] ?? ( $agency_row && $agency_row['agents'] ? ceil( $agency_target / $agency_row['agents'] ) : 0 ) ) );
         $actual = (int) ( $by_agent[ $agent->ID ]['clients'] ?? 0 );
         $agents[] = [
             'user' => $agent,
@@ -204,6 +229,7 @@ function slfd_campaign_stats( $campaign = null ) {
         'cards' => slfd_campaign_metric( $totals['cards'], $campaign['cards_target'], $days ),
         'agencies' => $agencies,
         'agents' => $agents,
+        'daily' => $daily,
     ];
 }
 
@@ -243,26 +269,97 @@ function slfd_save_campaign() {
     update_post_meta( $campaign_id, '_slfd_agency_targets', $targets );
     update_post_meta( $campaign_id, '_slfd_is_public', empty( $_POST['slfd_is_public'] ) ? '0' : '1' );
     update_post_meta( $campaign_id, '_slfd_show_agents', empty( $_POST['slfd_show_agents'] ) ? '0' : '1' );
-    update_option( 'slfd_active_campaign_id', $campaign_id, false );
+    update_post_meta( $campaign_id, '_slfd_email_alerts', empty( $_POST['slfd_email_alerts'] ) ? '0' : '1' );
+    $agent_targets = [];
+    foreach ( (array) ( $_POST['slfd_agent_targets'] ?? [] ) as $user_id => $target ) {
+        $user_id = absint( $user_id );
+        if ( $user_id && get_userdata( $user_id ) ) {
+            $agent_targets[ $user_id ] = absint( $target );
+        }
+    }
+    update_post_meta( $campaign_id, '_slfd_agent_targets', $agent_targets );
+    update_post_meta( $campaign_id, '_slfd_campaign_state', 'active' );
+    if ( ! empty( $_POST['slfd_is_active'] ) || ! slfd_active_campaign_id() ) {
+        update_option( 'slfd_active_campaign_id', $campaign_id, false );
+    }
     slfd_flash( 'success', 'La campagne et ses objectifs ont été enregistrés.' );
     wp_safe_redirect( slfd_campaigns_url() ); exit;
 }
 
+add_action( 'admin_post_slfd_campaign_action', 'slfd_campaign_action' );
+function slfd_campaign_action() {
+    if ( ! slfd_can_manage_agents() ) { wp_die( 'Accès refusé.', 403 ); }
+    $campaign_id = absint( $_POST['campaign_id'] ?? 0 );
+    check_admin_referer( 'slfd_campaign_action_' . $campaign_id );
+    if ( SLFD_CAMPAIGN_POST_TYPE !== get_post_type( $campaign_id ) ) {
+        slfd_flash( 'error', 'Cette campagne est introuvable.' );
+    } elseif ( 'activate' === ( $_POST['campaign_action'] ?? '' ) ) {
+        update_post_meta( $campaign_id, '_slfd_campaign_state', 'active' );
+        update_option( 'slfd_active_campaign_id', $campaign_id, false );
+        slfd_flash( 'success', 'La campagne sélectionnée est désormais la campagne en cours.' );
+    } elseif ( 'archive' === ( $_POST['campaign_action'] ?? '' ) ) {
+        update_post_meta( $campaign_id, '_slfd_campaign_state', 'archived' );
+        if ( $campaign_id === slfd_active_campaign_id() ) {
+            delete_option( 'slfd_active_campaign_id' );
+        }
+        slfd_flash( 'success', 'La campagne a été archivée. Ses résultats restent consultables.' );
+    }
+    wp_safe_redirect( slfd_campaigns_url() ); exit;
+}
+
+add_action( 'slfd_daily_campaign_alerts', 'slfd_send_daily_campaign_alerts' );
+add_action( 'init', 'slfd_schedule_daily_campaign_alerts', 35 );
+function slfd_schedule_daily_campaign_alerts() {
+    if ( ! wp_next_scheduled( 'slfd_daily_campaign_alerts' ) ) {
+        wp_schedule_event( strtotime( 'tomorrow 08:00', current_time( 'timestamp' ) ), 'daily', 'slfd_daily_campaign_alerts' );
+    }
+}
+
+function slfd_send_daily_campaign_alerts() {
+    $campaign = slfd_campaign_data();
+    $stats = slfd_campaign_stats( $campaign );
+    if ( ! $campaign || ! $campaign['email_alerts'] || ! $stats || ! $stats['days']['remaining'] ) { return; }
+    $today = current_time( 'Y-m-d' );
+    foreach ( $stats['agents'] as $agent ) {
+        if ( $agent['clients']['gap'] >= 0 || ! is_email( $agent['user']->user_email ) ) { continue; }
+        $notice_key = '_slfd_campaign_alert_' . $campaign['id'];
+        if ( $today === get_user_meta( $agent['user']->ID, $notice_key, true ) ) { continue; }
+        $subject = 'Votre objectif Fidélité du jour';
+        $message = sprintf(
+            "Bonjour %s,\n\nVous avez enregistré %d client(s) sur un objectif de %d pour la campagne %s.\n\nPour revenir dans le rythme, visez %d enregistrement(s) par jour jusqu’au %s.\n\nConnectez-vous à votre espace Fidélité pour déclarer votre activité.\n\nComplexe Santa Lucia",
+            $agent['user']->display_name ?: $agent['user']->user_login,
+            $agent['clients']['actual'],
+            $agent['clients']['target'],
+            $campaign['name'],
+            $agent['clients']['daily'],
+            date_i18n( 'd/m/Y', strtotime( $campaign['end'] ) )
+        );
+        if ( wp_mail( $agent['user']->user_email, $subject, $message ) ) {
+            update_user_meta( $agent['user']->ID, $notice_key, $today );
+        }
+    }
+}
+
 function slfd_render_campaign_management() {
     if ( ! slfd_can_manage_agents() ) { return slfd_render_access_denied(); }
-    $campaign = slfd_campaign_data();
+    $selected_id = empty( $_GET['new'] ) ? absint( $_GET['campaign'] ?? slfd_active_campaign_id() ) : 0;
+    $campaign = $selected_id ? slfd_campaign_data( $selected_id ) : null;
     $stats = slfd_campaign_stats( $campaign );
     $flash = slfd_flash( 'read' );
     $terms = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] );
     $default_target = $campaign ? (int) ceil( $campaign['clients_target'] / max( 1, count( $terms ) ) ) : 0;
+    $campaigns = get_posts( [ 'post_type' => SLFD_CAMPAIGN_POST_TYPE, 'post_status' => 'publish', 'posts_per_page' => -1, 'orderby' => 'ID', 'order' => 'DESC' ] );
+    $agents = get_users( [ 'role' => 'sl_agent_fidelite', 'orderby' => 'display_name', 'order' => 'ASC' ] );
     ob_start(); ?>
     <main class="slfd-shell"><header class="slfd-topbar"><a class="slfd-brand" href="<?php echo esc_url( slfd_dashboard_url() ); ?>"><span class="dashicons dashicons-awards"></span><span><small>Complexe</small>Santa Lucia</span></a><span class="slfd-internal">Pilotage de campagne</span><a class="slfd-top-link" href="<?php echo esc_url( slfd_dashboard_url() ); ?>">Tableau de bord</a></header>
     <section class="slfd-content slfd-report-page"><?php if ( $flash ) : ?><div class="slfd-flash slfd-flash--<?php echo esc_attr( $flash[0] ); ?>"><?php echo esc_html( $flash[1] ); ?></div><?php endif; ?>
-        <div class="slfd-heading"><div><p class="slfd-eyebrow">Coordination</p><h1>Campagne Fidélité</h1><p>Définissez la période et les objectifs qui guident chaque agence et chaque agent.</p></div><?php if ( $campaign && $campaign['is_public'] ) : ?><a class="slfd-secondary" target="_blank" rel="noopener" href="<?php echo esc_url( slfd_campaign_public_url() ); ?>"><span class="dashicons dashicons-chart-bar"></span>Voir la page partagée</a><?php endif; ?></div>
+        <div class="slfd-heading"><div><p class="slfd-eyebrow">Coordination</p><h1>Campagne Fidélité</h1><p>Définissez la période et les objectifs qui guident chaque agence et chaque agent.</p></div><div class="slfd-heading-actions"><a class="slfd-secondary" href="<?php echo esc_url( slfd_campaigns_url( 0, true ) ); ?>"><span class="dashicons dashicons-plus-alt"></span>Nouvelle campagne</a><?php if ( $campaign ) : ?><a class="slfd-secondary" href="<?php echo esc_url( wp_nonce_url( add_query_arg( [ 'action' => 'slfd_export_campaign', 'campaign' => $campaign['id'] ], admin_url( 'admin-post.php' ) ), 'slfd_export_campaign' ) ); ?>"><span class="dashicons dashicons-download"></span>Exporter</a><?php endif; ?><?php if ( $campaign && $campaign['is_public'] ) : ?><a class="slfd-secondary" target="_blank" rel="noopener" href="<?php echo esc_url( slfd_campaign_public_url() ); ?>"><span class="dashicons dashicons-chart-bar"></span>Voir la page partagée</a><?php endif; ?></div></div>
+        <?php if ( $campaigns ) : ?><section class="slfd-pending slfd-campaign-list"><h2>Campagnes enregistrées</h2><?php foreach ( $campaigns as $campaign_post ) : $campaign_item = slfd_campaign_data( $campaign_post->ID ); $is_active = $campaign_item['id'] === slfd_active_campaign_id(); ?><article><div><strong><?php echo esc_html( $campaign_item['name'] ); ?></strong><span>Du <?php echo esc_html( date_i18n( 'd/m/Y', strtotime( $campaign_item['start'] ) ) ); ?> au <?php echo esc_html( date_i18n( 'd/m/Y', strtotime( $campaign_item['end'] ) ) ); ?> · <?php echo 'archived' === $campaign_item['state'] ? 'Archivée' : ( $is_active ? 'Campagne en cours' : 'Prête à activer' ); ?></span></div><div class="slfd-campaign-actions"><a class="slfd-secondary" href="<?php echo esc_url( slfd_campaigns_url( $campaign_item['id'] ) ); ?>">Ouvrir</a><?php if ( ! $is_active ) : ?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_campaign_action"><input type="hidden" name="campaign_id" value="<?php echo (int) $campaign_item['id']; ?>"><input type="hidden" name="campaign_action" value="activate"><?php wp_nonce_field( 'slfd_campaign_action_' . $campaign_item['id'] ); ?><button type="submit"><?php echo 'archived' === $campaign_item['state'] ? 'Réouvrir' : 'Activer'; ?></button></form><?php endif; ?><?php if ( 'archived' !== $campaign_item['state'] ) : ?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return window.confirm('Archiver cette campagne ? Ses résultats resteront consultables.');"><input type="hidden" name="action" value="slfd_campaign_action"><input type="hidden" name="campaign_id" value="<?php echo (int) $campaign_item['id']; ?>"><input type="hidden" name="campaign_action" value="archive"><?php wp_nonce_field( 'slfd_campaign_action_' . $campaign_item['id'] ); ?><button class="slfd-campaign-archive" type="submit">Archiver</button></form><?php endif; ?></div></article><?php endforeach; ?></section><?php endif; ?>
         <form class="slfd-report-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_save_campaign"><input type="hidden" name="campaign_id" value="<?php echo (int) ( $campaign['id'] ?? 0 ); ?>"><?php wp_nonce_field( 'slfd_save_campaign' ); ?>
             <section><h2>Cadre de la campagne</h2><div class="slfd-form-grid"><p><label for="slfd_campaign_name">Nom de la campagne</label><input id="slfd_campaign_name" name="slfd_campaign_name" value="<?php echo esc_attr( $campaign['name'] ?? '' ); ?>" placeholder="Campagne en cours"></p><p><label for="slfd_campaign_start">Date de début</label><input id="slfd_campaign_start" type="date" name="slfd_campaign_start" value="<?php echo esc_attr( $campaign['start'] ?? '' ); ?>" required></p><p><label for="slfd_campaign_end">Date de fin</label><input id="slfd_campaign_end" type="date" name="slfd_campaign_end" value="<?php echo esc_attr( $campaign['end'] ?? '' ); ?>" required></p><p><label for="slfd_clients_target">Objectif nouveaux clients</label><input id="slfd_clients_target" type="number" min="1" name="slfd_clients_target" value="<?php echo esc_attr( $campaign['clients_target'] ?? '' ); ?>" placeholder="30000" required></p><p><label for="slfd_playstore_target">Objectif inscriptions Play Store</label><input id="slfd_playstore_target" type="number" min="0" name="slfd_playstore_target" value="<?php echo esc_attr( $campaign['playstore_target'] ?? '' ); ?>"></p><p><label for="slfd_cards_target">Objectif cartes distribuées</label><input id="slfd_cards_target" type="number" min="0" name="slfd_cards_target" value="<?php echo esc_attr( $campaign['cards_target'] ?? '' ); ?>"></p></div></section>
             <section><h2>Objectifs par agence</h2><p class="slfd-form-help">Répartissez l’objectif clients. Ces cibles déterminent le rythme quotidien des agences et de leurs agents.</p><div class="slfd-form-grid"><?php foreach ( is_wp_error( $terms ) ? [] : $terms as $term ) : ?><p><label for="slfd_target_<?php echo esc_attr( $term->slug ); ?>"><?php echo esc_html( $term->name ); ?></label><input id="slfd_target_<?php echo esc_attr( $term->slug ); ?>" type="number" min="0" name="slfd_agency_targets[<?php echo esc_attr( $term->slug ); ?>]" value="<?php echo (int) ( $campaign['agency_targets'][ $term->slug ] ?? $default_target ); ?>"></p><?php endforeach; ?></div></section>
-            <section><h2>Visibilité de la page partagée</h2><div class="slfd-checks slfd-checks--rows"><label><input type="checkbox" name="slfd_is_public" value="1" <?php checked( ! empty( $campaign['is_public'] ) ); ?>><span>Autoriser le partage de la page de résultats</span></label><label><input type="checkbox" name="slfd_show_agents" value="1" <?php checked( ! empty( $campaign['show_agents'] ) ); ?>><span>Afficher les performances individuelles des agents</span></label></div><p class="slfd-form-help">Les coordonnées des clients et les détails des rapports restent masqués.</p></section>
+            <section><h2>Objectifs personnalisés des agents</h2><p class="slfd-form-help">Laissez vide pour utiliser la répartition automatique de l’objectif de l’agence.</p><div class="slfd-form-grid"><?php foreach ( $agents as $agent ) : ?><p><label for="slfd_agent_target_<?php echo (int) $agent->ID; ?>"><?php echo esc_html( $agent->display_name ?: $agent->user_login ); ?> <small><?php echo esc_html( get_user_meta( $agent->ID, 'sl_agence_assignee', true ) ); ?></small></label><input id="slfd_agent_target_<?php echo (int) $agent->ID; ?>" type="number" min="0" name="slfd_agent_targets[<?php echo (int) $agent->ID; ?>]" value="<?php echo esc_attr( $campaign['agent_targets'][ $agent->ID ] ?? '' ); ?>" placeholder="Automatique"></p><?php endforeach; ?></div></section>
+            <section><h2>Visibilité et rappels</h2><div class="slfd-checks slfd-checks--rows"><label><input type="checkbox" name="slfd_is_active" value="1" <?php checked( ! $campaign || (int) $campaign['id'] === slfd_active_campaign_id() ); ?>><span>Utiliser comme campagne en cours</span></label><label><input type="checkbox" name="slfd_is_public" value="1" <?php checked( ! empty( $campaign['is_public'] ) ); ?>><span>Autoriser le partage de la page de résultats</span></label><label><input type="checkbox" name="slfd_show_agents" value="1" <?php checked( ! empty( $campaign['show_agents'] ) ); ?>><span>Afficher les performances individuelles des agents</span></label><label><input type="checkbox" name="slfd_email_alerts" value="1" <?php checked( ! empty( $campaign['email_alerts'] ) ); ?>><span>Envoyer un rappel e-mail quotidien aux agents en retard</span></label></div><p class="slfd-form-help">Les coordonnées des clients et les détails des rapports restent masqués.</p></section>
             <div class="slfd-form-actions"><a href="<?php echo esc_url( slfd_dashboard_url() ); ?>">Annuler</a><button type="submit">Enregistrer la campagne</button></div>
         </form>
         <?php if ( $stats ) : ?><section class="slfd-pending"><h2>Lecture rapide</h2><p><strong><?php echo esc_html( $campaign['name'] ); ?></strong> · <?php echo (int) $stats['days']['remaining']; ?> jour(s) restant(s) · <?php echo (int) $stats['clients']['daily']; ?> nouveaux clients à enregistrer par jour pour atteindre l’objectif.</p></section><?php endif; ?>
@@ -298,6 +395,56 @@ function slfd_campaign_agent_row( $stats, $user_id ) {
     return null;
 }
 
+function slfd_campaign_chart_markup( $stats ) {
+    $campaign = $stats['campaign'];
+    $end = min( current_time( 'Y-m-d' ), $campaign['end'] );
+    $start = max( $campaign['start'], date_i18n( 'Y-m-d', strtotime( $end . ' -13 days' ) ) );
+    $values = [];
+    for ( $date = $start; $date <= $end; $date = date_i18n( 'Y-m-d', strtotime( $date . ' +1 day' ) ) ) {
+        $values[ $date ] = (int) ( $stats['daily'][ $date ] ?? 0 );
+    }
+    $max = max( 1, max( $values ), (int) ceil( $stats['clients']['target'] / $stats['days']['total'] ) );
+    $html = '<div class="slfd-campaign-chart" role="img" aria-label="Évolution des enregistrements sur les quatorze derniers jours">';
+    foreach ( $values as $date => $value ) {
+        $height = max( 4, (int) round( $value / $max * 100 ) );
+        $html .= '<span><i title="' . esc_attr( date_i18n( 'd/m', strtotime( $date ) ) . ' : ' . $value . ' clients' ) . '" style="height:' . esc_attr( $height ) . '%"></i><small>' . esc_html( date_i18n( 'd/m', strtotime( $date ) ) ) . '</small></span>';
+    }
+    return $html . '</div>';
+}
+
+add_action( 'admin_post_slfd_export_campaign', 'slfd_export_campaign' );
+function slfd_export_campaign() {
+    if ( ! slfd_can_manage_agents() ) { wp_die( 'Accès refusé.', 403 ); }
+    check_admin_referer( 'slfd_export_campaign' );
+    $campaign = slfd_campaign_data( absint( $_GET['campaign'] ?? 0 ) );
+    $stats = slfd_campaign_stats( $campaign );
+    if ( ! $campaign || ! $stats ) { wp_die( 'Campagne introuvable.', 404 ); }
+    nocache_headers();
+    header( 'Content-Type: text/csv; charset=utf-8' );
+    header( 'Content-Disposition: attachment; filename=campagne-fidelite-' . sanitize_title( $campaign['name'] ) . '.csv' );
+    $output = fopen( 'php://output', 'w' );
+    fwrite( $output, "\xEF\xBB\xBF" );
+    fputcsv( $output, [ 'Campagne', $campaign['name'], 'Période', $campaign['start'] . ' au ' . $campaign['end'] ], ';' );
+    fputcsv( $output, [ 'Indicateur', 'Réalisé', 'Objectif', 'Pourcentage', 'Rythme quotidien restant' ], ';' );
+    foreach ( [ 'clients' => 'Nouveaux clients', 'playstore' => 'Inscriptions Play Store', 'cards' => 'Cartes distribuées' ] as $key => $label ) {
+        $metric = $stats[ $key ];
+        fputcsv( $output, [ $label, $metric['actual'], $metric['target'], $metric['percent'] . '%', $metric['daily'] ], ';' );
+    }
+    fputcsv( $output, [], ';' );
+    fputcsv( $output, [ 'Agence', 'Réalisé', 'Objectif', 'Pourcentage', 'Rythme quotidien restant', 'Agents actifs' ], ';' );
+    foreach ( $stats['agencies'] as $agency ) {
+        $metric = $agency['clients'];
+        fputcsv( $output, [ $agency['term']->name, $metric['actual'], $metric['target'], $metric['percent'] . '%', $metric['daily'], $agency['agents'] ], ';' );
+    }
+    fputcsv( $output, [], ';' );
+    fputcsv( $output, [ 'Agent', 'Agence', 'Réalisé', 'Objectif', 'Pourcentage', 'Rythme quotidien restant' ], ';' );
+    foreach ( $stats['agents'] as $agent ) {
+        $metric = $agent['clients'];
+        fputcsv( $output, [ $agent['user']->display_name ?: $agent['user']->user_login, $agent['agency'], $metric['actual'], $metric['target'], $metric['percent'] . '%', $metric['daily'] ], ';' );
+    }
+    fclose( $output ); exit;
+}
+
 function slfd_render_campaign_overview( $stats, $is_public = false ) {
     if ( ! $stats ) { return ''; }
     $campaign = $stats['campaign'];
@@ -314,7 +461,7 @@ function slfd_render_campaign_public() {
         return '<main class="slfd-public-shell"><h1>Résultats indisponibles</h1><p>La page de suivi n’est pas encore activée par la coordination.</p></main>';
     }
     ob_start(); ?>
-    <main class="slfd-public-shell"><header class="slfd-public-header"><p>Complexe Santa Lucia</p><h1>Suivi de la campagne Fidélité</h1><span>Mise à jour : <?php echo esc_html( date_i18n( 'd/m/Y à H:i', current_time( 'timestamp' ) ) ); ?></span></header><?php echo slfd_render_campaign_overview( $stats, true ); ?>
+    <main class="slfd-public-shell"><header class="slfd-public-header"><p>Complexe Santa Lucia</p><h1>Suivi de la campagne Fidélité</h1><span>Mise à jour : <?php echo esc_html( date_i18n( 'd/m/Y à H:i', current_time( 'timestamp' ) ) ); ?></span></header><?php echo slfd_render_campaign_overview( $stats, true ); ?><section class="slfd-public-section"><div class="slfd-public-heading"><h2>Évolution des enregistrements</h2><p>Les quatorze derniers jours de la campagne.</p></div><?php echo slfd_campaign_chart_markup( $stats ); // phpcs:ignore WordPress.Security.EscapeOutput ?></section>
     <section class="slfd-public-section"><div class="slfd-public-heading"><h2>Classement des agences</h2><p>Objectif, progression et rythme quotidien de chaque agence.</p></div><div class="slfd-public-agencies"><?php foreach ( $stats['agencies'] as $rank => $agency ) : $is_late = $agency['clients']['gap'] < 0; ?><article class="<?php echo $is_late ? 'is-late' : ''; ?>"><div class="slfd-public-rank">#<?php echo (int) ( $rank + 1 ); ?></div><div class="slfd-public-agency-main"><h3><?php echo esc_html( $agency['term']->name ); ?></h3><?php echo slfd_campaign_progress_markup( $agency['clients'], 'Clients enregistrés' ); ?></div><div class="slfd-public-agency-state"><strong><?php echo $is_late ? 'À accompagner' : 'Dans le rythme'; ?></strong><span><?php echo (int) $agency['agents']; ?> agent(s)</span></div></article><?php endforeach; ?></div></section>
     <?php if ( $campaign['show_agents'] ) : ?><section class="slfd-public-section"><div class="slfd-public-heading"><h2>Classement des agents</h2><p>La progression de chacun est comparée à son objectif personnel.</p></div><div class="slfd-public-agents"><table><thead><tr><th>Rang</th><th>Agent</th><th>Agence</th><th>Réalisé</th><th>Objectif</th><th>Évolution</th><th>Statut</th></tr></thead><tbody><?php foreach ( $stats['agents'] as $rank => $agent ) : $late = $agent['clients']['gap'] < 0; ?><tr class="<?php echo $late ? 'is-late' : ''; ?>"><td>#<?php echo (int) ( $rank + 1 ); ?></td><td><strong><?php echo esc_html( $agent['user']->display_name ?: $agent['user']->user_login ); ?></strong></td><td><?php echo esc_html( $agent['agency'] ?: 'Non attribuée' ); ?></td><td><?php echo number_format_i18n( $agent['clients']['actual'] ); ?></td><td><?php echo number_format_i18n( $agent['clients']['target'] ); ?></td><td><?php echo slfd_campaign_trend_markup( $agent['trend'] ); // phpcs:ignore WordPress.Security.EscapeOutput ?></td><td><span><?php echo $late ? 'En dessous du rythme' : 'Dans le rythme'; ?></span></td></tr><?php endforeach; ?></tbody></table></div></section><?php endif; ?>
     </main><?php return ob_get_clean();
