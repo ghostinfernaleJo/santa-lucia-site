@@ -295,6 +295,15 @@ function slfd_campaign_action() {
     check_admin_referer( 'slfd_campaign_action_' . $campaign_id );
     if ( SLFD_CAMPAIGN_POST_TYPE !== get_post_type( $campaign_id ) ) {
         slfd_flash( 'error', 'Cette campagne est introuvable.' );
+    } elseif ( 'delete' === ( $_POST['campaign_action'] ?? '' ) ) {
+        if ( $campaign_id === slfd_active_campaign_id() ) {
+            delete_option( 'slfd_active_campaign_id' );
+        }
+        if ( wp_trash_post( $campaign_id ) ) {
+            slfd_flash( 'success', 'La campagne a été supprimée. Les rapports et approvisionnements restent disponibles dans l’historique.' );
+        } else {
+            slfd_flash( 'error', 'La campagne n’a pas pu être supprimée.' );
+        }
     } elseif ( 'activate' === ( $_POST['campaign_action'] ?? '' ) ) {
         update_post_meta( $campaign_id, '_slfd_campaign_state', 'active' );
         update_option( 'slfd_active_campaign_id', $campaign_id, false );
@@ -356,7 +365,51 @@ function slfd_render_campaign_management() {
     <main class="slfd-shell"><header class="slfd-topbar"><a class="slfd-brand" href="<?php echo esc_url( slfd_dashboard_url() ); ?>"><span class="dashicons dashicons-awards"></span><span><small>Complexe</small>Santa Lucia</span></a><span class="slfd-internal">Pilotage de campagne</span><a class="slfd-top-link" href="<?php echo esc_url( slfd_dashboard_url() ); ?>">Tableau de bord</a></header>
     <section class="slfd-content slfd-report-page"><?php if ( $flash ) : ?><div class="slfd-flash slfd-flash--<?php echo esc_attr( $flash[0] ); ?>"><?php echo esc_html( $flash[1] ); ?></div><?php endif; ?>
         <div class="slfd-heading"><div><p class="slfd-eyebrow">Coordination</p><h1>Campagne Fidélité</h1><p>Définissez la période et les objectifs qui guident chaque agence et chaque agent.</p></div><div class="slfd-heading-actions"><a class="slfd-secondary" href="<?php echo esc_url( slfd_campaigns_url( 0, true ) ); ?>"><span class="dashicons dashicons-plus-alt"></span>Nouvelle campagne</a><?php if ( $campaign ) : ?><a class="slfd-secondary" href="<?php echo esc_url( wp_nonce_url( add_query_arg( [ 'action' => 'slfd_export_campaign', 'campaign' => $campaign['id'] ], admin_url( 'admin-post.php' ) ), 'slfd_export_campaign' ) ); ?>"><span class="dashicons dashicons-download"></span>Exporter</a><?php endif; ?><?php if ( $campaign && $campaign['is_public'] ) : $public_url = slfd_campaign_public_url( $campaign['id'] ); $share_message = slfd_campaign_share_message( $stats, $public_url ); ?><a class="slfd-secondary" target="_blank" rel="noopener" href="<?php echo esc_url( $public_url ); ?>"><span class="dashicons dashicons-chart-bar"></span>Voir la page partagée</a><a class="slfd-secondary" target="_blank" rel="noopener" href="https://wa.me/?text=<?php echo rawurlencode( $share_message ); ?>"><span class="dashicons dashicons-whatsapp"></span>Partager</a><?php endif; ?></div></div>
-        <?php if ( $campaigns ) : ?><section class="slfd-pending slfd-campaign-list"><h2>Campagnes enregistrées</h2><?php foreach ( $campaigns as $campaign_post ) : $campaign_item = slfd_campaign_data( $campaign_post->ID ); $is_active = $campaign_item['id'] === slfd_active_campaign_id(); ?><article><div><strong><?php echo esc_html( $campaign_item['name'] ); ?></strong><span>Du <?php echo esc_html( date_i18n( 'd/m/Y', strtotime( $campaign_item['start'] ) ) ); ?> au <?php echo esc_html( date_i18n( 'd/m/Y', strtotime( $campaign_item['end'] ) ) ); ?> · <?php echo 'archived' === $campaign_item['state'] ? 'Archivée' : ( $is_active ? 'Campagne en cours' : 'Prête à activer' ); ?></span></div><div class="slfd-campaign-actions"><a class="slfd-secondary" href="<?php echo esc_url( slfd_campaigns_url( $campaign_item['id'] ) ); ?>">Ouvrir</a><?php if ( ! $is_active ) : ?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_campaign_action"><input type="hidden" name="campaign_id" value="<?php echo (int) $campaign_item['id']; ?>"><input type="hidden" name="campaign_action" value="activate"><?php wp_nonce_field( 'slfd_campaign_action_' . $campaign_item['id'] ); ?><button type="submit"><?php echo 'archived' === $campaign_item['state'] ? 'Réouvrir' : 'Activer'; ?></button></form><?php endif; ?><?php if ( 'archived' !== $campaign_item['state'] ) : ?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return window.confirm('Archiver cette campagne ? Ses résultats resteront consultables.');"><input type="hidden" name="action" value="slfd_campaign_action"><input type="hidden" name="campaign_id" value="<?php echo (int) $campaign_item['id']; ?>"><input type="hidden" name="campaign_action" value="archive"><?php wp_nonce_field( 'slfd_campaign_action_' . $campaign_item['id'] ); ?><button class="slfd-campaign-archive" type="submit">Archiver</button></form><?php endif; ?></div></article><?php endforeach; ?></section><section class="slfd-pending slfd-campaign-comparison"><h2>Comparaison des campagnes</h2><div class="slfd-table-scroll"><table><thead><tr><th>Campagne</th><th>Période</th><th>Clients</th><th>Objectif</th><th>Atteinte</th></tr></thead><tbody><?php foreach ( $campaigns as $comparison_post ) : $comparison = slfd_campaign_data( $comparison_post->ID ); $comparison_stats = slfd_campaign_stats( $comparison ); if ( ! $comparison_stats ) continue; ?><tr><td><strong><?php echo esc_html( $comparison['name'] ); ?></strong></td><td><?php echo esc_html( date_i18n( 'd/m/Y', strtotime( $comparison['start'] ) ) . ' - ' . date_i18n( 'd/m/Y', strtotime( $comparison['end'] ) ) ); ?></td><td><?php echo number_format_i18n( $comparison_stats['clients']['actual'] ); ?></td><td><?php echo number_format_i18n( $comparison_stats['clients']['target'] ); ?></td><td><?php echo number_format_i18n( $comparison_stats['clients']['percent'], 1 ); ?>%</td></tr><?php endforeach; ?></tbody></table></div></section><?php endif; ?>
+        <?php if ( $campaigns ) : ?>
+            <section class="slfd-pending slfd-campaign-list">
+                <h2>Campagnes enregistrées</h2>
+                <?php foreach ( $campaigns as $campaign_post ) :
+                    $campaign_item = slfd_campaign_data( $campaign_post->ID );
+                    $is_active = $campaign_item['id'] === slfd_active_campaign_id();
+                ?>
+                    <article>
+                        <div>
+                            <strong><?php echo esc_html( $campaign_item['name'] ); ?></strong>
+                            <span>Du <?php echo esc_html( date_i18n( 'd/m/Y', strtotime( $campaign_item['start'] ) ) ); ?> au <?php echo esc_html( date_i18n( 'd/m/Y', strtotime( $campaign_item['end'] ) ) ); ?> · <?php echo 'archived' === $campaign_item['state'] ? 'Archivée' : ( $is_active ? 'Campagne en cours' : 'Prête à activer' ); ?></span>
+                        </div>
+                        <div class="slfd-campaign-actions">
+                            <a class="slfd-secondary" href="<?php echo esc_url( slfd_campaigns_url( $campaign_item['id'] ) ); ?>">Ouvrir</a>
+                            <?php if ( ! $is_active ) : ?>
+                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                                    <input type="hidden" name="action" value="slfd_campaign_action">
+                                    <input type="hidden" name="campaign_id" value="<?php echo (int) $campaign_item['id']; ?>">
+                                    <input type="hidden" name="campaign_action" value="activate">
+                                    <?php wp_nonce_field( 'slfd_campaign_action_' . $campaign_item['id'] ); ?>
+                                    <button type="submit"><?php echo 'archived' === $campaign_item['state'] ? 'Réouvrir' : 'Activer'; ?></button>
+                                </form>
+                            <?php endif; ?>
+                            <?php if ( 'archived' !== $campaign_item['state'] ) : ?>
+                                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return window.confirm('Archiver cette campagne ? Ses résultats resteront consultables.');">
+                                    <input type="hidden" name="action" value="slfd_campaign_action">
+                                    <input type="hidden" name="campaign_id" value="<?php echo (int) $campaign_item['id']; ?>">
+                                    <input type="hidden" name="campaign_action" value="archive">
+                                    <?php wp_nonce_field( 'slfd_campaign_action_' . $campaign_item['id'] ); ?>
+                                    <button class="slfd-campaign-archive" type="submit">Archiver</button>
+                                </form>
+                            <?php endif; ?>
+                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return window.confirm('Supprimer cette campagne ? Elle sera retirée du pilotage. Les rapports et approvisionnements resteront disponibles dans l’historique.');">
+                                <input type="hidden" name="action" value="slfd_campaign_action">
+                                <input type="hidden" name="campaign_id" value="<?php echo (int) $campaign_item['id']; ?>">
+                                <input type="hidden" name="campaign_action" value="delete">
+                                <?php wp_nonce_field( 'slfd_campaign_action_' . $campaign_item['id'] ); ?>
+                                <button class="slfd-campaign-delete" type="submit">Supprimer</button>
+                            </form>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+            </section>
+            <section class="slfd-pending slfd-campaign-comparison"><h2>Comparaison des campagnes</h2><div class="slfd-table-scroll"><table><thead><tr><th>Campagne</th><th>Période</th><th>Clients</th><th>Objectif</th><th>Atteinte</th></tr></thead><tbody><?php foreach ( $campaigns as $comparison_post ) : $comparison = slfd_campaign_data( $comparison_post->ID ); $comparison_stats = slfd_campaign_stats( $comparison ); if ( ! $comparison_stats ) continue; ?><tr><td><strong><?php echo esc_html( $comparison['name'] ); ?></strong></td><td><?php echo esc_html( date_i18n( 'd/m/Y', strtotime( $comparison['start'] ) ) . ' - ' . date_i18n( 'd/m/Y', strtotime( $comparison['end'] ) ) ); ?></td><td><?php echo number_format_i18n( $comparison_stats['clients']['actual'] ); ?></td><td><?php echo number_format_i18n( $comparison_stats['clients']['target'] ); ?></td><td><?php echo number_format_i18n( $comparison_stats['clients']['percent'], 1 ); ?>%</td></tr><?php endforeach; ?></tbody></table></div></section>
+        <?php endif; ?>
         <form class="slfd-report-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_save_campaign"><input type="hidden" name="campaign_id" value="<?php echo (int) ( $campaign['id'] ?? 0 ); ?>"><?php wp_nonce_field( 'slfd_save_campaign' ); ?>
             <section><h2>Cadre de la campagne</h2><div class="slfd-form-grid"><p><label for="slfd_campaign_name">Nom de la campagne</label><input id="slfd_campaign_name" name="slfd_campaign_name" value="<?php echo esc_attr( $campaign['name'] ?? '' ); ?>" placeholder="Campagne en cours"></p><p><label for="slfd_campaign_start">Date de début</label><input id="slfd_campaign_start" type="date" name="slfd_campaign_start" value="<?php echo esc_attr( $campaign['start'] ?? '' ); ?>" required></p><p><label for="slfd_campaign_end">Date de fin</label><input id="slfd_campaign_end" type="date" name="slfd_campaign_end" value="<?php echo esc_attr( $campaign['end'] ?? '' ); ?>" required></p><p><label for="slfd_clients_target">Objectif nouveaux clients</label><input id="slfd_clients_target" type="number" min="1" name="slfd_clients_target" value="<?php echo esc_attr( $campaign['clients_target'] ?? '' ); ?>" placeholder="30000" required></p><p><label for="slfd_playstore_target">Objectif inscriptions Play Store</label><input id="slfd_playstore_target" type="number" min="0" name="slfd_playstore_target" value="<?php echo esc_attr( $campaign['playstore_target'] ?? '' ); ?>"></p><p><label for="slfd_cards_target">Objectif cartes distribuées</label><input id="slfd_cards_target" type="number" min="0" name="slfd_cards_target" value="<?php echo esc_attr( $campaign['cards_target'] ?? '' ); ?>"></p></div></section>
             <section><h2>Objectifs par agence</h2><p class="slfd-form-help">Répartissez l’objectif clients. Ces cibles déterminent le rythme quotidien des agences et de leurs agents.</p><div class="slfd-form-grid"><?php foreach ( is_wp_error( $terms ) ? [] : $terms as $term ) : ?><p><label for="slfd_target_<?php echo esc_attr( $term->slug ); ?>"><?php echo esc_html( $term->name ); ?></label><input id="slfd_target_<?php echo esc_attr( $term->slug ); ?>" type="number" min="0" name="slfd_agency_targets[<?php echo esc_attr( $term->slug ); ?>]" value="<?php echo (int) ( $campaign['agency_targets'][ $term->slug ] ?? $default_target ); ?>"></p><?php endforeach; ?></div></section>
