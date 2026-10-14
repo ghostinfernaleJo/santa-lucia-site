@@ -200,7 +200,7 @@
 
 .slfd-checks--rows label {
     display: grid !important;
-    grid-template-columns: 20px 36px 1fr;
+    grid-template-columns: 20px minmax(0, 1fr);
     gap: 10px !important;
     align-items: center;
     min-height: 54px;
@@ -225,6 +225,11 @@
     min-height: 18px !important;
     margin: 0;
     accent-color: var(--slfd-pink);
+}
+
+.slfd-checks--rows label span {
+    min-width: 0;
+    line-height: 1.35;
 }
 
 .slfd-issue-icon {
