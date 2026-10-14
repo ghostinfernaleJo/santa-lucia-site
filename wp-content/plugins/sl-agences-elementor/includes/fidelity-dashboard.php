@@ -693,6 +693,7 @@ function slfd_submit_report() {
     $received    = slfd_supplies_total( $agency->slug, $date );
     $enrollments = absint( $_POST['slfd_enrollments'] ?? 0 );
     $playstore   = absint( $_POST['slfd_playstore'] ?? 0 );
+    $cards_distributed = absint( $_POST['slfd_cards_distributed'] ?? 0 );
     $damaged     = absint( $_POST['slfd_damaged'] ?? 0 );
     $closing     = absint( $_POST['slfd_closing'] ?? 0 );
     $expected    = max( 0, $opening + $received - $enrollments - $damaged );
@@ -737,6 +738,7 @@ function slfd_submit_report() {
     update_post_meta( $post_id, '_slfd_received', $received );
     update_post_meta( $post_id, '_slfd_enrollments', $enrollments );
     update_post_meta( $post_id, '_slfd_playstore', $playstore );
+    update_post_meta( $post_id, '_slfd_cards_distributed', $cards_distributed );
     update_post_meta( $post_id, '_slfd_damaged', $damaged );
     update_post_meta( $post_id, '_slfd_closing', $closing );
     update_post_meta( $post_id, '_slfd_expected_closing', $expected );
@@ -944,8 +946,8 @@ function slfd_export_reports() {
 	$reports = slfd_history_reports( slfd_history_filters() );
 	nocache_headers(); header( 'Content-Type: text/csv; charset=utf-8' ); header( 'Content-Disposition: attachment; filename=rapports-fidelite-' . gmdate( 'Y-m-d' ) . '.csv' );
 	$output = fopen( 'php://output', 'w' ); fwrite( $output, "\xEF\xBB\xBF" );
-	fputcsv( $output, [ 'Date', 'Agence', 'Statut', 'Début', 'Approvisionnées', 'Enrôlements', 'Endommagées', 'Fin', 'Écart' ], ';' );
-	foreach ( $reports as $report ) fputcsv( $output, [ get_post_meta( $report->ID, '_slfd_date', true ), slfd_agency_name( get_post_meta( $report->ID, '_slfd_agency', true ) ), 'publish' === $report->post_status ? 'Validé' : 'En attente', slfd_meta_int( $report->ID, '_slfd_opening' ), slfd_meta_int( $report->ID, '_slfd_received' ), slfd_meta_int( $report->ID, '_slfd_enrollments' ), slfd_meta_int( $report->ID, '_slfd_damaged' ), slfd_meta_int( $report->ID, '_slfd_closing' ), (int) get_post_meta( $report->ID, '_slfd_stock_delta', true ) ], ';' );
+    fputcsv( $output, [ 'Date', 'Agence', 'Statut', 'Début', 'Approvisionnées', 'Enrôlements', 'Play Store', 'Cartes remises clients', 'Endommagées', 'Fin', 'Écart' ], ';' );
+    foreach ( $reports as $report ) fputcsv( $output, [ get_post_meta( $report->ID, '_slfd_date', true ), slfd_agency_name( get_post_meta( $report->ID, '_slfd_agency', true ) ), 'publish' === $report->post_status ? 'Validé' : 'En attente', slfd_meta_int( $report->ID, '_slfd_opening' ), slfd_meta_int( $report->ID, '_slfd_received' ), slfd_meta_int( $report->ID, '_slfd_enrollments' ), slfd_meta_int( $report->ID, '_slfd_playstore' ), slfd_meta_int( $report->ID, '_slfd_cards_distributed' ), slfd_meta_int( $report->ID, '_slfd_damaged' ), slfd_meta_int( $report->ID, '_slfd_closing' ), (int) get_post_meta( $report->ID, '_slfd_stock_delta', true ) ], ';' );
 	fclose( $output ); exit;
 }
 
@@ -1256,7 +1258,7 @@ function slfd_render_report_form() {
                             <section aria-labelledby="slfd-section-digital">
                                 <h2 id="slfd-section-digital">Inscriptions Play Store</h2>
                                 <p class="slfd-form-help">Indiquez le nombre de personnes inscrites sur le Play Store grâce à l’activité de l’agence aujourd’hui.</p>
-                                <p><label for="slfd_playstore">Inscriptions Play Store du jour</label><input id="slfd_playstore" type="number" inputmode="numeric" name="slfd_playstore" min="0" value="0"></p>
+                                <div class="slfd-form-grid"><p><label for="slfd_playstore">Inscriptions Play Store du jour</label><input id="slfd_playstore" type="number" inputmode="numeric" name="slfd_playstore" min="0" value="0"></p><p><label for="slfd_cards_distributed">Cartes remises aux clients</label><input id="slfd_cards_distributed" type="number" inputmode="numeric" name="slfd_cards_distributed" min="0" value="0"><small>À distinguer des cartes approvisionnées à l’agence.</small></p></div>
                             </section>
                             <section aria-labelledby="slfd-section-issues">
                                 <h2 id="slfd-section-issues">Difficultés et besoins</h2>
