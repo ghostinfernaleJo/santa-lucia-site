@@ -1161,10 +1161,34 @@ function slfd_render_dashboard() {
                 <div><p class="slfd-eyebrow">Programme cartes de fidélité</p><h1>Tableau de bord Fidélité</h1><p>Suivi quotidien des enrôlements et du stock de cartes par agence.</p></div>
                 <div class="slfd-heading-actions"><?php if ( slfd_can_manage_agents() ) : ?><a class="slfd-secondary" href="<?php echo esc_url( slfd_campaigns_url() ); ?>"><span class="dashicons dashicons-chart-bar"></span>Gérer la campagne</a><a class="slfd-secondary" href="<?php echo esc_url( slfd_agents_url() ); ?>"><span class="dashicons dashicons-admin-users"></span>Gérer les agents</a><?php endif; ?><?php if ( slfd_can_supply() ) : ?><a class="slfd-secondary" href="<?php echo esc_url( slfd_supply_url() ); ?>"><span class="dashicons dashicons-plus-alt"></span>Approvisionner une agence</a><?php endif; ?><a class="slfd-primary" href="<?php echo esc_url( slfd_report_url() ); ?>"><span class="dashicons dashicons-edit-page"></span>Saisir le rapport du jour</a></div>
             </div>
-            <?php if ( $campaign_stats ) : ?><?php echo slfd_render_campaign_overview( $campaign_stats ); // phpcs:ignore WordPress.Security.EscapeOutput ?><section class="slfd-table-card slfd-dashboard-campaign-chart"><div class="slfd-table-head"><div><h2>Évolution de la campagne</h2><p>Enregistrements validés sur les quatorze derniers jours.</p></div><strong class="slfd-campaign-daily-target"><?php echo (int) $campaign_stats['clients']['daily']; ?><span>clients / jour requis</span></strong></div><?php echo slfd_campaign_chart_markup( $campaign_stats ); // phpcs:ignore WordPress.Security.EscapeOutput ?><p class="slfd-footnote"><span class="dashicons dashicons-chart-line"></span>La courbe est basée uniquement sur les rapports validés. Le classement quotidien se trouve ci-dessous.</p></section><?php elseif ( slfd_can_manage_agents() ) : ?><section class="slfd-notice">Aucune campagne n’est encore définie. <a href="<?php echo esc_url( slfd_campaigns_url() ); ?>">Configurez la campagne en cours</a> pour suivre les objectifs et les progrès.</section><?php endif; ?>
+            <?php if ( $campaign_stats ) : ?>
+                <?php echo slfd_render_campaign_overview( $campaign_stats ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+                <section class="slfd-table-card slfd-dashboard-campaign-chart" aria-labelledby="slfd-campaign-chart-title">
+                    <div class="slfd-table-head">
+                        <div>
+                            <p class="slfd-eyebrow">Pilotage de campagne</p>
+                            <h2 id="slfd-campaign-chart-title">Évolution de la campagne</h2>
+                            <p>Enregistrements validés sur les quatorze derniers jours.</p>
+                        </div>
+                        <strong class="slfd-campaign-daily-target"><?php echo (int) $campaign_stats['clients']['daily']; ?><span>clients / jour requis</span></strong>
+                    </div>
+                    <?php echo slfd_campaign_chart_markup( $campaign_stats ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+                    <p class="slfd-footnote"><span class="dashicons dashicons-chart-line"></span>La courbe est basée uniquement sur les rapports validés. Le classement quotidien se trouve ci-dessous.</p>
+                </section>
+            <?php elseif ( slfd_can_manage_agents() ) : ?>
+                <section class="slfd-campaign-empty" aria-labelledby="slfd-campaign-empty-title">
+                    <span class="dashicons dashicons-chart-area"></span>
+                    <div>
+                        <p class="slfd-eyebrow">Pilotage de campagne</p>
+                        <h2 id="slfd-campaign-empty-title">La campagne n’est pas encore configurée</h2>
+                        <p>Définissez une période et vos objectifs pour afficher les courbes, les progressions par agence et le rythme quotidien attendu.</p>
+                    </div>
+                    <a class="slfd-primary" href="<?php echo esc_url( slfd_campaigns_url() ); ?>"><span class="dashicons dashicons-chart-bar"></span>Configurer la campagne</a>
+                </section>
+            <?php endif; ?>
             <div class="slfd-layout">
                 <section class="slfd-table-card" aria-labelledby="slfd-ranking-title">
-                    <div class="slfd-table-head"><h2 id="slfd-ranking-title">Classement du jour</h2><form method="get"><label for="slfd-date">Date</label><input id="slfd-date" type="date" name="date" value="<?php echo esc_attr( $date ); ?>"><button type="submit">Afficher</button></form></div>
+                    <div class="slfd-table-head"><div><p class="slfd-eyebrow">Suivi opérationnel</p><h2 id="slfd-ranking-title">Classement du jour</h2></div><form method="get"><label for="slfd-date">Date</label><input id="slfd-date" type="date" name="date" value="<?php echo esc_attr( $date ); ?>"><button type="submit">Afficher</button></form></div>
                     <div class="slfd-table-scroll"><table><thead><tr><th>Rang</th><th>Agence</th><th>Enrôlements validés</th><th>Stock restant</th></tr></thead><tbody>
                     <?php if ( ! $rows ) : ?><tr><td colspan="4" class="slfd-empty">Aucune agence n’est encore configurée.</td></tr><?php endif; ?>
                     <?php foreach ( $rows as $row ) : $state = null !== $row['stock'] ? slfd_stock_state( $row['stock'] ) : null; ?>
