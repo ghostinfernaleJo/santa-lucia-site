@@ -227,7 +227,23 @@ function slfd_agency_city( $term ) {
     }
 
     $city = trim( (string) get_term_meta( $term->term_id, '_slfd_city', true ) );
-    return '' !== $city ? $city : 'Non renseignée';
+    if ( '' !== $city ) {
+        return $city;
+    }
+
+    // Référentiel partagé avec les modules opérationnels Santa Lucia.
+    $cities_by_agency = [
+        'Yaoundé' => [ 'nkondengui', 'kondengui', 'ngousso', 'nkoabang', 'mokolo', 'melen', 'essos', 'ahala', 'odza', 'mvan', 'simbock' ],
+        'Douala'  => [ 'cite-cicam', 'akwa-nord', 'bonaberi', 'bonamoussadi', 'akwa', 'nkolbong', 'bercy', 'cite-des-palmiers' ],
+    ];
+    $slug = sanitize_title( $term->slug );
+    foreach ( $cities_by_agency as $default_city => $agency_slugs ) {
+        if ( in_array( $slug, $agency_slugs, true ) ) {
+            return $default_city;
+        }
+    }
+
+    return 'Non renseignée';
 }
 
 function slfd_city_options( $terms = [] ) {
