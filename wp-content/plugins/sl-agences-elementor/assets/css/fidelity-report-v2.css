@@ -637,6 +637,14 @@
     gap: 9px !important;
 }
 
+.slfd-operational-card .slfd-table-head {
+    align-items: flex-start;
+    flex-direction: column;
+}
+
+.slfd-operational-card .slfd-table-head > div,
+.slfd-operational-card .slfd-operational-filters { width: 100%; }
+
 .slfd-operational-filters label {
     display: grid;
     gap: 5px;
@@ -650,6 +658,11 @@
     background: #fff;
     color: #172033;
     padding: 4px 8px;
+}
+
+.slfd-operational-filters input,
+.slfd-operational-filters select {
+    width: 100%;
 }
 
 .slfd-agency-directory table { width: 100%; border-collapse: collapse; }

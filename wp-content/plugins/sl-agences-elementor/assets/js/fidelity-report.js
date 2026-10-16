@@ -24,7 +24,7 @@
     var summaryEnrollments = form.querySelector('#slfd_summary_enrollments');
     var summaryDamaged = form.querySelector('#slfd_summary_damaged');
 
-    if (!opening || !enrollments || !damaged || !closing || !receivedOutput || !expectedOutput || !declaredOutput || !deltaOutput || !deltaBox || !statusBox || !statusText || !summaryOpening || !summaryEnrollments || !summaryDamaged) return;
+    if (!opening || !enrollments || !damaged || !closing || !receivedOutput || !expectedOutput || !declaredOutput || !deltaOutput || !deltaBox || !statusBox || !statusText || !summaryEnrollments || !summaryDamaged) return;
 
     function numberValue(field) {
         var value = parseInt(field.value, 10);
@@ -50,7 +50,7 @@
         var hasTooManyExits = enrolled + broken > start + received;
         var matches = delta === 0 && !hasTooManyExits;
 
-        summaryOpening.textContent = String(start);
+        if (summaryOpening) summaryOpening.textContent = String(start);
         if (summaryReceived) summaryReceived.textContent = '+' + String(received);
         summaryEnrollments.textContent = String(enrolled);
         summaryDamaged.textContent = String(broken);
