@@ -499,6 +499,10 @@ function slfd_enqueue_assets() {
         file_exists( $report_js_file ) ? (string) filemtime( $report_js_file ) : SL_AGENCES_VERSION,
         true
     );
+    wp_localize_script( 'sl-fidelity-report', 'slfdReportContext', [
+        'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+        'nonce'   => wp_create_nonce( 'slfd_stock_context' ),
+    ] );
 }
 
 /** Utilise un template autonome : aucune navigation publique autour des donnees internes. */
@@ -549,6 +553,77 @@ function slfd_supplies_total( $agency, $date ) {
     return array_sum( array_map( function ( $supply ) {
         return slfd_meta_int( $supply->ID, '_slfd_quantity' );
     }, slfd_supplies_for_agency_date( $agency, $date ) ) );
+}
+
+/** Stock de départ : dernière clôture validée, complétée des cartes reçues entre deux rapports. */
+function slfd_stock_context_for_date( $agency, $date ) {
+    $previous_reports = get_posts( [
+        'post_type'      => SLFD_POST_TYPE,
+        'post_status'    => 'publish',
+        'posts_per_page' => 1,
+        'meta_key'       => '_slfd_date',
+        'meta_value'     => $date,
+        'meta_compare'   => '<',
+        'orderby'        => 'meta_value',
+        'order'          => 'DESC',
+        'meta_query'     => [ [ 'key' => '_slfd_agency', 'value' => $agency ] ],
+    ] );
+    $previous = $previous_reports ? $previous_reports[0] : null;
+    $previous_date = $previous ? (string) get_post_meta( $previous->ID, '_slfd_date', true ) : '';
+    $opening = $previous ? slfd_meta_int( $previous->ID, '_slfd_closing' ) : 0;
+
+    $supplies = get_posts( [
+        'post_type'      => SLFD_SUPPLY_POST_TYPE,
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'meta_query'     => [ [ 'key' => '_slfd_agency', 'value' => $agency ] ],
+    ] );
+    $has_prior_supply = false;
+    foreach ( $supplies as $supply ) {
+        $supply_date = (string) get_post_meta( $supply->ID, '_slfd_date', true );
+        if ( $supply_date >= $date ) {
+            continue;
+        }
+        if ( $previous && $supply_date <= $previous_date ) {
+            continue;
+        }
+        $opening += slfd_meta_int( $supply->ID, '_slfd_quantity' );
+        $has_prior_supply = true;
+    }
+
+    return [
+        'opening' => $opening,
+        'received' => slfd_supplies_total( $agency, $date ),
+        'is_initial' => ! $previous && ! $has_prior_supply,
+    ];
+}
+
+/** Renvoie le stock calculé lors du changement de date ou d'agence dans le formulaire. */
+add_action( 'wp_ajax_slfd_stock_context', 'slfd_stock_context_ajax' );
+function slfd_stock_context_ajax() {
+    if ( ! slfd_can_access() ) {
+        wp_send_json_error( [ 'message' => 'Accès refusé.' ], 403 );
+    }
+    check_ajax_referer( 'slfd_stock_context', 'nonce' );
+
+    $date = isset( $_POST['date'] ) ? sanitize_text_field( wp_unslash( $_POST['date'] ) ) : '';
+    $date_object = DateTime::createFromFormat( 'Y-m-d', $date, wp_timezone() );
+    if ( ! $date_object || $date_object->format( 'Y-m-d' ) !== $date || $date > current_time( 'Y-m-d' ) ) {
+        wp_send_json_error( [ 'message' => 'Date de rapport invalide.' ], 422 );
+    }
+
+    $agency = slfd_current_agency();
+    if ( slfd_can_validate() && ! empty( $_POST['agency'] ) ) {
+        $candidate = get_term_by( 'slug', sanitize_title( wp_unslash( $_POST['agency'] ) ), 'sl_agence_promo' );
+        if ( $candidate && ! is_wp_error( $candidate ) ) {
+            $agency = $candidate;
+        }
+    }
+    if ( ! $agency ) {
+        wp_send_json_error( [ 'message' => 'Aucune agence n’est associée à ce compte.' ], 422 );
+    }
+
+    wp_send_json_success( slfd_stock_context_for_date( $agency->slug, $date ) );
 }
 
 function slfd_supplies_for_date( $date ) {
@@ -717,24 +792,27 @@ function slfd_submit_report() {
         exit;
     }
 
-    $opening     = absint( $_POST['slfd_opening'] ?? 0 );
+    $stock_context = slfd_stock_context_for_date( $agency->slug, $date );
+    // Le premier inventaire est la seule saisie manuelle du stock de départ.
+    $opening = $stock_context['is_initial'] ? absint( $_POST['slfd_opening'] ?? 0 ) : (int) $stock_context['opening'];
     // Les cartes recues ne sont jamais saisies par l'agence : elles viennent
     // exclusivement des approvisionnements enregistres par le programme fidelite.
-    $received    = slfd_supplies_total( $agency->slug, $date );
+    $received    = (int) $stock_context['received'];
     $enrollments = absint( $_POST['slfd_enrollments'] ?? 0 );
     $playstore   = absint( $_POST['slfd_playstore'] ?? 0 );
     $cards_distributed = absint( $_POST['slfd_cards_distributed'] ?? 0 );
     $damaged     = absint( $_POST['slfd_damaged'] ?? 0 );
     $closing     = absint( $_POST['slfd_closing'] ?? 0 );
-    $expected    = max( 0, $opening + $received - $enrollments - $damaged );
+    $available   = $opening + $received;
+    $expected    = $available - $enrollments - $damaged;
     $issues      = array_map( 'sanitize_key', (array) ( $_POST['slfd_issues'] ?? [] ) );
     $allowed     = [ 'network', 'defective_cards', 'stock', 'other' ];
     $issues      = array_values( array_intersect( $issues, $allowed ) );
     $notes       = sanitize_textarea_field( wp_unslash( $_POST['slfd_notes'] ?? '' ) );
     $request     = sanitize_textarea_field( wp_unslash( $_POST['slfd_request'] ?? '' ) );
 
-    if ( $enrollments > $opening + $received ) {
-        slfd_flash( 'error', 'Les enrôlements ne peuvent pas dépasser les cartes disponibles pour cette journée.' );
+    if ( $enrollments + $damaged > $available ) {
+        slfd_flash( 'error', 'Les enrôlements et les cartes endommagées ne peuvent pas dépasser le stock disponible pour cette journée.' );
         wp_safe_redirect( slfd_report_url() );
         exit;
     }
@@ -1269,9 +1347,13 @@ function slfd_render_dashboard() {
 
 function slfd_render_report_form() {
     $agency             = slfd_current_agency();
+    $report_date        = current_time( 'Y-m-d' );
     $flash              = slfd_flash( 'read' );
     $terms              = slfd_can_validate() ? get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] ) : [];
-    $today_supply       = $agency ? slfd_supplies_total( $agency->slug, current_time( 'Y-m-d' ) ) : 0;
+    if ( ! $agency && slfd_can_validate() && ! is_wp_error( $terms ) && $terms ) {
+        $agency = $terms[0];
+    }
+    $stock_context      = $agency ? slfd_stock_context_for_date( $agency->slug, $report_date ) : [ 'opening' => 0, 'received' => 0, 'is_initial' => true ];
     $can_view_dashboard = slfd_can_view_dashboard();
     $back_url           = $can_view_dashboard ? slfd_dashboard_url() : slfd_report_url();
     $campaign_stats     = slfd_campaign_stats();
@@ -1298,7 +1380,7 @@ function slfd_render_report_form() {
                             <section class="slfd-report-identification" aria-labelledby="slfd-section-information">
                                 <h2 id="slfd-section-information" class="screen-reader-text">Identification du rapport</h2>
                                 <div class="slfd-form-grid">
-                                    <p><label for="slfd_date">Date du rapport</label><input id="slfd_date" type="date" name="slfd_date" max="<?php echo esc_attr( current_time( 'Y-m-d' ) ); ?>" value="<?php echo esc_attr( current_time( 'Y-m-d' ) ); ?>" required></p>
+                                    <p><label for="slfd_date">Date du rapport</label><input id="slfd_date" type="date" name="slfd_date" max="<?php echo esc_attr( $report_date ); ?>" value="<?php echo esc_attr( $report_date ); ?>" required></p>
                                     <?php if ( slfd_can_validate() ) : ?>
                                         <p><label for="slfd_agency">Agence</label><select id="slfd_agency" name="slfd_agency" required><?php foreach ( $terms as $term ) : ?><option value="<?php echo esc_attr( $term->slug ); ?>" <?php selected( $agency && $agency->slug, $term->slug ); ?>><?php echo esc_html( $term->name ); ?></option><?php endforeach; ?></select></p>
                                     <?php else : ?>
@@ -1310,9 +1392,9 @@ function slfd_render_report_form() {
                                 <h2 id="slfd-section-cards">Mouvement des cartes</h2>
                                 <p class="slfd-form-help">Saisissez uniquement les mouvements de cette journée. Ne comptez pas les cartes déjà attribuées aux clients.</p>
                                 <div class="slfd-stock-equation">
-                                    <p><label for="slfd_opening">Cartes disponibles au début</label><input id="slfd_opening" type="number" inputmode="numeric" name="slfd_opening" min="0" value="0" required></p>
+                                    <p><label for="slfd_opening">Cartes disponibles au début</label><input id="slfd_opening" type="number" inputmode="numeric" name="slfd_opening" min="0" value="<?php echo (int) $stock_context['opening']; ?>" <?php echo $stock_context['is_initial'] ? '' : 'readonly'; ?> required><small id="slfd_opening_help"><?php echo $stock_context['is_initial'] ? 'Saisissez le comptage physique de départ.' : 'Repris automatiquement du dernier rapport validé.'; ?></small></p>
                                     <span class="slfd-equation-sign" aria-hidden="true">+</span>
-                                    <p class="slfd-auto-field"><label for="slfd_received">Cartes approvisionnées</label><output id="slfd_received" data-value="<?php echo (int) $today_supply; ?>">+<?php echo (int) $today_supply; ?> carte(s)</output><small>Enregistrées par le Responsable fidélité.</small></p>
+                                    <p class="slfd-auto-field"><label for="slfd_received">Cartes approvisionnées</label><output id="slfd_received" data-value="<?php echo (int) $stock_context['received']; ?>">+<?php echo (int) $stock_context['received']; ?> carte(s)</output><small>Enregistrées par le Responsable fidélité.</small></p>
                                     <span class="slfd-equation-sign" aria-hidden="true">−</span>
                                     <p><label for="slfd_enrollments">Enrôlements validés</label><input id="slfd_enrollments" type="number" inputmode="numeric" name="slfd_enrollments" min="0" value="0" required></p>
                                     <span class="slfd-equation-sign" aria-hidden="true">−</span>
@@ -1344,13 +1426,13 @@ function slfd_render_report_form() {
                             <h2><span class="dashicons dashicons-clipboard"></span>Résumé du jour</h2>
                             <p class="slfd-summary-agency"><span>Agence</span><strong id="slfd_summary_agency"><?php echo esc_html( $agency ? $agency->name : '' ); ?></strong></p>
                             <div class="slfd-summary-list">
-                                <div><span class="slfd-summary-icon slfd-summary-icon--pink"><span class="dashicons dashicons-id"></span></span><span>Cartes approvisionnées</span><strong id="slfd_summary_received">+<?php echo (int) $today_supply; ?></strong></div>
-                                <div><span class="slfd-summary-icon"><span class="dashicons dashicons-archive"></span></span><span>Cartes disponibles au début</span><strong id="slfd_summary_opening">0</strong></div>
+                                <div><span class="slfd-summary-icon slfd-summary-icon--pink"><span class="dashicons dashicons-id"></span></span><span>Cartes approvisionnées</span><strong id="slfd_summary_received">+<?php echo (int) $stock_context['received']; ?></strong></div>
+                                <div><span class="slfd-summary-icon"><span class="dashicons dashicons-archive"></span></span><span>Cartes disponibles au début</span><strong id="slfd_summary_opening"><?php echo (int) $stock_context['opening']; ?></strong></div>
                                 <div><span class="slfd-summary-icon"><span class="dashicons dashicons-groups"></span></span><span>Enrôlements validés</span><strong id="slfd_summary_enrollments">0</strong></div>
                                 <div><span class="slfd-summary-icon"><span class="dashicons dashicons-warning"></span></span><span>Cartes endommagées</span><strong id="slfd_summary_damaged">0</strong></div>
                             </div>
                             <div class="slfd-summary-totals">
-                                <div><span>Stock théorique en fin de journée<small>Début + approvisionnements − enrôlements − endommagées</small></span><strong id="slfd_expected_output">0</strong></div>
+                                <div><span>Stock théorique en fin de journée<small>Début + approvisionnements − enrôlements − endommagées</small></span><strong id="slfd_expected_output"><?php echo (int) ( $stock_context['opening'] + $stock_context['received'] ); ?></strong></div>
                                 <div><span><span class="dashicons dashicons-clipboard"></span> Stock réel déclaré</span><strong id="slfd_declared_output">0</strong></div>
                                 <div id="slfd_delta_box"><span>Écart<small>Stock réel − stock théorique</small></span><strong id="slfd_delta_output">0</strong></div>
                             </div>
