@@ -628,3 +628,63 @@
     .slfd-agents-list .slfd-agent-actions { width: 100%; }
     .slfd-agents-list .slfd-agent-password form { grid-template-columns: 1fr; }
 }
+
+/* Operational filters, agency directory, and password reveal controls. */
+.slfd-operational-filters {
+    align-items: end !important;
+    display: grid !important;
+    grid-template-columns: 150px 150px minmax(170px, 1fr) auto;
+    gap: 9px !important;
+}
+
+.slfd-operational-filters label {
+    display: grid;
+    gap: 5px;
+    font-weight: 700;
+}
+
+.slfd-operational-filters select {
+    min-height: 34px;
+    border: 1px solid #d0d5dd;
+    border-radius: 7px;
+    background: #fff;
+    color: #172033;
+    padding: 4px 8px;
+}
+
+.slfd-agency-directory table { width: 100%; border-collapse: collapse; }
+.slfd-agency-directory th,
+.slfd-agency-directory td { padding: 13px 14px; border-top: 1px solid #e5e7eb; text-align: left; }
+.slfd-agency-directory th { color: #667085; font-size: 12px; }
+.slfd-agency-directory select { width: min(100%, 240px); min-height: 38px; border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; padding: 7px 9px; }
+
+.slfd-password-field { position: relative; display: block; }
+.slfd-password-field input { padding-right: 46px !important; }
+.slfd-password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 7px;
+    transform: translateY(-50%);
+    display: grid;
+    width: 32px;
+    height: 32px;
+    min-height: 32px !important;
+    place-items: center;
+    border: 0 !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+    color: #475467 !important;
+    cursor: pointer;
+    padding: 0 !important;
+}
+.slfd-password-toggle:hover,
+.slfd-password-toggle:focus { background: #f2f4f7 !important; color: #112442 !important; }
+
+@media (max-width: 980px) {
+    .slfd-operational-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+    .slfd-operational-filters button { width: 100%; }
+}
+
+@media (max-width: 560px) {
+    .slfd-operational-filters { grid-template-columns: 1fr; }
+}

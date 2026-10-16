@@ -221,6 +221,28 @@ function slfd_agency_name( $slug ) {
     return $term ? $term->name : ucwords( str_replace( '-', ' ', $slug ) );
 }
 
+function slfd_agency_city( $term ) {
+    if ( ! $term || empty( $term->term_id ) ) {
+        return 'Non renseignée';
+    }
+
+    $city = trim( (string) get_term_meta( $term->term_id, '_slfd_city', true ) );
+    return '' !== $city ? $city : 'Non renseignée';
+}
+
+function slfd_city_options( $terms = [] ) {
+    $cities = [ 'Douala', 'Yaoundé' ];
+    foreach ( (array) $terms as $term ) {
+        $city = slfd_agency_city( $term );
+        if ( 'Non renseignée' !== $city ) {
+            $cities[] = $city;
+        }
+    }
+    $cities = array_values( array_unique( $cities ) );
+    sort( $cities, SORT_NATURAL | SORT_FLAG_CASE );
+    return $cities;
+}
+
 function slfd_dashboard_url() {
     $id = slfd_page_id( 'dashboard' );
     return $id ? get_permalink( $id ) : home_url( '/espace-fidelite-interne/' );
@@ -503,6 +525,14 @@ function slfd_enqueue_assets() {
         'ajaxUrl' => admin_url( 'admin-ajax.php' ),
         'nonce'   => wp_create_nonce( 'slfd_stock_context' ),
     ] );
+    $agent_js_file = SL_AGENCES_PATH . 'assets/js/fidelity-agent-management.js';
+    wp_enqueue_script(
+        'sl-fidelity-agent-management',
+        SL_AGENCES_URL . 'assets/js/fidelity-agent-management.js',
+        [],
+        file_exists( $agent_js_file ) ? (string) filemtime( $agent_js_file ) : SL_AGENCES_VERSION,
+        true
+    );
 }
 
 /** Utilise un template autonome : aucune navigation publique autour des donnees internes. */
@@ -659,6 +689,31 @@ function slfd_flash( $key, $message = null ) {
 }
 
 add_action( 'admin_post_slfd_create_agent', 'slfd_create_agent' );
+add_action( 'admin_post_slfd_update_agency_cities', 'slfd_update_agency_cities' );
+function slfd_update_agency_cities() {
+    if ( ! slfd_can_manage_agents() ) {
+        wp_die( 'Accès refusé.', 403 );
+    }
+    check_admin_referer( 'slfd_update_agency_cities' );
+
+    foreach ( (array) ( $_POST['slfd_agency_city'] ?? [] ) as $term_id => $city ) {
+        $term = get_term( absint( $term_id ), 'sl_agence_promo' );
+        if ( ! $term || is_wp_error( $term ) ) {
+            continue;
+        }
+        $city = trim( sanitize_text_field( wp_unslash( $city ) ) );
+        if ( '' === $city || 'Non renseignée' === $city ) {
+            delete_term_meta( $term->term_id, '_slfd_city' );
+        } else {
+            update_term_meta( $term->term_id, '_slfd_city', $city );
+        }
+    }
+
+    slfd_flash( 'success', 'Les villes des agences ont été mises à jour.' );
+    wp_safe_redirect( slfd_agents_url() );
+    exit;
+}
+
 function slfd_create_agent() {
     if ( ! slfd_can_manage_agents() ) {
         wp_die( 'Accès refusé.', 403 );
@@ -711,21 +766,24 @@ function slfd_delete_agent() {
     $agent_id = absint( $_POST['agent_id'] ?? 0 );
     check_admin_referer( 'slfd_delete_agent_' . $agent_id );
     $agent = get_userdata( $agent_id );
-    $has_reports = (bool) get_posts( [
+    $reports = get_posts( [
         'post_type'      => SLFD_POST_TYPE,
         'post_status'    => [ 'pending', 'publish' ],
         'author'         => $agent_id,
-        'posts_per_page' => 1,
+        'posts_per_page' => -1,
         'fields'         => 'ids',
     ] );
 
     if ( ! $agent || ! in_array( 'sl_agent_fidelite', (array) $agent->roles, true ) ) {
         slfd_flash( 'error', 'Ce compte agent est introuvable.' );
-    } elseif ( $has_reports ) {
-        slfd_flash( 'error', 'Ce compte possède déjà des rapports. Il ne peut pas être supprimé afin de préserver l’historique.' );
+    } elseif ( ! current_user_can( 'manage_options' ) && (int) get_user_meta( $agent_id, '_slfd_created_by', true ) !== get_current_user_id() ) {
+        slfd_flash( 'error', 'Vous pouvez supprimer uniquement les comptes agent que vous avez créés.' );
     } else {
         require_once ABSPATH . 'wp-admin/includes/user.php';
-        if ( wp_delete_user( $agent_id ) ) {
+        foreach ( $reports as $report_id ) {
+            update_post_meta( $report_id, '_slfd_original_author', $agent_id );
+        }
+        if ( wp_delete_user( $agent_id, get_current_user_id() ) ) {
             slfd_flash( 'success', sprintf( 'Le compte agent %s a été supprimé.', $agent->user_login ) );
         } else {
             slfd_flash( 'error', 'La suppression du compte a échoué. Réessayez.' );
@@ -750,6 +808,8 @@ function slfd_reset_agent_password() {
 
     if ( ! $agent || ! in_array( 'sl_agent_fidelite', (array) $agent->roles, true ) ) {
         slfd_flash( 'error', 'Ce compte agent est introuvable.' );
+    } elseif ( ! current_user_can( 'manage_options' ) && (int) get_user_meta( $agent_id, '_slfd_created_by', true ) !== get_current_user_id() ) {
+        slfd_flash( 'error', 'Vous pouvez modifier uniquement les comptes agent que vous avez créés.' );
     } elseif ( strlen( $password ) < 8 ) {
         slfd_flash( 'error', 'Le nouveau mot de passe doit comporter au moins 8 caractères.' );
     } elseif ( ! hash_equals( $password, $confirmation ) ) {
@@ -943,7 +1003,7 @@ function slfd_validate_report() {
     exit;
 }
 
-function slfd_dashboard_rows( $date ) {
+function slfd_dashboard_rows( $date, $city = '', $agency_slug = '' ) {
     $terms = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] );
     if ( is_wp_error( $terms ) ) {
         return [];
@@ -964,9 +1024,17 @@ function slfd_dashboard_rows( $date ) {
 
     $rows = [];
     foreach ( $terms as $term ) {
+        $agency_city = slfd_agency_city( $term );
+        if ( $city && $city !== $agency_city ) {
+            continue;
+        }
+        if ( $agency_slug && $agency_slug !== $term->slug ) {
+            continue;
+        }
         $report = $by_agency[ $term->slug ] ?? null;
         $rows[] = [
             'agency'  => $term,
+            'city'    => $agency_city,
             'report'  => $report,
             'enrollments' => $report ? slfd_meta_int( $report->ID, '_slfd_enrollments' ) : null,
             'stock'   => $report ? slfd_meta_int( $report->ID, '_slfd_closing' ) : null,
@@ -1202,6 +1270,7 @@ function slfd_render_agent_management() {
     }
     $flash    = slfd_flash( 'read' );
     $agencies = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] );
+    $cities   = is_wp_error( $agencies ) ? [] : slfd_city_options( $agencies );
     $agents   = get_users( [ 'role' => 'sl_agent_fidelite', 'orderby' => 'display_name', 'order' => 'ASC' ] );
     ob_start(); ?>
     <style id="slfd-agent-management-layout">
@@ -1226,6 +1295,7 @@ function slfd_render_agent_management() {
                 <section><h2>Nouvel agent</h2><div class="slfd-form-grid"><p><label for="slfd_agent_first_name">Nom complet</label><input id="slfd_agent_first_name" name="slfd_agent_first_name" autocomplete="name" required></p><p><label for="slfd_agent_login">Identifiant de connexion</label><input id="slfd_agent_login" name="slfd_agent_login" autocomplete="username" required></p><p><label for="slfd_agent_email">E-mail professionnel</label><input id="slfd_agent_email" type="email" name="slfd_agent_email" autocomplete="email" required></p><p><label for="slfd_agent_password">Mot de passe initial</label><input id="slfd_agent_password" type="password" name="slfd_agent_password" autocomplete="new-password" minlength="8" required></p><p><label for="slfd_agent_agency">Agence rattachée</label><select id="slfd_agent_agency" name="slfd_agent_agency" required><option value="">Choisissez une agence...</option><?php if ( ! is_wp_error( $agencies ) ) foreach ( $agencies as $agency ) : ?><option value="<?php echo esc_attr( $agency->slug ); ?>"><?php echo esc_html( $agency->name ); ?></option><?php endforeach; ?></select></p><p><label>Rôle attribué</label><input value="Agent fidélité" readonly></p></div></section>
                 <div class="slfd-form-actions"><a href="<?php echo esc_url( slfd_dashboard_url() ); ?>">Annuler</a><button type="submit">Créer l’agent</button></div>
             </form>
+            <section class="slfd-pending slfd-agency-directory"><div class="slfd-table-head"><div><p class="slfd-eyebrow">Référentiel</p><h2>Agences suivies</h2><p>La ville sélectionnée ici pilote le filtre du tableau opérationnel.</p></div></div><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_update_agency_cities"><?php wp_nonce_field( 'slfd_update_agency_cities' ); ?><div class="slfd-table-scroll"><table><thead><tr><th>Agence</th><th>Ville</th></tr></thead><tbody><?php if ( ! is_wp_error( $agencies ) ) foreach ( $agencies as $listed_agency ) : ?><tr><td><strong><?php echo esc_html( $listed_agency->name ); ?></strong></td><td><select name="slfd_agency_city[<?php echo (int) $listed_agency->term_id; ?>"><option value="">Non renseignée</option><?php foreach ( $cities as $city ) : ?><option value="<?php echo esc_attr( $city ); ?>" <?php selected( slfd_agency_city( $listed_agency ), $city ); ?>><?php echo esc_html( $city ); ?></option><?php endforeach; ?></select></td></tr><?php endforeach; ?></tbody></table></div><div class="slfd-form-actions"><button type="submit">Enregistrer les villes</button></div></form></section>
             <section class="slfd-pending slfd-agents-list"><h2>Agents enregistrés</h2><?php if ( $agents ) : foreach ( $agents as $agent ) :
                 $agency = (string) get_user_meta( $agent->ID, 'sl_agence_assignee', true );
                 $has_reports = (bool) get_posts( [
@@ -1235,7 +1305,7 @@ function slfd_render_agent_management() {
                     'posts_per_page' => 1,
                     'fields'         => 'ids',
                 ] );
-            ?><article class="slfd-agent-card"><div><strong><?php echo esc_html( $agent->display_name ?: $agent->user_login ); ?></strong><span><?php echo esc_html( $agency ?: 'Agence non attribuée' ); ?> · <?php echo esc_html( $agent->user_email ); ?></span><?php if ( $has_reports ) : ?><em>Historique de rapports conservé</em><?php endif; ?></div><div class="slfd-agent-actions"><span class="slfd-pill slfd-pill--good">Agent fidélité</span><?php if ( ! $has_reports ) : ?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return window.confirm('Supprimer définitivement ce compte agent ?');"><input type="hidden" name="action" value="slfd_delete_agent"><input type="hidden" name="agent_id" value="<?php echo esc_attr( $agent->ID ); ?>"><?php wp_nonce_field( 'slfd_delete_agent_' . $agent->ID ); ?><button class="slfd-delete-agent" type="submit" title="Supprimer ce compte" aria-label="Supprimer le compte de <?php echo esc_attr( $agent->display_name ?: $agent->user_login ); ?>"><span class="dashicons dashicons-trash"></span></button></form><?php endif; ?></div><details class="slfd-agent-password"><summary><span class="dashicons dashicons-admin-network"></span>Changer le mot de passe</summary><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_reset_agent_password"><input type="hidden" name="agent_id" value="<?php echo esc_attr( $agent->ID ); ?>"><?php wp_nonce_field( 'slfd_reset_agent_password_' . $agent->ID ); ?><label>Nouveau mot de passe<input type="password" name="slfd_agent_new_password" autocomplete="new-password" minlength="8" required></label><label>Confirmer le mot de passe<input type="password" name="slfd_agent_new_password_confirmation" autocomplete="new-password" minlength="8" required></label><button type="submit">Mettre à jour</button></form></details></article><?php endforeach; else : ?><p class="slfd-muted">Aucun agent n’est encore enregistré.</p><?php endif; ?></section>
+            ?><article class="slfd-agent-card"><div><strong><?php echo esc_html( $agent->display_name ?: $agent->user_login ); ?></strong><span><?php echo esc_html( $agency ?: 'Agence non attribuée' ); ?> · <?php echo esc_html( $agent->user_email ); ?></span><?php if ( $has_reports ) : ?><em>Les rapports existants restent archivés après la suppression du compte.</em><?php endif; ?></div><div class="slfd-agent-actions"><span class="slfd-pill slfd-pill--good">Agent fidélité</span><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return window.confirm('Supprimer définitivement ce compte agent ? Les rapports déjà déposés resteront archivés.');"><input type="hidden" name="action" value="slfd_delete_agent"><input type="hidden" name="agent_id" value="<?php echo esc_attr( $agent->ID ); ?>"><?php wp_nonce_field( 'slfd_delete_agent_' . $agent->ID ); ?><button class="slfd-delete-agent" type="submit" title="Supprimer ce compte" aria-label="Supprimer le compte de <?php echo esc_attr( $agent->display_name ?: $agent->user_login ); ?>"><span class="dashicons dashicons-trash"></span></button></form></div><details class="slfd-agent-password"><summary><span class="dashicons dashicons-admin-network"></span>Changer le mot de passe</summary><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="slfd_reset_agent_password"><input type="hidden" name="agent_id" value="<?php echo esc_attr( $agent->ID ); ?>"><?php wp_nonce_field( 'slfd_reset_agent_password_' . $agent->ID ); ?><label>Nouveau mot de passe<input type="password" name="slfd_agent_new_password" autocomplete="new-password" minlength="8" required></label><label>Confirmer le mot de passe<input type="password" name="slfd_agent_new_password_confirmation" autocomplete="new-password" minlength="8" required></label><button type="submit">Mettre à jour</button></form></details></article><?php endforeach; else : ?><p class="slfd-muted">Aucun agent n’est encore enregistré.</p><?php endif; ?></section>
         </section>
     </main>
     <?php return ob_get_clean();
@@ -1246,7 +1316,17 @@ function slfd_render_dashboard() {
     if ( ! empty( $_GET['date'] ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $_GET['date'] ) ) {
         $date = sanitize_text_field( wp_unslash( $_GET['date'] ) );
     }
-    $rows    = slfd_dashboard_rows( $date );
+    $agencies = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] );
+    $cities   = is_wp_error( $agencies ) ? [] : slfd_city_options( $agencies );
+    $city_filter = isset( $_GET['city'] ) ? sanitize_text_field( wp_unslash( $_GET['city'] ) ) : '';
+    $agency_filter = isset( $_GET['agency'] ) ? sanitize_title( wp_unslash( $_GET['agency'] ) ) : '';
+    if ( $city_filter && ! in_array( $city_filter, $cities, true ) ) {
+        $city_filter = '';
+    }
+    if ( $agency_filter && ( is_wp_error( $agencies ) || ! wp_list_filter( $agencies, [ 'slug' => $agency_filter ] ) ) ) {
+        $agency_filter = '';
+    }
+    $rows    = slfd_dashboard_rows( $date, $city_filter, $agency_filter );
     $pending = slfd_pending_reports();
     $reports = slfd_can_validate() ? slfd_reports_for_date( $date ) : [];
     $supplies = slfd_supplies_for_date( $date );
@@ -1258,7 +1338,6 @@ function slfd_render_dashboard() {
 	$history_filters = slfd_history_filters();
 	$history_reports = slfd_can_validate() ? slfd_history_reports( $history_filters ) : [];
 	$history_summary = slfd_history_summary( $history_reports );
-	$agencies = get_terms( [ 'taxonomy' => 'sl_agence_promo', 'hide_empty' => false, 'orderby' => 'name' ] );
 	$share_token = isset( $_GET['share'] ) ? preg_replace( '/[^A-Za-z0-9]/', '', (string) wp_unslash( $_GET['share'] ) ) : '';
 	$share_data  = $share_token ? get_transient( 'slfd_share_' . $share_token ) : false;
 	$share_url   = $share_data && (int) $share_data['created_by'] === get_current_user_id() ? slfd_share_url( $share_token ) : '';
@@ -1307,13 +1386,14 @@ function slfd_render_dashboard() {
             <?php endif; ?>
             <div class="slfd-layout">
                 <section class="slfd-table-card" aria-labelledby="slfd-ranking-title">
-                    <div class="slfd-table-head"><div><p class="slfd-eyebrow">Suivi opérationnel</p><h2 id="slfd-ranking-title">Classement du jour</h2></div><form method="get"><label for="slfd-date">Date</label><input id="slfd-date" type="date" name="date" value="<?php echo esc_attr( $date ); ?>"><button type="submit">Afficher</button></form></div>
-                    <div class="slfd-table-scroll"><table><thead><tr><th>Rang</th><th>Agence</th><th>Enrôlements validés</th><th>Stock restant</th></tr></thead><tbody>
-                    <?php if ( ! $rows ) : ?><tr><td colspan="4" class="slfd-empty">Aucune agence n’est encore configurée.</td></tr><?php endif; ?>
+                    <div class="slfd-table-head"><div><p class="slfd-eyebrow">Suivi opérationnel</p><h2 id="slfd-ranking-title">Classement des agences</h2><p><?php echo $city_filter ? 'Vue ' . esc_html( $city_filter ) : 'Vue de toutes les villes'; ?><?php echo $agency_filter ? ' · ' . esc_html( slfd_agency_name( $agency_filter ) ) : ''; ?></p></div><form method="get" class="slfd-operational-filters"><label for="slfd-date">Date<input id="slfd-date" type="date" name="date" value="<?php echo esc_attr( $date ); ?>"></label><label for="slfd-city">Ville<select id="slfd-city" name="city"><option value="">Toutes les villes</option><?php foreach ( $cities as $city ) : ?><option value="<?php echo esc_attr( $city ); ?>" <?php selected( $city_filter, $city ); ?>><?php echo esc_html( $city ); ?></option><?php endforeach; ?></select></label><label for="slfd-agency-filter">Agence<select id="slfd-agency-filter" name="agency"><option value="">Toutes les agences</option><?php if ( ! is_wp_error( $agencies ) ) foreach ( $agencies as $filter_agency ) : ?><option value="<?php echo esc_attr( $filter_agency->slug ); ?>" <?php selected( $agency_filter, $filter_agency->slug ); ?>><?php echo esc_html( $filter_agency->name ); ?></option><?php endforeach; ?></select></label><button type="submit">Filtrer</button></form></div>
+                    <div class="slfd-table-scroll"><table><thead><tr><th>Rang</th><th>Agence</th><th>Ville</th><th>Enrôlements validés</th><th>Stock restant</th></tr></thead><tbody>
+                    <?php if ( ! $rows ) : ?><tr><td colspan="5" class="slfd-empty">Aucune agence ne correspond à ces filtres.</td></tr><?php endif; ?>
                     <?php foreach ( $rows as $row ) : $state = null !== $row['stock'] ? slfd_stock_state( $row['stock'] ) : null; ?>
                         <tr class="<?php echo $row['report'] ? '' : 'slfd-row-missing'; ?>">
                             <td><?php if ( $row['rank'] ) : ?><span class="slfd-rank slfd-rank--<?php echo (int) min( 3, $row['rank'] ); ?>"><?php echo (int) $row['rank']; ?></span><?php else : ?>—<?php endif; ?></td>
                             <td><strong><?php echo esc_html( $row['agency']->name ); ?></strong><?php if ( ! $row['report'] ) : ?><span>Rapport non reçu</span><?php endif; ?></td>
+                            <td><?php echo esc_html( $row['city'] ); ?></td>
                             <td><?php echo null !== $row['enrollments'] ? '<strong class="slfd-number">' . (int) $row['enrollments'] . '</strong>' : '—'; ?></td>
                             <td><?php if ( $state ) : ?><strong class="slfd-stock slfd-stock--<?php echo esc_attr( $state[1] ); ?>"><?php echo (int) $row['stock']; ?></strong><span class="slfd-stock-label"><?php echo esc_html( $state[0] ); ?></span><?php else : ?>—<?php endif; ?></td>
                         </tr>
